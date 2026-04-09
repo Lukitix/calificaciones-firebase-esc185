@@ -700,10 +700,10 @@ const handleLogin = async () => {
                 </div>
                   <button
                     onClick={handleLogin}
-                    disabled={cargando}
+                    disabled={loginCargando}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
                   >
-                    {cargando ? (
+                    {loginCargando ? (
                       <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       "INGRESAR AL SISTEMA"
@@ -1235,6 +1235,7 @@ const handleLogin = async () => {
 // ════════════════════════════════════════════════════════
 function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerrarSesion, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
+  
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
       const lista = snap.docs.map(d => d.data()).filter(u => u.rol !== 'administrador');
@@ -1242,6 +1243,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerr
     });
     return () => unsub();
   }, [db]);
+  
   return (
     <>
       <style>{globalStyles}</style>
@@ -1291,40 +1293,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerr
             )}
           </div>
         </div>
-        {showModalSolicitudes && (
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-      <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-        <h3 className="font-bold text-slate-700">🔔 Solicitudes Pendientes</h3>
-        <button onClick={() => setShowModalSolicitudes(false)} className="text-slate-400 hover:text-slate-600">
-          <X size={20} />
-        </button>
-      </div>
-      <div className="p-4 max-h-[60vh] overflow-y-auto">
-        {solicitudes.length === 0 ? (
-          <p className="text-center text-slate-500 py-8">No hay solicitudes nuevas por ahora.</p>
-        ) : (
-          solicitudes.map((sol) => (
-            <div key={sol.uid} className="flex flex-col p-3 border rounded-xl mb-3 bg-slate-50">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-bold text-slate-800">{sol.nombre}</p>
-                  <p className="text-xs text-slate-500">DNI: {sol.dni} | {sol.rol.replace('_', ' ')}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => aprobarDocente(sol.uid)}
-                className="w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition-colors"
-              >
-                Aprobar Registro
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  </div>
-)}
       </div>
       {modalCerrarSesion && <ModalCerrarSesion />}
     </>
