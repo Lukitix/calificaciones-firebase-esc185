@@ -397,15 +397,16 @@ export default function SistemaCalificaciones() {
   // ════════════════════════════════════════════════════════
 
 const handleLogin = async () => {
-  if (!dni.trim() || !password.trim()) {
+  if (!loginForm.dni.trim() || !loginForm.pass.trim()) {
     await showAlert('Ingresá tu DNI y contraseña', 'warning');
     return;
   }
 
   try {
+    setLoginCargando(true);
     // Convertimos el DNI a un email ficticio para Firebase
-    const emailFicticio = dniToEmail(dni); 
-    const userCred = await signInWithEmailAndPassword(auth, emailFicticio, password);
+    const emailFicticio = dniToEmail(loginForm.dni); 
+    const userCred = await signInWithEmailAndPassword(auth, emailFicticio, loginForm.pass);
     
     // Una vez logueado, chequeamos si está aprobado en Firestore
     const userDoc = await getDoc(doc(db, 'usuarios', userCred.user.uid));
@@ -414,12 +415,18 @@ const handleLogin = async () => {
     if (!userData.activo && userData.rol !== 'administrador') {
       await signOut(auth);
       await showAlert('Tu cuenta aún no fue aprobada por el Administrador.', 'info');
+      setLoginCargando(false);
       return;
     }
     
-    // Si llegó acá, entra al sistema...
+    // Login exitoso - redirigir al inicio
+    setPantalla('inicio');
+    setLoginCargando(false);
+    
   } catch (error) {
+    console.error("Error login:", error);
     await showAlert('DNI o contraseña incorrectos', 'error');
+    setLoginCargando(false);
   }
 };
 
@@ -706,7 +713,7 @@ const handleLogin = async () => {
                     {loginCargando ? (
                       <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     ) : (
-                      "INGRESAR AL SISTEMA"
+                      "INGRESAR"
                     )}
                   </button>
               </div>
