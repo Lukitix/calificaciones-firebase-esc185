@@ -46,7 +46,7 @@ const areas = {
 const grados = ['1°A','1°B','2°A','2°B','3°A','3°B','4°A','4°B','5°A','5°B','6°A','6°B','7°A','7°B'];
 
 // DNI del admin → email interno para Firebase Auth
-const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@abc.com`;
+// const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@abc.com`;
 
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 const asegurarEstructuraEstudiante = (estudiante, criteriosPorBimestre) => {
@@ -242,7 +242,12 @@ export default function SistemaCalificaciones() {
   const [criteriosPorBimestre, setCriteriosPorBimestre] = useState({ 1: [], 2: [], 3: [], 4: [] });
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
 
-  const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@escuela.com`;
+ // Función única y segura para convertir DNI a email de Firebase
+const dniToEmail = (dni) => {
+  // Eliminar espacios, puntos y caracteres inválidos para email
+  const dniLimpio = dni.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `${dniLimpio}@escuela.com`;
+};
 
   // Login form
   const [loginForm, setLoginForm] = useState({ dni: '', pass: '', verPass: false });
