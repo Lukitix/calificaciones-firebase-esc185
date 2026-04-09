@@ -246,6 +246,34 @@ export default function SistemaCalificaciones() {
   const [loginForm, setLoginForm] = useState({ dni: '', pass: '', verPass: false });
   const [loginCargando, setLoginCargando] = useState(false);
 
+    // --- Lógica de Solicitudes Pendientes ---
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
+
+  useEffect(() => {
+    // Usamos 'authUser' y 'usuario.rol' que son tus variables
+    if (authUser && usuario?.rol === 'administrador') {
+      const q = collection(db, 'usuarios');
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const lista = snapshot.docs
+          .map(doc => doc.data())
+          .filter(u => u.activo === false);
+        setSolicitudes(lista);
+      });
+      return () => unsubscribe();
+    }
+  }, [authUser, usuario]);
+
+  const aprobarDocente = async (uid) => {
+    try {
+      await updateDoc(doc(db, 'usuarios', uid), { activo: true });
+      await showAlert("Docente aprobado con éxito", "success");
+    } catch (error) {
+      console.error("Error al aprobar:", error);
+    }
+  };
+  // ---------------------------------------
+
   // Registro form
   const [registro, setRegistro] = useState({
     show: false,
@@ -393,21 +421,22 @@ export default function SistemaCalificaciones() {
     try {
       // Crear usuario en Firebase Auth
       const cred = await createUserWithEmailAndPassword(auth, dniToEmail(d.dni), d.password);
-      // Guardar perfil en Firestore
+      // Guardar perfil en Firestore con estado pendiente
       const perfil = {
         uid: cred.user.uid,
         dni: d.dni.trim(),
         nombre: d.nombre.trim(),
-        rol: d.rol,
+        rol: d.rol, // docente_grado o docente_area
         gradoAsignado: d.rol === 'docente_grado' ? d.gradoAsignado : null,
         materiasAsignadas: d.materiasAsignadas,
-        fechaCreacion: new Date().toISOString()
+        fechaCreacion: new Date().toISOString(),
+        activo: false // <--- El usuario no puede entrar hasta que lo apruebes
       };
       await setDoc(doc(db, 'usuarios', cred.user.uid), perfil);
       // Guardar en colección índice por DNI para búsquedas
       await setDoc(doc(db, 'usuariosPorDNI', d.dni.trim()), { uid: cred.user.uid });
       setRegistro({ show: false, data: { dni: '', nombre: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } });
-      await showAlert(`El usuario "${d.nombre}" fue registrado correctamente.`, 'success', '¡Registro exitoso!');
+      await showAlert(`Registro enviado. Esperá a que el Administrador apruebe tu cuenta para poder ingresar.`, 'success', '¡Recibido!');
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         await showAlert('Ya existe un usuario con ese DNI.', 'error', 'DNI duplicado');
@@ -660,11 +689,6 @@ export default function SistemaCalificaciones() {
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
                   {loginCargando ? 'Ingresando...' : 'Ingresar →'}
                 </button>
-              </div>
-              <div className="mt-5 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                <p className="text-xs text-indigo-700 font-bold uppercase tracking-wide mb-1">Cuenta administrador</p>
-                <p className="text-sm text-indigo-600">DNI: <code className="bg-white px-2 py-0.5 rounded font-bold text-gray-800">admin</code> · Contraseña: <code className="bg-white px-2 py-0.5 rounded font-bold text-gray-800">admin1308</code></p>
-                <p className="text-xs text-indigo-500 mt-1">⚠️ Cambiá esta contraseña desde Firebase Console.</p>
               </div>
               <button onClick={() => setRegistro({ ...registro, show: true })}
                 className="btn-primary w-full mt-4 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-all">
@@ -927,6 +951,21 @@ export default function SistemaCalificaciones() {
                   <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
                 </div>
               </div>
+              {/* Campana de Solicitudes - Solo para el Admin */}
+{usuario?.rol === 'administrador' && (
+  <button 
+    onClick={() => setShowModalSolicitudes(true)}
+    className="relative p-2 bg-white rounded-full shadow-md hover:bg-slate-50 transition-all border border-slate-200 mr-3 mb-4 md:mb-0"
+    title="Solicitudes Pendientes"
+  >
+    <span className="text-xl">🔔</span>
+    {solicitudes.length > 0 && (
+      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-bounce shadow-sm">
+        {solicitudes.length}
+      </span>
+    )}
+  </button>
+)}
               <div className="mt-4">
                 <button onClick={() => setModalCerrarSesion(true)}
                   className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
@@ -1232,6 +1271,40 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerr
             )}
           </div>
         </div>
+        {showModalSolicitudes && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <h3 className="font-bold text-slate-700">🔔 Solicitudes Pendientes</h3>
+        <button onClick={() => setShowModalSolicitudes(false)} className="text-slate-400 hover:text-slate-600">
+          <X size={20} />
+        </button>
+      </div>
+      <div className="p-4 max-h-[60vh] overflow-y-auto">
+        {solicitudes.length === 0 ? (
+          <p className="text-center text-slate-500 py-8">No hay solicitudes nuevas por ahora.</p>
+        ) : (
+          solicitudes.map((sol) => (
+            <div key={sol.uid} className="flex flex-col p-3 border rounded-xl mb-3 bg-slate-50">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="font-bold text-slate-800">{sol.nombre}</p>
+                  <p className="text-xs text-slate-500">DNI: {sol.dni} | {sol.rol.replace('_', ' ')}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => aprobarDocente(sol.uid)}
+                className="w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-bold transition-colors"
+              >
+                Aprobar Registro
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+)}
       </div>
       {modalCerrarSesion && <ModalCerrarSesion />}
     </>
