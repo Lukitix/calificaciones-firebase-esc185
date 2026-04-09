@@ -22,8 +22,6 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 
-const app = initializeApp(firebaseConfig);
-
 // ─── DATOS ESTÁTICOS ────────────────────────────────────────────────────────
 const areas = {
   curriculares: [
