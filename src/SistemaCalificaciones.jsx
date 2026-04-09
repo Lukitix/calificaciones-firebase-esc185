@@ -257,13 +257,13 @@ const dniToEmail = (dni) => {
   const [solicitudes, setSolicitudes] = useState([]);
   const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
 
+// ✅ CÓDIGO CORRECTO:
   useEffect(() => {
-    // Usamos 'authUser' y 'usuario.rol' que son tus variables
     if (authUser && usuario?.rol === 'administrador') {
       const q = collection(db, 'usuarios');
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const lista = snapshot.docs
-          .map(doc => doc.data())
+          .map(doc => ({ uid: doc.id, ...doc.data() }))
           .filter(u => u.activo === false);
         setSolicitudes(lista);
       });
@@ -816,8 +816,8 @@ const handleLogin = async () => {
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)' }}>
-          <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
+        <div className="min-h-screen p-0" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+        <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 m-4 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)} />
             <div className="mb-6 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
               <span className="text-xl mt-0.5">⚠️</span>
@@ -976,35 +976,41 @@ const handleLogin = async () => {
               </div>
             </div>
             <div className="text-center mb-8">
-              <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-2">¡Bienvenido/a! 👋</h1>
-              <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl">
-                <div className="text-left">
-                  <p className="font-extrabold text-gray-800 text-lg">{usuario?.nombre}</p>
-                  <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
-                </div>
-              </div>
-              {/* Campana de Solicitudes - Solo para el Admin */}
-{usuario?.rol === 'administrador' && (
-  <button 
-    onClick={() => setShowModalSolicitudes(true)}
-    className="relative p-2 bg-white rounded-full shadow-md hover:bg-slate-50 transition-all border border-slate-200 mr-3 mb-4 md:mb-0"
-    title="Solicitudes Pendientes"
-  >
-    <span className="text-xl">🔔</span>
-    {solicitudes.length > 0 && (
-      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-bounce shadow-sm">
-        {solicitudes.length}
-      </span>
+  <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-2">¡Bienvenido/a! 👋</h1>
+  
+  {/* Información del usuario y campana en una sola fila */}
+  <div className="flex items-center justify-center gap-4 mb-4">
+    <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl">
+      <div className="text-left">
+        <p className="font-extrabold text-gray-800 text-lg">{usuario?.nombre}</p>
+        <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
+      </div>
+    </div>
+    
+    {/* Campana de Solicitudes - Solo para el Admin */}
+    {usuario?.rol === 'administrador' && (
+      <button 
+        onClick={() => setShowModalSolicitudes(true)}
+        className="relative p-3 bg-white rounded-full shadow-lg hover:bg-slate-50 transition-all border-2 border-purple-200 hover:scale-110"
+        title="Solicitudes Pendientes"
+      >
+        <span className="text-2xl">🔔</span>
+        {solicitudes.length > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-bounce shadow-lg">
+            {solicitudes.length}
+          </span>
+        )}
+      </button>
     )}
-  </button>
-)}
-              <div className="mt-4">
-                <button onClick={() => setModalCerrarSesion(true)}
-                  className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
-                  <LogOut size={18} /> Cerrar Sesión
-                </button>
-              </div>
-            </div>
+  </div>
+  
+  <div className="mt-4">
+    <button onClick={() => setModalCerrarSesion(true)}
+      className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
+      <LogOut size={18} /> Cerrar Sesión
+    </button>
+  </div>
+</div>
             <div className="flex flex-wrap justify-center gap-4 mb-10">
               {puedeGestionarAlumnos && (
                 <button onClick={() => setPantalla('administracion')}
@@ -1237,6 +1243,61 @@ const handleLogin = async () => {
           </div>
         </div>
       </div>
+      {/* Modal de Solicitudes Pendientes */}
+{showModalSolicitudes && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-[modalEntrada_0.2s_ease-out]">
+      <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <h3 className="font-bold text-slate-700 text-lg">🔔 Solicitudes Pendientes ({solicitudes.length})</h3>
+        <button 
+          onClick={() => setShowModalSolicitudes(false)} 
+          className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full p-1 transition-all"
+        >
+          <X size={24} />
+        </button>
+      </div>
+      <div className="p-4 max-h-[60vh] overflow-y-auto">
+        {solicitudes.length === 0 ? (
+          <div className="text-center py-12">
+            <span className="text-5xl mb-3 block">✅</span>
+            <p className="text-slate-500 font-semibold">No hay solicitudes pendientes</p>
+          </div>
+        ) : (
+          solicitudes.map((sol) => (
+            <div key={sol.uid} className="flex flex-col p-4 border-2 border-slate-200 rounded-xl mb-3 bg-slate-50 hover:border-purple-300 transition-all">
+              <div className="mb-3">
+                <p className="font-bold text-slate-800 text-lg">{sol.nombre}</p>
+                <p className="text-sm text-slate-600">📋 DNI: {sol.dni}</p>
+                <p className="text-sm text-slate-600">👤 Rol: {sol.rol.replace('_', ' ').toUpperCase()}</p>
+                {sol.gradoAsignado && (
+                  <p className="text-sm text-slate-600">📚 Grado: {sol.gradoAsignado}</p>
+                )}
+              </div>
+              <button
+                onClick={async () => {
+                  await aprobarDocente(sol.uid);
+                  // Recargar la lista después de aprobar
+                  setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
+                }}
+                className="w-full py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
+              >
+                ✅ Aprobar Registro
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="p-4 border-t bg-slate-50">
+        <button 
+          onClick={() => setShowModalSolicitudes(false)}
+          className="w-full py-2 bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-xl font-semibold transition-all"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {modalCerrarSesion && <ModalCerrarSesion />}
     </>
   );
