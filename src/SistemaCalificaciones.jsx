@@ -698,11 +698,17 @@ const handleLogin = async () => {
                     {loginForm.verPass ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                <button onClick={handleLogin} disabled={loginCargando}
-                  className="btn-primary w-full py-3 rounded-xl font-extrabold text-white text-lg shadow-lg disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
-                  {loginCargando ? 'Ingresando...' : 'Ingresar →'}
-                </button>
+                  <button
+                    onClick={handleLogin}
+                    disabled={cargando}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
+                  >
+                    {cargando ? (
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      "INGRESAR AL SISTEMA"
+                    )}
+                  </button>
               </div>
               <button onClick={() => setRegistro({ ...registro, show: true })}
                 className="btn-primary w-full mt-4 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-all">
