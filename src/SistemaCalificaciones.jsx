@@ -816,8 +816,8 @@ const handleLogin = async () => {
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen p-0" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-        <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 m-4 fade-in">
+        <div className="min-h-screen p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+        <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)} />
             <div className="mb-6 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
               <span className="text-xl mt-0.5">⚠️</span>
