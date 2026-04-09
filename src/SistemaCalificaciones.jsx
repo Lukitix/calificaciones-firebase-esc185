@@ -957,120 +957,184 @@ const handleLogin = async () => {
   // PANTALLA: INICIO
   // ════════════════════════════════════════════════════════
   if (pantalla === 'inicio') {
-    const materiasDisp = getMateriasDisponibles();
-    const curricularesFilt = areas.curriculares.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
-    const especielesFilt = areas.especiales.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
-    return (
-      <>
-        <style>{globalStyles}</style>
-        <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-          <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
-            <div className="overflow-hidden mb-8 rounded-2xl py-3" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-              <div className="animate-marquee whitespace-nowrap">
-                {[1, 2, 3].map(i => (
-                  <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">
-                    🏫 Escuela Provincial N° 185 --- "Juan Areco" --- Ciclo Lectivo 2026
+  const materiasDisp = getMateriasDisponibles();
+  const curricularesFilt = areas.curriculares.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
+  const especielesFilt = areas.especiales.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
+  return (
+    <>
+      <style>{globalStyles}</style>
+      <ModalRenderer modal={modal} closeModal={closeModal} />
+      <div className="min-h-screen w-full p-4 md:p-8"
+        style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+        <div className="w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
+
+          {/* Marquee */}
+          <div className="overflow-hidden mb-8 rounded-2xl py-3"
+            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
+            <div className="animate-marquee whitespace-nowrap">
+              {[1, 2, 3].map(i => (
+                <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">
+                  🏫 Escuela Provincial N° 185 --- "Juan Areco" --- Ciclo Lectivo 2026
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Bienvenida con campana integrada arriba a la derecha */}
+          <div className="relative text-center mb-8">
+
+            {/* Campana - solo admin, esquina superior derecha */}
+            {usuario?.rol === 'administrador' && (
+              <button
+                onClick={() => setShowModalSolicitudes(true)}
+                className="absolute top-0 right-0 flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl"
+                title="Solicitudes pendientes"
+              >
+                <span className="text-xl">🔔</span>
+                {solicitudes.length > 0 ? (
+                  <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">
+                    {solicitudes.length}
                   </span>
+                ) : (
+                  <span className="text-xs font-bold text-purple-600">Solicitudes</span>
+                )}
+              </button>
+            )}
+
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenido/a! 👋</h1>
+
+            {/* Tarjeta de usuario - SIN rol duplicado */}
+            <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl mb-4">
+              <div className="text-left">
+                <p className="font-extrabold text-gray-800 text-lg">{usuario?.nombre}</p>
+                <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
+              </div>
+            </div>
+
+            <div>
+              <button onClick={() => setModalCerrarSesion(true)}
+                className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
+                <LogOut size={18} /> Cerrar Sesión
+              </button>
+            </div>
+          </div>
+
+          {/* Botones de gestión */}
+          <div className="flex flex-wrap justify-center gap-4 mb-10">
+            {puedeGestionarAlumnos && (
+              <button onClick={() => setPantalla('administracion')}
+                className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3"
+                style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
+                👥 Gestión de Alumnos
+              </button>
+            )}
+            {puedeGestionarUsuarios && (
+              <button onClick={() => setPantalla('gestion_usuarios')}
+                className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3"
+                style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
+                👤 Gestión de Usuarios
+              </button>
+            )}
+          </div>
+
+          {/* Áreas Curriculares */}
+          {curricularesFilt.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">📚 Áreas Curriculares</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {curricularesFilt.map(m => (
+                  <button key={m.nombre} onClick={() => abrirMateria(m)}
+                    className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
+                    <span className="text-5xl">{m.icon}</span>
+                    <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                  </button>
                 ))}
               </div>
             </div>
-            <div className="text-center mb-8">
-  <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-2">¡Bienvenido/a! 👋</h1>
-  
-  {/* Información del usuario y campana en una sola fila */}
-  <div className="flex items-center justify-center gap-4 mb-4">
-    <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl">
-      <div className="text-left">
-        <p className="font-extrabold text-gray-800 text-lg">{usuario?.nombre}</p>
-        <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
+          )}
+
+          {curricularesFilt.length > 0 && especielesFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
+
+          {/* Áreas Especiales */}
+          {especielesFilt.length > 0 && (
+            <div>
+              <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🎨 Áreas Especiales</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {especielesFilt.map(m => (
+                  <button key={m.nombre} onClick={() => abrirMateria(m)}
+                    className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
+                    <span className="text-5xl">{m.icon}</span>
+                    <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {curricularesFilt.length === 0 && especielesFilt.length === 0 && (
+            <div className="text-center py-10 text-gray-400">
+              <p className="text-5xl mb-3">📭</p>
+              <p className="font-bold text-lg">No tenés materias asignadas</p>
+              <p className="text-sm">Contactá al administrador del sistema</p>
+            </div>
+          )}
+
+        </div>
       </div>
-    </div>
-    
-    {/* Campana de Solicitudes - Solo para el Admin */}
-    {usuario?.rol === 'administrador' && (
-      <button 
-        onClick={() => setShowModalSolicitudes(true)}
-        className="relative p-3 bg-white rounded-full shadow-lg hover:bg-slate-50 transition-all border-2 border-purple-200 hover:scale-110"
-        title="Solicitudes Pendientes"
-      >
-        <span className="text-2xl">🔔</span>
-        {solicitudes.length > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-bounce shadow-lg">
-            {solicitudes.length}
-          </span>
-        )}
-      </button>
-    )}
-  </div>
-  
-  <div className="mt-4">
-    <button onClick={() => setModalCerrarSesion(true)}
-      className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
-      <LogOut size={18} /> Cerrar Sesión
-    </button>
-  </div>
-</div>
-            <div className="flex flex-wrap justify-center gap-4 mb-10">
-              {puedeGestionarAlumnos && (
-                <button onClick={() => setPantalla('administracion')}
-                  className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3"
-                  style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>
-                  👥 Gestión de Alumnos
-                </button>
-              )}
-              {puedeGestionarUsuarios && (
-                <button onClick={() => setPantalla('gestion_usuarios')}
-                  className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>
-                  👤 Gestión de Usuarios
-                </button>
+
+      {/* Modal solicitudes - ya lo tenés, va acá igual que antes */}
+      {showModalSolicitudes && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-700 text-lg">🔔 Solicitudes Pendientes ({solicitudes.length})</h3>
+              <button onClick={() => setShowModalSolicitudes(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full p-1 transition-all">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {solicitudes.length === 0 ? (
+                <div className="text-center py-12">
+                  <span className="text-5xl mb-3 block">✅</span>
+                  <p className="text-slate-500 font-semibold">No hay solicitudes pendientes</p>
+                </div>
+              ) : (
+                solicitudes.map((sol) => (
+                  <div key={sol.uid} className="flex flex-col p-4 border-2 border-slate-200 rounded-xl mb-3 bg-slate-50 hover:border-purple-300 transition-all">
+                    <div className="mb-3">
+                      <p className="font-bold text-slate-800 text-lg">{sol.nombre}</p>
+                      <p className="text-sm text-slate-600">📋 DNI: {sol.dni}</p>
+                      <p className="text-sm text-slate-600">👤 Rol: {sol.rol.replace('_', ' ').toUpperCase()}</p>
+                      {sol.gradoAsignado && <p className="text-sm text-slate-600">📚 Grado: {sol.gradoAsignado}</p>}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await aprobarDocente(sol.uid);
+                        setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
+                      }}
+                      className="w-full py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
+                      ✅ Aprobar Registro
+                    </button>
+                  </div>
+                ))
               )}
             </div>
-            {curricularesFilt.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">📚 Áreas Curriculares</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                  {curricularesFilt.map(m => (
-                    <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                      <span className="text-5xl">{m.icon}</span>
-                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {curricularesFilt.length > 0 && especielesFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
-            {especielesFilt.length > 0 && (
-              <div>
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🎨 Áreas Especiales</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {especielesFilt.map(m => (
-                    <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                      <span className="text-5xl">{m.icon}</span>
-                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {curricularesFilt.length === 0 && especielesFilt.length === 0 && (
-              <div className="text-center py-10 text-gray-400">
-                <p className="text-5xl mb-3">📭</p>
-                <p className="font-bold text-lg">No tenés materias asignadas</p>
-                <p className="text-sm">Contactá al administrador del sistema</p>
-              </div>
-            )}
+            <div className="p-4 border-t bg-slate-50">
+              <button onClick={() => setShowModalSolicitudes(false)}
+                className="w-full py-2 bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-xl font-semibold transition-all">
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
-        {modalCerrarSesion && <ModalCerrarSesion />}
-      </>
-    );
-  }
+      )}
+
+      {modalCerrarSesion && <ModalCerrarSesion />}
+    </>
+  );
+}
 
   // ════════════════════════════════════════════════════════
   // PANTALLA: MATERIA (tabla de calificaciones)
