@@ -46,7 +46,7 @@ const areas = {
 const grados = ['1°A','1°B','2°A','2°B','3°A','3°B','4°A','4°B','5°A','5°B','6°A','6°B','7°A','7°B'];
 
 // DNI del admin → email interno para Firebase Auth
-const dniToEmail = (dni) => `${dni.trim()}@ep185.edu.ar`;
+const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@abc.com`;
 
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 const asegurarEstructuraEstudiante = (estudiante, criteriosPorBimestre) => {
@@ -242,6 +242,8 @@ export default function SistemaCalificaciones() {
   const [criteriosPorBimestre, setCriteriosPorBimestre] = useState({ 1: [], 2: [], 3: [], 4: [] });
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
 
+  const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@escuela.com`;
+
   // Login form
   const [loginForm, setLoginForm] = useState({ dni: '', pass: '', verPass: false });
   const [loginCargando, setLoginCargando] = useState(false);
@@ -394,20 +396,32 @@ export default function SistemaCalificaciones() {
   // HANDLERS
   // ════════════════════════════════════════════════════════
 
-  const handleLogin = async () => {
-    if (!loginForm.dni.trim() || !loginForm.pass.trim()) {
-      await showAlert('Completá el DNI y la contraseña.', 'warning'); return;
+const handleLogin = async () => {
+  if (!dni.trim() || !password.trim()) {
+    await showAlert('Ingresá tu DNI y contraseña', 'warning');
+    return;
+  }
+
+  try {
+    // Convertimos el DNI a un email ficticio para Firebase
+    const emailFicticio = dniToEmail(dni); 
+    const userCred = await signInWithEmailAndPassword(auth, emailFicticio, password);
+    
+    // Una vez logueado, chequeamos si está aprobado en Firestore
+    const userDoc = await getDoc(doc(db, 'usuarios', userCred.user.uid));
+    const userData = userDoc.data();
+
+    if (!userData.activo && userData.rol !== 'administrador') {
+      await signOut(auth);
+      await showAlert('Tu cuenta aún no fue aprobada por el Administrador.', 'info');
+      return;
     }
-    setLoginCargando(true);
-    try {
-      await signInWithEmailAndPassword(auth, dniToEmail(loginForm.dni), loginForm.pass);
-      setLoginForm({ dni: '', pass: '', verPass: false });
-    } catch (err) {
-      await showAlert('DNI o contraseña incorrectos.', 'error', 'Acceso denegado');
-    } finally {
-      setLoginCargando(false);
-    }
-  };
+    
+    // Si llegó acá, entra al sistema...
+  } catch (error) {
+    await showAlert('DNI o contraseña incorrectos', 'error');
+  }
+};
 
   const handleRegistro = async () => {
     const d = registro.data;
