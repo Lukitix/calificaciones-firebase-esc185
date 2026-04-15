@@ -933,11 +933,16 @@ export default function SistemaCalificaciones() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex flex-col gap-1 flex-1 min-w-48">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Docente(s) a cargo</label>
-                <input type="text" value={docenteNombre.actual} onChange={e => setDocenteNombre({ ...docenteNombre, actual: e.target.value })} placeholder="Apellido y Nombre(s)..."
-                  className="px-4 py-2.5 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold w-72" />
-              </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-48 bg-purple-50 p-3 rounded-xl border border-purple-100">
+              <label className="text-[10px] font-bold text-purple-400 uppercase tracking-wide leading-none mb-1">Docente Responsable</label>
+              <p className="text-sm font-bold text-purple-900">
+                {/* Esta lógica busca en tiempo real quién tiene asignada esta materia y grado */}
+                {usuarios.find(u => 
+                  u.activo && 
+                  (u.rol === 'docente_grado' ? u.gradoAsignado === grado : u.materiasAsignadas?.some(ma => ma.nombre === materia.nombre && ma.grados.includes(grado)))
+                )?.nombre || "Pendiente de asignación"}
+              </p>
+            </div>
               <button onClick={guardarDocente} className="btn-primary flex items-center gap-2 bg-green-500 text-white px-5 py-2.5 rounded-xl font-bold shadow"><Save size={16} /> Guardar</button>
             </div>
             {docenteNombre.guardado && (
@@ -1071,13 +1076,11 @@ export default function SistemaCalificaciones() {
 function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerrarSesion, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
   const eliminarUsuario = async (u) => {
-    const ok = await modal.showConfirm(`¿Estás seguro de eliminar al usuario ${u.nombre}? Esta acción no se puede deshacer.`, 'Eliminar Usuario');
+  const ok = await modal.showConfirm(`¿Estás seguro de eliminar al usuario ${u.nombre}?`, 'Eliminar Usuario');
     if (!ok) return;
-
     try {
-      // Borramos el documento de Firestore
-      // Nota: El borrado de la cuenta en Auth requiere Admin SDK o que el usuario esté logueado, 
-      // pero borrar el documento de la base le quita el acceso al sistema inmediatamente por tus reglas.
+      // Importante: importá deleteDoc de firebase/firestore arriba si no está
+      const { deleteDoc } = await import('firebase/firestore'); 
       await deleteDoc(doc(db, 'usuarios', u.uid)); 
       await modal.showAlert('Usuario eliminado correctamente.', 'success');
     } catch (error) {
@@ -1085,6 +1088,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, onInicio, onCerr
       await modal.showAlert('Error al eliminar usuario.', 'error');
     }
   };
+  
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
       setUsuarios(snap.docs.map(d => d.data()).filter(u => u.rol !== 'administrador'));
