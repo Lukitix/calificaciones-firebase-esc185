@@ -43,7 +43,7 @@ const areas = {
   ]
 };
 
-const grados = ['1°A','1°B','2°A','2°B','3°A','3°B','4°A','4°B','5°A','5°B','6°A','6°B','7°A','7°B'];
+const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','2°E','3°A','3°B','3°C','3°D','3°E','4°A','4°B','4°C','4°D','4°E','5°A','5°B','5°C','5°D','5°E','6°A','6°B','6°C','6°D','6°E','7°A','7°B','7°C','7°D','7°E'];
 
 // DNI del admin → email interno para Firebase Auth
 // const dniToEmail = (dni) => `${dni.trim().toLowerCase()}@abc.com`;
@@ -52,10 +52,9 @@ const grados = ['1°A','1°B','2°A','2°B','3°A','3°B','4°A','4°B','5°A','
 const asegurarEstructuraEstudiante = (estudiante, criteriosPorBimestre) => {
   const bimestres = { ...estudiante.bimestres || {} };
   for (let i = 1; i <= 4; i++) {
-    if (!bimestres[i]) bimestres[i] = { criterios: {}, nota: '' };
-    (criteriosPorBimestre[i] || []).forEach(crit => {
-      if (bimestres[i].criterios[crit] === undefined) bimestres[i].criterios[crit] = '';
-    });
+   if (!bimestres[i]) {
+  bimestres[i] = { n1:'', n2:'', n3:'', n4:'', n5:'', promedio:'', criteriosTexto:'' };
+}
   }
   return { ...estudiante, bimestres };
 };
@@ -153,7 +152,13 @@ function ModalRenderer({ modal, closeModal }) {
 }
 
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
-const globalStyles = `
+const globalStyles = `html, body, #root { 
+  margin: 0 !important; 
+  padding: 0 !important; 
+  width: 100% !important; 
+  height: 100% !important; 
+  overflow-x: hidden; 
+}
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
 * { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
 @keyframes marquee { 0% { transform: translateX(0%) } 100% { transform: translateX(-33.33%) } }
@@ -373,7 +378,12 @@ const dniToEmail = (dni) => {
       return {
         id: `${alumno.dni}_${Date.now()}`,
         nombre: alumno.nombre, dni: alumno.dni,
-        bimestres: { 1: { criterios: {}, nota: '' }, 2: { criterios: {}, nota: '' }, 3: { criterios: {}, nota: '' }, 4: { criterios: {}, nota: '' } }
+        bimestres: { 
+        1: { n1:'', n2:'', n3:'', n4:'', n5:'', promedio:'', criteriosTexto:'' }, 
+        2: { n1:'', n2:'', n3:'', n4:'', n5:'', promedio:'', criteriosTexto:'' }, 
+        3: { n1:'', n2:'', n3:'', n4:'', n5:'', promedio:'', criteriosTexto:'' }, 
+        4: { n1:'', n2:'', n3:'', n4:'', n5:'', promedio:'', criteriosTexto:'' } 
+      }
       };
     });
     if (JSON.stringify(estudiantesActuales) !== JSON.stringify(estudiantesActualizados)) {
@@ -524,26 +534,32 @@ const handleLogin = async () => {
     }
   };
 
-  const actualizarCriterio = async (id, bimestre, criterio, valor) => {
-    const key = `${materia.nombre}-${grado}`;
-    const fsKey = safeKey(`${materia.nombre}_${grado}`);
-    setEstudiantes(prev => {
-      const nuevos = { ...prev };
-      const lista = (nuevos[key] || []).map(e => {
-        if (e.id !== id) return e;
-        const est = { ...e, bimestres: { ...e.bimestres } };
-        est.bimestres[bimestre] = { ...est.bimestres[bimestre] };
-        est.bimestres[bimestre].criterios = { ...est.bimestres[bimestre].criterios, [criterio]: valor };
-        const valores = Object.values(est.bimestres[bimestre].criterios).filter(v => v !== '' && !isNaN(v)).map(Number);
-        est.bimestres[bimestre].nota = valores.length ? (valores.reduce((a, b) => a + b, 0) / valores.length).toFixed(2) : '';
-        return est;
-      });
-      nuevos[key] = lista;
-      // Guardar en Firestore (debounce implícito: se llama por cada keystroke pero Firestore lo tolera)
-      setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
-      return nuevos;
+  const actualizarCriterio = async (id, bimestre, campo, valor) => {
+  const key = `${materia.nombre}-${grado}`;
+  const fsKey = safeKey(`${materia.nombre}_${grado}`);
+
+  setEstudiantes(prev => {
+    const nuevos = { ...prev };
+    const lista = (nuevos[key] || []).map(est => {
+      if (est.id !== id) return est;
+      
+      const nuevoBimestre = { ...est.bimestres[bimestre], [campo]: valor };
+      
+      // Cálculo de promedio automático si el campo es una nota (n1, n2...)
+      if (campo.startsWith('n')) {
+        const notas = [nuevoBimestre.n1, nuevoBimestre.n2, nuevoBimestre.n3, nuevoBimestre.n4, nuevoBimestre.n5]
+          .map(Number).filter(n => !isNaN(n) && n > 0);
+        nuevoBimestre.nota = notas.length > 0 ? (notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(2) : '';
+      }
+      
+      return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBimestre } };
     });
-  };
+
+    nuevos[key] = lista;
+    setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
+    return nuevos;
+  });
+};
 
   const agregarCriterio = async (bimestre) => {
     const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Evaluación escrita, Concepto...', 'Nuevo criterio');
@@ -1001,7 +1017,7 @@ const handleLogin = async () => {
               </button>
             )}
 
-            <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenido/a! 👋</h1>
+            <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenidos Colegas! 👋</h1>
 
             {/* Tarjeta de usuario - SIN rol duplicado */}
             <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl mb-4">
@@ -1262,21 +1278,34 @@ const handleLogin = async () => {
                     const pf = parseFloat(promFinal);
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
                     const CeldaBimestre = ({ bim }) => (
-                      <td className="p-2">
-                        <div className="flex flex-col gap-1 items-center">
-                          {criteriosPorBimestre[bim]?.map((crit, idx) => (
-                            <input key={idx} type="number" min="1" max="10" step="0.1"
-                              value={e.bimestres?.[bim]?.criterios?.[crit] || ''}
-                              onChange={ev => actualizarCriterio(e.id, bim, crit, ev.target.value)}
-                              className="nota-input" title={crit} />
+                    <td key={bim} className="p-2 border-r min-w-[200px]">
+                      <div className="flex flex-col gap-2">
+                        {/* Las 5 Notas en fila */}
+                        <div className="flex gap-1 justify-center">
+                          {[1, 2, 3, 4, 5].map(num => (
+                            <input
+                              key={num}
+                              type="number"
+                              placeholder={`n${num}`}
+                              className="w-9 h-8 text-center text-xs border rounded focus:border-blue-500 outline-none bg-white"
+                              value={e.bimestres?.[bim]?.[`n${num}`] || ''}
+                              onChange={(ev) => actualizarCriterio(e.id, bim, `n${num}`, ev.target.value)}
+                            />
                           ))}
-                          {e.bimestres?.[bim]?.nota ? (
-                            <span className="text-xs font-black text-purple-700 mt-0.5">{e.bimestres[bim].nota}</span>
-                          ) : criteriosPorBimestre[bim]?.length === 0 ? (
-                            <span className="text-gray-300 text-xs">-</span>
-                          ) : null}
+                          <div className="flex items-center justify-center w-10 h-8 bg-blue-100 text-blue-700 font-bold rounded text-[10px]">
+                            {e.bimestres?.[bim]?.nota || '-'}
+                          </div>
                         </div>
-                      </td>
+
+                        {/* Cuadro de texto para Criterios */}
+                        <textarea
+                          placeholder="Criterios del bimestre..."
+                          className="w-full text-[10px] p-1 border rounded h-12 resize-none bg-slate-50 focus:bg-white transition-colors"
+                          value={e.bimestres?.[bim]?.criteriosTexto || ''}
+                          onChange={(ev) => actualizarCriterio(e.id, bim, 'criteriosTexto', ev.target.value)}
+                        />
+                      </div>
+                    </td>
                     );
                     return (
                       <tr key={e.id} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>

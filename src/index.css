@@ -1,3 +1,11 @@
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8fafc; /* Color de fondo suave */
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
