@@ -803,7 +803,7 @@ export default function SistemaCalificaciones() {
                         <td className="p-3 text-center"><Badge>{a.dni}</Badge></td>
                         <td className="p-3 text-center">
                           <div className="flex gap-2 justify-center">
-                            <button onClick={() => setAlumnoForm({ nombre: a.nombre, dni: a.dni, editando: a })} className="btn-primary flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Save size={14} /> Editar</button>
+                            <button onClick={() => { setAlumnoForm({ nombre: a.nombre, dni: a.dni, editando: a }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="btn-primary flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Save size={14} /> Editar</button>
                             <button onClick={() => eliminarAlumno(a)} className="btn-primary flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Trash2 size={14} /> Eliminar</button>
                           </div>
                         </td>
@@ -875,6 +875,9 @@ export default function SistemaCalificaciones() {
               {puedeGestionarUsuarios && (
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Usuarios</button>
               )}
+              {usuario?.rol === 'docente_grado' && (
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Notas Áreas Especiales</button>
+              )}
             </div>
             {curricularesFilt.length > 0 && (
               <div className="mb-8">
@@ -911,6 +914,21 @@ export default function SistemaCalificaciones() {
         {showModalSolicitudes && <ModalSolicitudes />}
         {modalCerrarSesion && <ModalCerrarSesion />}
       </>
+    );
+  }
+ 
+  // ════════════════════════════════════════════════════════
+  // PANTALLA: NOTAS ÁREAS ESPECIALES (solo lectura, para maestras de grado)
+  // ════════════════════════════════════════════════════════
+  if (pantalla === 'notas_especiales') {
+    return (
+      <NotasEspeciales
+        db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
+        usuario={usuario} alumnosGlobales={alumnosGlobales}
+        onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
+        modalCerrarSesion={modalCerrarSesion} ModalCerrarSesion={ModalCerrarSesion}
+        ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} ChipsGrado={ChipsGrado}
+      />
     );
   }
  
@@ -990,16 +1008,14 @@ export default function SistemaCalificaciones() {
                     <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                     {[1, 2].map(b => (
-                      <th key={b} className="p-2 text-center text-sm font-bold min-w-56">
-                        <div>{b}° Bim.</div>
-                        {criteriosPorBimestre[b]?.length > 0 && <div className="text-xs font-normal opacity-80 mt-0.5">{criteriosPorBimestre[b].join(' · ')}</div>}
+                      <th key={b} className="p-2 text-center text-sm font-bold">
+                        <div>{b}° Bimestre</div>
                       </th>
                     ))}
                     <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">1° Cuat.</th>
                     {[3, 4].map(b => (
-                      <th key={b} className="p-2 text-center text-sm font-bold min-w-56">
-                        <div>{b}° Bim.</div>
-                        {criteriosPorBimestre[b]?.length > 0 && <div className="text-xs font-normal opacity-80 mt-0.5">{criteriosPorBimestre[b].join(' · ')}</div>}
+                      <th key={b} className="p-2 text-center text-sm font-bold">
+                        <div>{b}° Bimestre</div>
                       </th>
                     ))}
                     <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">2° Cuat.</th>
@@ -1017,27 +1033,45 @@ export default function SistemaCalificaciones() {
                     const promFinal = calcularPromedioFinal(b1, b2, b3, b4);
                     const pf = parseFloat(promFinal);
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
-                    const CeldaBimestre = ({ bim }) => (
-                      <td className="p-2 border-r border-gray-100 min-w-56">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex gap-1 justify-center items-center flex-wrap">
-                            {[1,2,3,4,5].map(num => (
-                              <input key={num} type="number" min="1" max="10" step="0.1"
-                                placeholder={`n${num}`} className="nota-input"
-                                title={criteriosPorBimestre[bim]?.[num - 1] || `Nota ${num}`}
-                                value={e.bimestres?.[bim]?.[`n${num}`] || ''}
-                                onChange={ev => actualizarCampo(e.id, bim, `n${num}`, ev.target.value)} />
-                            ))}
-                            <div className="flex items-center justify-center w-10 h-8 bg-purple-100 text-purple-800 font-black rounded-lg text-xs">
-                              {e.bimestres?.[bim]?.nota || '-'}
-                            </div>
+                    const CeldaBimestre = ({ bim }) => {
+                      const crits = criteriosPorBimestre[bim] || [];
+                      return (
+                        <td className="p-2 border-r border-gray-100" style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
+                          <div className="flex gap-1.5 items-end justify-center flex-wrap">
+                            {crits.length === 0 ? (
+                              <span className="text-gray-300 text-xs italic">Sin criterios</span>
+                            ) : (
+                              crits.map((crit, idx) => {
+                                const campo = `n${idx + 1}`;
+                                const val = e.bimestres?.[bim]?.[campo] || '';
+                                return (
+                                  <div key={idx} className="flex flex-col items-center gap-0.5">
+                                    <span className="text-center text-[9px] font-bold text-gray-500 leading-tight px-0.5"
+                                      style={{ maxWidth: '64px', wordBreak: 'break-word' }}>
+                                      {crit}
+                                    </span>
+                                    <input type="number" min="1" max="10" step="0.1"
+                                      className="nota-input"
+                                      title={crit}
+                                      value={val}
+                                      onChange={ev => actualizarCampo(e.id, bim, campo, ev.target.value)} />
+                                  </div>
+                                );
+                              })
+                            )}
+                            {/* Promedio del bimestre */}
+                            {crits.length > 0 && (
+                              <div className="flex flex-col items-center gap-0.5 ml-1">
+                                <span className="text-[9px] font-bold text-purple-500">Prom.</span>
+                                <div className="flex items-center justify-center w-10 h-8 bg-purple-100 text-purple-800 font-black rounded-lg text-xs border-2 border-purple-200">
+                                  {e.bimestres?.[bim]?.nota || '-'}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <textarea placeholder="Observaciones..." className="w-full text-xs p-1.5 border border-gray-200 rounded-lg h-10 resize-none bg-slate-50 focus:bg-white focus:border-purple-400 focus:outline-none transition-colors"
-                            value={e.bimestres?.[bim]?.criteriosTexto || ''}
-                            onChange={ev => actualizarCampo(e.id, bim, 'criteriosTexto', ev.target.value)} />
-                        </div>
-                      </td>
-                    );
+                        </td>
+                      );
+                    };
                     return (
                       <tr key={e.id} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
                         <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
@@ -1147,6 +1181,208 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
               </div>
             )}
           </div>
+        </div>
+      </div>
+      {modalCerrarSesion && <ModalCerrarSesion />}
+    </>
+  );
+}
+ 
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Notas Áreas Especiales (solo lectura para docentes de grado)
+// ════════════════════════════════════════════════════════
+function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
+  const gradoPropio = usuario?.gradoAsignado || '';
+  // Maestras de grado pueden ver solo su grado asignado
+  const gradosDisp = gradoPropio ? [gradoPropio] : [];
+  const [gradoSel, setGradoSel] = useState(gradoPropio);
+  const [materiasSel, setMateriasSel] = useState(null); // { nombre, color1, color2, icon }
+  const [calificaciones, setCalificaciones] = useState([]);
+  const [configuracion, setConfiguracion] = useState({ criterios: { 1: [], 2: [], 3: [], 4: [] }, docente: '' });
+  const [cargando, setCargando] = useState(false);
+ 
+  const areasEspeciales = [
+    { nombre: 'Educación Artística: Plástica', color1: '#fa709a', color2: '#fee140', icon: '🎨' },
+    { nombre: 'Educación Física', color1: '#30cfd0', color2: '#330867', icon: '⚽' },
+    { nombre: 'Informática', color1: '#a18cd1', color2: '#fbc2eb', icon: '💻' },
+    { nombre: 'Lengua Extranjera: Inglés', color1: '#ff9a56', color2: '#ff6a88', icon: '🗣️' },
+    { nombre: 'Educación Artística: Música', color1: '#c471f5', color2: '#fa71cd', icon: '🎵' },
+    { nombre: 'Tecnología', color1: '#ff6b6b', color2: '#ee5a6f', icon: '🔧' },
+    { nombre: 'Lengua Extranjera: Portugués', color1: '#4facfe', color2: '#00f2fe', icon: '📚' },
+    { nombre: 'Laboratorio', color1: '#00c6ff', color2: '#0072ff', icon: '🧪' },
+  ];
+ 
+  const safeKeyLocal = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
+ 
+  const cargarMateria = async (m) => {
+    setMateriasSel(m);
+    setCargando(true);
+    try {
+      const fsKey = safeKeyLocal(`${m.nombre}_${gradoSel}`);
+      const [snapCal, snapConf] = await Promise.all([
+        getDoc(doc(db, 'calificaciones', fsKey)),
+        getDoc(doc(db, 'configuracion', fsKey)),
+      ]);
+      setCalificaciones(snapCal.exists() ? (snapCal.data().estudiantes || []) : []);
+      setConfiguracion(snapConf.exists()
+        ? { criterios: snapConf.data().criterios || { 1: [], 2: [], 3: [], 4: [] }, docente: snapConf.data().docente || '' }
+        : { criterios: { 1: [], 2: [], 3: [], 4: [] }, docente: '' });
+    } finally {
+      setCargando(false);
+    }
+  };
+ 
+  const calcCuat = (b1, b2) => { const n1 = parseFloat(b1), n2 = parseFloat(b2); return isNaN(n1) || isNaN(n2) ? '-' : ((n1 + n2) / 2).toFixed(2); };
+  const calcFinal = (b1, b2, b3, b4) => {
+    const vals = [b1, b2, b3, b4].map(parseFloat).filter(n => !isNaN(n));
+    if (vals.length < 4) return '-';
+    const c1 = (vals[0] + vals[1]) / 2; const c2 = (vals[2] + vals[3]) / 2;
+    return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
+  };
+ 
+  return (
+    <>
+      <style>{globalStyles}</style>
+      <ModalRenderer modal={modal} closeModal={closeModal} />
+      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
+        <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
+          <TopBar titulo="📋 Notas Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+ 
+          <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
+            <span className="text-xl mt-0.5">👁️</span>
+            <p className="text-amber-800 font-semibold text-sm leading-relaxed">
+              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales en tu grado (<strong>{gradoSel}</strong>) para confeccionar las libretas.
+            </p>
+          </div>
+ 
+          {/* Selector de materia especial */}
+          {!materiasSel ? (
+            <>
+              <p className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Seleccioná el área especial:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {areasEspeciales.map(m => (
+                  <button key={m.nombre} onClick={() => cargarMateria(m)}
+                    className="card-materia rounded-2xl p-5 text-white flex flex-col items-center gap-2 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
+                    <span className="text-4xl">{m.icon}</span>
+                    <span className="text-xs font-extrabold text-center leading-tight">{m.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Header materia seleccionada */}
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b-2 border-gray-100">
+                <button onClick={() => setMateriasSel(null)}
+                  className="btn-primary flex items-center gap-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-xl font-bold text-sm">
+                  ← Volver
+                </button>
+                <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
+                  <span className="text-3xl">{materiasSel.icon}</span> {materiasSel.nombre}
+                  <Badge color="purple">{gradoSel}</Badge>
+                </h3>
+                {configuracion.docente && (
+                  <span className="text-sm text-gray-500 font-semibold">· Docente: <strong>{configuracion.docente}</strong></span>
+                )}
+              </div>
+ 
+              {cargando ? (
+                <div className="text-center py-12 text-gray-400"><p className="text-4xl mb-3">⏳</p><p className="font-bold">Cargando...</p></div>
+              ) : calificaciones.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-5xl mb-3">📭</p>
+                  <p className="font-bold text-lg">Sin calificaciones cargadas aún</p>
+                  <p className="text-sm">El/la docente de {materiasSel.nombre} todavía no registró notas para {gradoSel}.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="tabla-header">
+                        <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
+                        <th className="p-3 text-center text-sm font-bold">D.N.I</th>
+                        {[1, 2].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
+                        <th className="p-3 text-center text-sm font-bold bg-purple-800">1° Cuat.</th>
+                        {[3, 4].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
+                        <th className="p-3 text-center text-sm font-bold bg-purple-800">2° Cuat.</th>
+                        <th className="p-3 text-center text-sm font-bold bg-indigo-900">Prom. Final</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calificaciones.map((e, i) => {
+                        const b1 = e.bimestres?.[1]?.nota || '';
+                        const b2 = e.bimestres?.[2]?.nota || '';
+                        const b3 = e.bimestres?.[3]?.nota || '';
+                        const b4 = e.bimestres?.[4]?.nota || '';
+                        const c1 = calcCuat(b1, b2);
+                        const c2 = calcCuat(b3, b4);
+                        const pf = calcFinal(b1, b2, b3, b4);
+                        const pfNum = parseFloat(pf);
+                        const pfColor = isNaN(pfNum) ? 'bg-purple-600' : pfNum >= 7 ? 'bg-green-600' : pfNum >= 4 ? 'bg-amber-500' : 'bg-red-600';
+ 
+                        const CeldaLectura = ({ bim }) => {
+                          const crits = configuracion.criterios[bim] || [];
+                          return (
+                            <td className="p-2 border-r border-gray-100">
+                              <div className="flex gap-1.5 items-end justify-center flex-wrap">
+                                {crits.length === 0 ? (
+                                  <span className="text-gray-300 text-xs">-</span>
+                                ) : (
+                                  crits.map((crit, idx) => {
+                                    const val = e.bimestres?.[bim]?.[`n${idx + 1}`] || '-';
+                                    const num = parseFloat(val);
+                                    const color = isNaN(num) ? 'bg-gray-100 text-gray-400' : num >= 7 ? 'bg-green-100 text-green-800' : num >= 4 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800';
+                                    return (
+                                      <div key={idx} className="flex flex-col items-center gap-0.5">
+                                        <span className="text-center text-[9px] font-bold text-gray-500 leading-tight px-0.5"
+                                          style={{ maxWidth: '60px', wordBreak: 'break-word' }}>{crit}</span>
+                                        <div className={`w-10 h-8 flex items-center justify-center rounded-lg font-black text-xs border-2 border-gray-200 ${color}`}>
+                                          {val}
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                                {crits.length > 0 && (
+                                  <div className="flex flex-col items-center gap-0.5 ml-1">
+                                    <span className="text-[9px] font-bold text-purple-500">Prom.</span>
+                                    <div className="w-10 h-8 flex items-center justify-center bg-purple-100 text-purple-800 font-black rounded-lg text-xs border-2 border-purple-200">
+                                      {e.bimestres?.[bim]?.nota || '-'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        };
+ 
+                        return (
+                          <tr key={e.id || i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                            <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
+                            <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
+                            <CeldaLectura bim={1} />
+                            <CeldaLectura bim={2} />
+                            <td className="p-3 text-center bg-purple-50">
+                              <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c1}</span>
+                            </td>
+                            <CeldaLectura bim={3} />
+                            <CeldaLectura bim={4} />
+                            <td className="p-3 text-center bg-purple-50">
+                              <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c2}</span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={`inline-block text-white px-4 py-2 rounded-xl font-black text-base shadow ${pfColor}`}>{pf}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
       {modalCerrarSesion && <ModalCerrarSesion />}
