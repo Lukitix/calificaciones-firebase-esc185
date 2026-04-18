@@ -43,7 +43,7 @@ const areas = {
   ]
 };
  
-const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','2°E','3°A','3°B','3°C','3°D','3°E','4°A','4°B','4°C','4°D','4°E','5°A','5°B','5°C','5°D','5°E','6°A','6°B','6°C','6°D','6°E','7°A','7°B','7°C','7°D','7°E'];
+const grados = ['1° "A"','1° "B"','1° "C"','1° "D"','1° "E"','2° "A"','2° "B"','2° "C"','2° "D"','2° "E"','3° "A"','3° "B"','3° "C"','3° "D"','3° "E"','4° "A"','4° "B"','4° "C"','4° "D"','4° "E"','5° "A"','5° "B"','5° "C"','5° "D"','5° "E"','6° "A"','6° "B"','6° "C"','6° "D"','6° "E"','7° "A"','7° "B"','7° "C"','7° "D"','7° "E"'];
  
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 const asegurarEstructuraEstudiante = (estudiante) => {
@@ -1112,7 +1112,7 @@ export default function SistemaCalificaciones() {
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
+            <p className="text-sm text-gray-600 mb-4">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(bim => (
                 <div key={bim} className="bg-white border-2 border-amber-100 rounded-xl p-4">
@@ -1123,7 +1123,7 @@ export default function SistemaCalificaciones() {
                     )}
                   </div>
                   {criteriosPorBimestre[bim]?.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">Sin criterios aún.</p>
+                    <p className="text-xs text-gray-400 italic">Sin criterios definidos.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {criteriosPorBimestre[bim].map((c, i) => (
@@ -1141,13 +1141,13 @@ export default function SistemaCalificaciones() {
             </div>
           </div>
           {estActuales.length === 0 ? (
-            <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay estudiantes registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
+            <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay alumnos registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="tabla-header">
-                    <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
+                    <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                     {[1, 2].map(b => (
                       <th key={b} className="p-2 text-center text-sm font-bold">
@@ -1453,7 +1453,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para completar los boletines de calificaciones.
+              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para completar los boletines de calificaciones de los alumnos.
             </p>
           </div>
  
@@ -1501,7 +1501,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="tabla-header">
-                        <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
+                        <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
                         <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                         {[1, 2].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
                         <th className="p-3 text-center text-sm font-bold bg-purple-800">1° Cuat.</th>
