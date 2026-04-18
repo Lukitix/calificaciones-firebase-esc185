@@ -35,6 +35,11 @@ const areas = {
     { nombre: 'Tecnología', color1: '#ff6b6b', color2: '#ee5a6f', icon: '🔧' },
     { nombre: 'Lengua Extranjera: Portugués', color1: '#4facfe', color2: '#00f2fe', icon: '📚' },
     { nombre: 'Laboratorio', color1: '#00c6ff', color2: '#0072ff', icon: '🧪' },
+  ],
+  talleres: [
+    { nombre: 'Taller de Ajedrez', color1: '#1a1a2e', color2: '#16213e', icon: '♟️' },
+    { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
+    { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
   ]
 };
  
@@ -229,8 +234,14 @@ export default function SistemaCalificaciones() {
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
  
   // Login con email real
-  const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false });
+  const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
   const [loginCargando, setLoginCargando] = useState(false);
+ 
+  // Cargar email guardado si el usuario lo había marcado
+  useEffect(() => {
+    const emailGuardado = localStorage.getItem('recordar-email');
+    if (emailGuardado) setLoginForm(prev => ({ ...prev, email: emailGuardado, recordarme: true }));
+  }, []);
  
   // Registro con email real
   const [registro, setRegistro] = useState({
@@ -371,7 +382,13 @@ export default function SistemaCalificaciones() {
         await showAlert('Tu cuenta aún no fue aprobada por el Administrador.', 'info', 'Cuenta pendiente');
         return;
       }
-      setLoginForm({ email: '', pass: '', verPass: false });
+      // Guardar o limpiar email según "recordarme"
+      if (loginForm.recordarme) {
+        localStorage.setItem('recordar-email', loginForm.email.trim());
+      } else {
+        localStorage.removeItem('recordar-email');
+      }
+      setLoginForm({ email: '', pass: '', verPass: false, recordarme: false });
     } catch {
       await showAlert('Correo o contraseña incorrectos.', 'error', 'Acceso denegado');
     } finally {
@@ -458,16 +475,21 @@ export default function SistemaCalificaciones() {
  
   const buscarAlumnoPorDNI = async () => {
     if (!busquedaDNI.trim()) return;
-    let encontrado = null, gradoEncontrado = null;
+    const termino = busquedaDNI.trim().toLowerCase();
+    let resultados = [];
     Object.entries(alumnosGlobales).forEach(([g, alumnos]) => {
-      const alum = alumnos.find(a => a.dni === busquedaDNI.trim());
-      if (alum) { encontrado = alum; gradoEncontrado = g; }
+      alumnos.forEach(alum => {
+        if (alum.nombre.toLowerCase().includes(termino) || alum.dni.includes(termino)) {
+          resultados.push({ ...alum, grado: g });
+        }
+      });
     });
-    if (encontrado) {
-      setResultadoBusqueda({ ...encontrado, grado: gradoEncontrado, asignaturas: [...areas.curriculares, ...areas.especiales].map(m => m.nombre) });
+    if (resultados.length > 0) {
+      const asignaturas = [...areas.curriculares, ...areas.especiales, ...areas.talleres].map(m => m.nombre);
+      setResultadoBusqueda({ ...resultados[0], asignaturas, totalEncontrados: resultados.length });
     } else {
       setResultadoBusqueda(null);
-      await showAlert(`No se encontró ningún alumno con DNI "${busquedaDNI}".`, 'warning', 'Sin resultados');
+      await showAlert(`No se encontró ningún alumno con ese nombre o DNI.`, 'warning', 'Sin resultados');
     }
   };
  
@@ -517,9 +539,9 @@ export default function SistemaCalificaciones() {
   // ── Getters de roles ──
   const getMateriasDisponibles = () => {
     if (!usuario) return [];
-    if (usuario.rol === 'administrador') return [...areas.curriculares, ...areas.especiales];
+    if (usuario.rol === 'administrador') return [...areas.curriculares, ...areas.especiales, ...areas.talleres];
     if (usuario.rol === 'docente_grado') return areas.curriculares.filter(m => usuario.materiasAsignadas.includes(m.nombre));
-    if (usuario.rol === 'area_especial') return areas.especiales.filter(m => usuario.materiasAsignadas.some(ma => ma.nombre === m.nombre));
+    if (usuario.rol === 'area_especial') return [...areas.especiales, ...areas.talleres].filter(m => usuario.materiasAsignadas.some(ma => ma.nombre === m.nombre));
     return [];
   };
  
@@ -534,7 +556,7 @@ export default function SistemaCalificaciones() {
     return [];
   };
  
-  const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : areas.especiales;
+  const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActuales = estudiantes[`${materia?.nombre}-${grado}`] || [];
   const alumnosGr = alumnosGlobales[usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado] || [];
   const puedeGestionarAlumnos = ['docente_grado', 'administrador'].includes(usuario?.rol);
@@ -628,7 +650,14 @@ export default function SistemaCalificaciones() {
         style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)' }}>
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md fade-in">
           <div className="text-center mb-8">
-            <div className="text-6xl mb-3">🏫</div>
+            <img
+              src="https://scontent.fres2-1.fna.fbcdn.net/v/t39.30808-6/250838744_105881078567433_8505050702522636894_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=odhG9vvlZ94Q7kNvwFg11cz&_nc_oc=AdoR60NWvlmixckn9Q40Z4EAjLLrCFdN7Wes1sdww8aLuzWH-RWGYpwGRy_SLr3Vdic&_nc_zt=23&_nc_ht=scontent.fres2-1.fna&_nc_gid=LL7-rYWA7g6YQcnaJa-mSg&_nc_ss=7a389&oh=00_Af36MpLFP7VChoP1o1NJZENNKHd_sG5yZyslLcEdBJwScQ&oe=69E8C653"
+              alt="Escuela Provincial N° 185"
+              className="mx-auto mb-3 rounded-2xl shadow-md"
+              style={{ width: 100, height: 100, objectFit: 'cover' }}
+              onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }}
+            />
+            <div className="text-6xl mb-3" style={{ display: 'none' }}>🏫</div>
             <h1 className="text-2xl font-extrabold text-gray-800 leading-tight">Escuela Provincial N° 185</h1>
             <h2 className="text-xl font-bold text-purple-700 mb-1">"Juan Areco"</h2>
             <p className="text-sm text-gray-500 font-semibold tracking-wide uppercase">Sistema de Calificaciones · 2026</p>
@@ -657,6 +686,14 @@ export default function SistemaCalificaciones() {
                     {loginForm.verPass ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {/* Recordarme */}
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <div onClick={() => setLoginForm(f => ({ ...f, recordarme: !f.recordarme }))}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${loginForm.recordarme ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
+                    {loginForm.recordarme && <svg width="11" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span className="text-sm text-gray-600 font-semibold">Recordar mi correo</span>
+                </label>
                 <button onClick={handleLogin} disabled={loginCargando}
                   className="btn-primary w-full py-3 rounded-xl font-extrabold text-white text-lg shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
@@ -771,9 +808,9 @@ export default function SistemaCalificaciones() {
               </div>
             </div>
             <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-5">
-              <h3 className="text-lg font-extrabold text-gray-800 mb-3">🔍 Buscar alumno por DNI</h3>
+              <h3 className="text-lg font-extrabold text-gray-800 mb-3">🔍 Buscar alumno</h3>
               <div className="flex gap-3">
-                <input type="text" value={busquedaDNI} onChange={e => setBusquedaDNI(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscarAlumnoPorDNI()} placeholder="D.N.I N°..."
+                <input type="text" value={busquedaDNI} onChange={e => setBusquedaDNI(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscarAlumnoPorDNI()} placeholder="Nombre(s)..."
                   className="flex-1 px-4 py-2.5 border-2 border-green-300 rounded-xl focus:outline-none focus:border-green-500 text-gray-800 font-semibold" />
                 <button onClick={buscarAlumnoPorDNI} className="btn-primary flex items-center gap-2 bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow"><Search size={18} /> Buscar</button>
               </div>
@@ -834,6 +871,7 @@ export default function SistemaCalificaciones() {
     const materiasDisp = getMateriasDisponibles();
     const curricularesFilt = areas.curriculares.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
     const especielesFilt = areas.especiales.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
+    const talleresFilt = areas.talleres.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
     return (
       <>
         <style>{globalStyles}</style>
@@ -876,7 +914,7 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Usuarios</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Notas Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
@@ -894,7 +932,7 @@ export default function SistemaCalificaciones() {
             )}
             {curricularesFilt.length > 0 && especielesFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
             {especielesFilt.length > 0 && (
-              <div>
+              <div className="mb-8">
                 <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🎨 Áreas Especiales</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {especielesFilt.map(m => (
@@ -906,7 +944,21 @@ export default function SistemaCalificaciones() {
                 </div>
               </div>
             )}
-            {curricularesFilt.length === 0 && especielesFilt.length === 0 && (
+            {talleresFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
+            {talleresFilt.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏆 Talleres</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {talleresFilt.map(m => (
+                    <button key={m.nombre} onClick={() => abrirMateria(m)} className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg" style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
+                      <span className="text-5xl">{m.icon}</span>
+                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {curricularesFilt.length === 0 && especielesFilt.length === 0 && talleresFilt.length === 0 && (
               <div className="text-center py-10 text-gray-400"><p className="text-5xl mb-3">📭</p><p className="font-bold text-lg">No tenés materias asignadas</p><p className="text-sm">Contactá al administrador del sistema</p></div>
             )}
           </div>
@@ -952,18 +1004,10 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex flex-col gap-1 flex-1 min-w-48">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Docente(s) a cargo</label>
-                <input type="text" value={docenteNombre.actual} onChange={e => setDocenteNombre({ ...docenteNombre, actual: e.target.value })} placeholder="Apellido y Nombre(s)..."
-                  className="px-4 py-2.5 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold w-72" />
-              </div>
-              <button onClick={guardarDocente} className="btn-primary flex items-center gap-2 bg-green-500 text-white px-5 py-2.5 rounded-xl font-bold shadow"><Save size={16} /> Guardar</button>
-            </div>
             {docenteNombre.guardado && (
               <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
                 <span className="text-purple-600">👤</span>
-                <span className="text-sm font-bold text-gray-800">Docente: <span className="text-purple-700">{docenteNombre.guardado}</span></span>
+                <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{usuario?.nombre || docenteNombre.guardado}</span></span>
               </div>
             )}
           </div>
@@ -1039,7 +1083,7 @@ export default function SistemaCalificaciones() {
                         <td className="p-2 border-r border-gray-100" style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
-                              <span className="text-gray-300 text-xs italic">Sin criterios</span>
+                              <span className="text-xs font-bold text-gray-500 italic bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">Sin criterios</span>
                             ) : (
                               crits.map((crit, idx) => {
                                 const campo = `n${idx + 1}`;
@@ -1149,24 +1193,38 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #059669, #10b981)', color: 'white' }}>
                       {['Nombre', 'Correo', 'Rol', 'Grado / Materias', 'Estado', 'Creado', 'Acción'].map(h => (
-                        <th key={h} className="p-3 text-left font-bold text-sm">{h}</th>
+                        <th key={h} className="p-4 text-left font-bold text-sm tracking-wide">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {usuarios.map((u, i) => (
-                      <tr key={u.uid || i} className={`border-b border-gray-100 hover:bg-green-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                        <td className="p-3 font-bold text-gray-800">{u.nombre}</td>
-                        <td className="p-3 text-xs text-gray-600 font-semibold">{u.email}</td>
-                        <td className="p-3 text-sm text-gray-600 font-semibold">{rolLabel(u)}</td>
-                        <td className="p-3 text-xs text-gray-500 font-semibold max-w-xs">
-                          {u.rol === 'docente_grado' ? u.materiasAsignadas.join(', ') || 'Sin materias'
-                            : u.rol === 'area_especial' ? u.materiasAsignadas.map(ma => `${ma.nombre}: ${ma.grados.join(', ')}`).join(' | ')
-                            : '-'}
+                      <tr key={u.uid || i} className={`border-b border-gray-100 hover:bg-green-50 transition-all duration-150 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                        <td className="p-4">
+                          <div className="font-extrabold text-gray-800 text-sm">{u.nombre}</div>
                         </td>
-                        <td className="p-3">{u.activo ? <Badge color="green">Activo</Badge> : <Badge color="red">Pendiente</Badge>}</td>
-                        <td className="p-3 text-xs text-gray-400 font-semibold">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
-                        <td className="p-3 text-center">
+                        <td className="p-4">
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-1 rounded-lg">
+                            📧 {u.email}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${u.rol === 'administrador' ? 'bg-purple-100 text-purple-800' : u.rol === 'docente_grado' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+                            {rolLabel(u)}
+                          </span>
+                        </td>
+                        <td className="p-4 text-xs text-gray-500 font-semibold max-w-xs leading-relaxed">
+                          {u.rol === 'docente_grado'
+                            ? (u.materiasAsignadas.length > 0
+                              ? <span className="inline-flex flex-wrap gap-1">{u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold">{m}</span>)}</span>
+                              : <span className="text-gray-400 italic">Sin materias</span>)
+                            : u.rol === 'area_especial'
+                            ? <span className="inline-flex flex-wrap gap-1">{u.materiasAsignadas.map((ma, i) => <span key={i} className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-bold">{ma.nombre}</span>)}</span>
+                            : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="p-4">{u.activo ? <Badge color="green">✓ Activo</Badge> : <Badge color="red">⏳ Pendiente</Badge>}</td>
+                        <td className="p-4 text-xs text-gray-400 font-semibold whitespace-nowrap">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
+                        <td className="p-4 text-center">
                           <button
                             onClick={() => eliminarUsuario(u)}
                             className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow"
@@ -1189,19 +1247,18 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 }
  
 // ════════════════════════════════════════════════════════
-// COMPONENTE: Notas Áreas Especiales (solo lectura para docentes de grado)
+// COMPONENTE: Calificaciones Áreas Especiales (solo lectura para docentes de grado)
 // ════════════════════════════════════════════════════════
 function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
   const gradoPropio = usuario?.gradoAsignado || '';
-  // Maestras de grado pueden ver solo su grado asignado
   const gradosDisp = gradoPropio ? [gradoPropio] : [];
   const [gradoSel, setGradoSel] = useState(gradoPropio);
-  const [materiasSel, setMateriasSel] = useState(null); // { nombre, color1, color2, icon }
+  const [materiasSel, setMateriasSel] = useState(null);
   const [calificaciones, setCalificaciones] = useState([]);
   const [configuracion, setConfiguracion] = useState({ criterios: { 1: [], 2: [], 3: [], 4: [] }, docente: '' });
   const [cargando, setCargando] = useState(false);
  
-  const areasEspeciales = [
+  const todasLasEspeciales = [
     { nombre: 'Educación Artística: Plástica', color1: '#fa709a', color2: '#fee140', icon: '🎨' },
     { nombre: 'Educación Física', color1: '#30cfd0', color2: '#330867', icon: '⚽' },
     { nombre: 'Informática', color1: '#a18cd1', color2: '#fbc2eb', icon: '💻' },
@@ -1210,6 +1267,9 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     { nombre: 'Tecnología', color1: '#ff6b6b', color2: '#ee5a6f', icon: '🔧' },
     { nombre: 'Lengua Extranjera: Portugués', color1: '#4facfe', color2: '#00f2fe', icon: '📚' },
     { nombre: 'Laboratorio', color1: '#00c6ff', color2: '#0072ff', icon: '🧪' },
+    { nombre: 'Taller de Ajedrez', color1: '#1a1a2e', color2: '#16213e', icon: '♟️' },
+    { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
+    { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
   ];
  
   const safeKeyLocal = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
@@ -1246,21 +1306,20 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
-          <TopBar titulo="📋 Notas Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+          <TopBar titulo="📋 Calificaciones Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
  
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales en tu grado (<strong>{gradoSel}</strong>) para confeccionar las libretas.
+              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para confeccionar las libretas.
             </p>
           </div>
  
-          {/* Selector de materia especial */}
           {!materiasSel ? (
             <>
-              <p className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Seleccioná el área especial:</p>
+              <p className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Seleccioná el área o taller:</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {areasEspeciales.map(m => (
+                {todasLasEspeciales.map(m => (
                   <button key={m.nombre} onClick={() => cargarMateria(m)}
                     className="card-materia rounded-2xl p-5 text-white flex flex-col items-center gap-2 shadow-lg"
                     style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
@@ -1327,7 +1386,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                             <td className="p-2 border-r border-gray-100">
                               <div className="flex gap-1.5 items-end justify-center flex-wrap">
                                 {crits.length === 0 ? (
-                                  <span className="text-gray-300 text-xs">-</span>
+                                  <span className="text-xs font-bold text-gray-500 italic bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">Sin criterios</span>
                                 ) : (
                                   crits.map((crit, idx) => {
                                     const val = e.bimestres?.[bim]?.[`n${idx + 1}`] || '-';
