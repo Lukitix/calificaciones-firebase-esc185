@@ -257,6 +257,12 @@ export default function SistemaCalificaciones() {
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
  
+  // Limpiar búsqueda al cambiar de grado
+  useEffect(() => {
+    setBusquedaDNI('');
+    setResultadoBusqueda(null);
+  }, [grado]);
+ 
   const inactividadTimeout = useRef(null);
  
   const cerrarSesion = useCallback(async () => {
@@ -388,7 +394,7 @@ export default function SistemaCalificaciones() {
       } else {
         localStorage.removeItem('recordar-email');
       }
-      setLoginForm({ email: '', pass: '', verPass: false, recordarme: false });
+      // No resetear el form aquí — Firebase Auth dispara onAuthStateChanged que cambia la pantalla
     } catch {
       await showAlert('Correo o contraseña incorrectos.', 'error', 'Acceso denegado');
     } finally {
@@ -809,18 +815,50 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-5">
               <h3 className="text-lg font-extrabold text-gray-800 mb-3">🔍 Buscar alumno</h3>
-              <div className="flex gap-3">
-                <input type="text" value={busquedaDNI} onChange={e => setBusquedaDNI(e.target.value)} onKeyDown={e => e.key === 'Enter' && buscarAlumnoPorDNI()} placeholder="Nombre(s)..."
-                  className="flex-1 px-4 py-2.5 border-2 border-green-300 rounded-xl focus:outline-none focus:border-green-500 text-gray-800 font-semibold" />
-                <button onClick={buscarAlumnoPorDNI} className="btn-primary flex items-center gap-2 bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold shadow"><Search size={18} /> Buscar</button>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={busquedaDNI}
+                  onChange={e => { setBusquedaDNI(e.target.value); setResultadoBusqueda(null); }}
+                  placeholder="Nombre(s) o D.N.I N°..."
+                  className="w-full px-4 py-2.5 border-2 border-green-300 rounded-xl focus:outline-none focus:border-green-500 text-gray-800 font-semibold pr-10"
+                />
+                {busquedaDNI && (
+                  <button onClick={() => { setBusquedaDNI(''); setResultadoBusqueda(null); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    <X size={16} />
+                  </button>
+                )}
               </div>
-              {resultadoBusqueda && (
-                <div className="mt-4 bg-white border-2 border-green-300 rounded-xl p-4 fade-in">
-                  <p className="font-bold text-gray-800 text-lg">{resultadoBusqueda.nombre}</p>
-                  <p className="text-sm text-gray-600 mt-1"><Badge color="blue">Grado: {resultadoBusqueda.grado}</Badge></p>
-                  <p className="text-xs text-gray-500 mt-2 leading-relaxed"><strong>Asignaturas:</strong> {resultadoBusqueda.asignaturas.join(' · ')}</p>
-                </div>
-              )}
+              {/* Resultados predictivos */}
+              {busquedaDNI.trim().length > 0 && (() => {
+                const termino = busquedaDNI.trim().toLowerCase();
+                const alumnosDelGrado = alumnosGlobales[gradoActual] || [];
+                const coincidencias = alumnosDelGrado.filter(a =>
+                  a.nombre.toLowerCase().includes(termino) || a.dni.includes(termino)
+                );
+                if (coincidencias.length === 0) return (
+                  <div className="mt-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-400 font-semibold">
+                    Sin resultados en {gradoActual}
+                  </div>
+                );
+                return (
+                  <div className="mt-2 bg-white border-2 border-green-200 rounded-xl overflow-hidden shadow-sm">
+                    {coincidencias.map((a, idx) => (
+                      <div key={idx}
+                        className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-green-50 transition-colors">
+                        <div>
+                          <p className="font-bold text-gray-800 text-sm">{a.nombre}</p>
+                          <p className="text-xs text-gray-500 font-semibold">DNI: {a.dni} · {gradoActual}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="px-4 py-2 bg-green-50 text-xs text-green-700 font-bold">
+                      {coincidencias.length} resultado{coincidencias.length !== 1 ? 's' : ''} en {gradoActual}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
@@ -1018,7 +1056,7 @@ export default function SistemaCalificaciones() {
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (n1, n2...). Ej: <em>Evaluación escrita, Concepto, Trabajo áulico...</em></p>
+            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (consideradas en el bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(bim => (
                 <div key={bim} className="bg-white border-2 border-amber-100 rounded-xl p-4">
@@ -1094,11 +1132,34 @@ export default function SistemaCalificaciones() {
                                       style={{ maxWidth: '64px', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
-                                    <input type="number" min="1" max="10" step="0.1"
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
                                       className="nota-input"
                                       title={crit}
                                       value={val}
-                                      onChange={ev => actualizarCampo(e.id, bim, campo, ev.target.value)} />
+                                      onChange={ev => {
+                                        const v = ev.target.value;
+                                        // Permitir escribir libremente (incluyendo punto/coma)
+                                        if (v === '' || v === '.' || v === ',') {
+                                          actualizarCampo(e.id, bim, campo, v === ',' ? '.' : v);
+                                          return;
+                                        }
+                                        const norm = v.replace(',', '.');
+                                        if (/^\d{0,2}([.,]\d{0,1})?$/.test(norm)) {
+                                          actualizarCampo(e.id, bim, campo, norm);
+                                        }
+                                      }}
+                                      onBlur={ev => {
+                                        const n = parseFloat(ev.target.value);
+                                        if (!isNaN(n)) {
+                                          const clamped = Math.min(10, Math.max(1, Math.round(n * 2) / 2));
+                                          actualizarCampo(e.id, bim, campo, clamped % 1 === 0 ? String(clamped) : clamped.toFixed(1));
+                                        } else if (ev.target.value !== '') {
+                                          actualizarCampo(e.id, bim, campo, '');
+                                        }
+                                      }}
+                                    />
                                   </div>
                                 );
                               })
@@ -1192,39 +1253,52 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                 <table className="w-full">
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #059669, #10b981)', color: 'white' }}>
-                      {['Nombre', 'Correo', 'Rol', 'Grado / Materias', 'Estado', 'Creado', 'Acción'].map(h => (
-                        <th key={h} className="p-4 text-left font-bold text-sm tracking-wide">{h}</th>
+                      {['Nombre', 'Correo', 'Rol', 'Grado(s) / Materia(s)', 'Estado', 'Creado', 'Acción'].map(h => (
+                        <th key={h} className="p-4 text-left font-bold text-sm tracking-wide align-top">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {usuarios.map((u, i) => (
                       <tr key={u.uid || i} className={`border-b border-gray-100 hover:bg-green-50 transition-all duration-150 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
-                        <td className="p-4">
+                        <td className="p-4 align-top">
                           <div className="font-extrabold text-gray-800 text-sm">{u.nombre}</div>
                         </td>
-                        <td className="p-4">
+                        <td className="p-4 align-top">
                           <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-1 rounded-lg">
                             📧 {u.email}
                           </span>
                         </td>
-                        <td className="p-4">
+                        <td className="p-4 align-top">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${u.rol === 'administrador' ? 'bg-purple-100 text-purple-800' : u.rol === 'docente_grado' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
                             {rolLabel(u)}
                           </span>
                         </td>
-                        <td className="p-4 text-xs text-gray-500 font-semibold max-w-xs leading-relaxed">
+                        <td className="p-4 align-top text-xs text-gray-600 max-w-xs">
                           {u.rol === 'docente_grado'
-                            ? (u.materiasAsignadas.length > 0
-                              ? <span className="inline-flex flex-wrap gap-1">{u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md text-xs font-bold">{m}</span>)}</span>
+                            ? (u.materiasAsignadas?.length > 0
+                              ? <div className="flex flex-col gap-1">{u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold inline-block">{m}</span>)}</div>
                               : <span className="text-gray-400 italic">Sin materias</span>)
                             : u.rol === 'area_especial'
-                            ? <span className="inline-flex flex-wrap gap-1">{u.materiasAsignadas.map((ma, i) => <span key={i} className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md text-xs font-bold">{ma.nombre}</span>)}</span>
+                            ? (u.materiasAsignadas?.length > 0
+                              ? <div className="flex flex-col gap-1.5">
+                                  {u.materiasAsignadas.map((ma, i) => (
+                                    <div key={i}>
+                                      <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md font-bold inline-block">{ma.nombre}</span>
+                                      {ma.grados?.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-0.5 ml-1">
+                                          {ma.grados.map((g, j) => <span key={j} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{g}</span>)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              : <span className="text-gray-400 italic">Sin materias</span>)
                             : <span className="text-gray-400">—</span>}
                         </td>
-                        <td className="p-4">{u.activo ? <Badge color="green">✓ Activo</Badge> : <Badge color="red">⏳ Pendiente</Badge>}</td>
-                        <td className="p-4 text-xs text-gray-400 font-semibold whitespace-nowrap">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 align-top">{u.activo ? <Badge color="green">✓ Activo</Badge> : <Badge color="red">⏳ Pendiente</Badge>}</td>
+                        <td className="p-4 align-top text-xs text-gray-400 font-semibold whitespace-nowrap">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
+                        <td className="p-4 align-top text-center">
                           <button
                             onClick={() => eliminarUsuario(u)}
                             className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow"
@@ -1311,7 +1385,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para confeccionar las libretas.
+              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para confeccionar los boletines de calificaciones.
             </p>
           </div>
  
