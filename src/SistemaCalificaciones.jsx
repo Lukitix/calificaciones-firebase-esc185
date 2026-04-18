@@ -925,7 +925,7 @@ export default function SistemaCalificaciones() {
                 <div className="text-center py-14 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-lg">No hay alumnos registrados</p></div>
               ) : (
                 <table className="w-full">
-                  <thead><tr className="tabla-header"><th className="p-3 text-left font-bold text-sm">#</th><th className="p-3 text-left font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
+                  <thead><tr className="tabla-header"><th className="p-3 text-left font-bold text-sm">#</th><th className="p-3 text-center font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
                   <tbody>
                     {alumnosGr.map((a, i) => (
                       <tr key={i} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
@@ -1112,7 +1112,7 @@ export default function SistemaCalificaciones() {
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (n1, n2...). Ej: <em>Evaluación escrita, Concepto, Trabajo áulico...</em></p>
+            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(bim => (
                 <div key={bim} className="bg-white border-2 border-amber-100 rounded-xl p-4">
@@ -1453,7 +1453,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para confeccionar las libretas.
+              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para completar los boletines de calificaciones.
             </p>
           </div>
  
