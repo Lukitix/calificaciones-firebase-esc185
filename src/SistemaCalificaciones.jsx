@@ -884,14 +884,15 @@ export default function SistemaCalificaciones() {
                     ✅ Aprobar
                   </button>
                   <button onClick={async () => {
+                    setShowModalSolicitudes(false);
                     const ok = await showConfirm(`¿Rechazás el registro de "${sol.nombre}"? Se eliminará su cuenta.`, 'Rechazar registro');
-                    if (!ok) return;
+                    if (!ok) { setShowModalSolicitudes(true); return; }
                     try {
                       await deleteDoc(doc(db, 'usuarios', sol.uid));
                       const nuevas = solicitudes.filter(s => s.uid !== sol.uid);
                       setSolicitudes(nuevas);
-                      if (nuevas.length === 0) setShowModalSolicitudes(false);
-                    } catch (e) { console.error(e); }
+                      if (nuevas.length > 0) setShowModalSolicitudes(true);
+                    } catch (e) { console.error(e); setShowModalSolicitudes(true); }
                   }}
                     className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
                     ❌ Rechazar
