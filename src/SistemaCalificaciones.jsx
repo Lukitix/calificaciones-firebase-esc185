@@ -360,17 +360,16 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     doc.text('Criterios de evaluación: ' + todosLoscrits.join('  ·  '), 14, finalY, { maxWidth: pageW - 28 });
   }
 
-  // Firma
+  // Firma — abajo a la derecha
   const firmaY = finalY + (todosLoscrits.length > 0 ? 12 : 0);
   const esDocGrado = usuario?.rol === 'docente_grado';
-  const lineaRol = esDocGrado
-    ? `Docente ${gradoLabel(grado)}`
-    : `Prof. ${materia.nombre}`;
+  const lineaRol = esDocGrado ? `Docente ${gradoLabel(grado)}` : `Prof. ${materia.nombre}`;
+  const firmaX = pageW - 70;
   doc.setTextColor(60,60,60); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-  doc.text('_ _ _ _ _ _ _ _ _ _ _ _ _ _ _', 40, firmaY + 4);
-  doc.text(nombreDocente, 40, firmaY + 10);
-  doc.text(lineaRol, 40, firmaY + 15);
-  doc.text(hoy, 40, firmaY + 20);
+  doc.text('_ _ _ _ _ _ _ _ _ _ _ _ _ _ _', firmaX, firmaY + 4, { align: 'left' });
+  doc.text(nombreDocente, firmaX + 32, firmaY + 10, { align: 'center' });
+  doc.text(lineaRol, firmaX + 32, firmaY + 15, { align: 'center' });
+  doc.text(hoy, firmaX + 32, firmaY + 20, { align: 'center' });
 
   doc.save(`Calificaciones_${materia.nombre.replace(/[^\w]/g,'_')}_${grado}_${hoy.replace(/\//g,'-')}.pdf`);
     return true;
@@ -591,7 +590,6 @@ export default function SistemaCalificaciones() {
       const todosUsuarios = snaps.docs.map(snap => snap.data());
 
       if (d.rol === 'docente_grado') {
-        // Para docentes de grado: un solo docente por grado
         const gradoOcupado = todosUsuarios.find(u =>
           u.rol === 'docente_grado' && u.gradoAsignado === d.gradoAsignado
         );
@@ -603,7 +601,6 @@ export default function SistemaCalificaciones() {
           return;
         }
       } else if (d.rol === 'area_especial') {
-        // Para especiales: una área + grado específico no puede repetirse
         for (const ma of d.materiasAsignadas) {
           if (!ma.grados || ma.grados.length === 0) continue;
           const conflicto = todosUsuarios.find(u =>
@@ -623,7 +620,11 @@ export default function SistemaCalificaciones() {
           }
         }
       }
-    } catch (e) { console.warn('Validación duplicados falló:', e); }
+    } catch (e) {
+      console.warn('Validación duplicados falló:', e);
+      await showAlert('No se pudo verificar si ya existe un docente asignado. Revisá tu conexión e intentá de nuevo.', 'warning', 'Error de verificación');
+      return;
+    }
 
     setRegistroCargando(true);
     try {
@@ -870,8 +871,9 @@ export default function SistemaCalificaciones() {
                 <div className="flex gap-2">
                   <button onClick={async () => {
                     await aprobarDocente(sol.uid);
-                    setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
-                    if (solicitudes.length <= 1) setShowModalSolicitudes(false);
+                    const nuevas = solicitudes.filter(s => s.uid !== sol.uid);
+                    setSolicitudes(nuevas);
+                    if (nuevas.length === 0) setShowModalSolicitudes(false);
                   }}
                     className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
                     ✅ Aprobar
@@ -881,8 +883,9 @@ export default function SistemaCalificaciones() {
                     if (!ok) return;
                     try {
                       await deleteDoc(doc(db, 'usuarios', sol.uid));
-                      setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
-                      if (solicitudes.length <= 1) setShowModalSolicitudes(false);
+                      const nuevas = solicitudes.filter(s => s.uid !== sol.uid);
+                      setSolicitudes(nuevas);
+                      if (nuevas.length === 0) setShowModalSolicitudes(false);
                     } catch (e) { console.error(e); }
                   }}
                     className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
