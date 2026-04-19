@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, Save, Plus, Trash2, LogOut, Lock, Eye, EyeOff, Search, X, Mail } from 'lucide-react';
+import { Home, Save, Plus, Trash2, LogOut, Lock, Eye, EyeOff, Search, X, Mail, CheckCircle, Lock as LockIcon, Unlock, FileDown } from 'lucide-react';
 import { auth, db } from './firebase';
 import {
   createUserWithEmailAndPassword,
@@ -8,13 +8,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  onSnapshot
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, getDocs, query, where
 } from 'firebase/firestore';
  
 // ─── DATOS ESTÁTICOS ────────────────────────────────────────────────────────
@@ -45,11 +39,15 @@ const areas = {
  
 const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','2°E','3°A','3°B','3°C','3°D','3°E','4°A','4°B','4°C','4°D','4°E','5°A','5°B','5°C','5°D','5°E','6°A','6°B','6°C','6°D','6°E','7°A','7°B','7°C','7°D','7°E'];
  
+// Formato visual del grado: 7°A → 7° "A"  (solo para mostrar, la clave interna sigue siendo 7°A)
+const gradoLabel = (g) => g ? g.replace(/°([A-Z])/, '° "$1"') : g;
+ 
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 const asegurarEstructuraEstudiante = (estudiante) => {
   const bimestres = { ...estudiante.bimestres || {} };
   for (let i = 1; i <= 4; i++) {
-    if (!bimestres[i]) bimestres[i] = { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'' };
+    if (!bimestres[i]) bimestres[i] = { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' };
+    if (bimestres[i].observacion === undefined) bimestres[i].observacion = '';
   }
   return { ...estudiante, bimestres };
 };
@@ -194,7 +192,7 @@ function ChipsGrado({ lista, seleccionado, onChange }) {
       {lista.map(g => (
         <button key={g} onClick={() => onChange(g)}
           className={`chip-grado px-4 py-2 rounded-xl font-bold text-sm ${seleccionado === g ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700'}`}>
-          {g}
+          {gradoLabel(g)}
         </button>
       ))}
     </div>
@@ -273,6 +271,97 @@ function NotaInput({ value, onCommit, title }) {
   );
 }
  
+// ─── TOAST DE FEEDBACK ───────────────────────────────────────────────────────
+function Toast({ visible }) {
+  if (!visible) return null;
+  return (
+    <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-2 bg-green-500 text-white px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm"
+      style={{ animation: 'fadeIn 0.2s ease-out' }}>
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5L7 13.5L15 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      Guardado en la nube ☁️
+    </div>
+  );
+}
+ 
+// ─── GENERADOR DE PDF ────────────────────────────────────────────────────────
+async function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario, gradoLabel, calcularCuatrimestre, calcularPromedioFinal }) {
+  const { jsPDF } = await import('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm');
+  const { default: autoTable } = await import('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.1/+esm');
+ 
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const hoy = new Date().toLocaleDateString('es-AR');
+  const nombreDocente = usuario?.nombre || '—';
+ 
+  // Header violeta
+  doc.setFillColor(124, 58, 237);
+  doc.rect(0, 0, pageW, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 10, { align: 'center' });
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Asignatura: ${materia.nombre}   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}`, pageW / 2, 18, { align: 'center' });
+  doc.text(`Fecha de emisión: ${hoy}`, pageW / 2, 24, { align: 'center' });
+ 
+  // Cabecera de tabla
+  const head = [['Apellido y Nombres', '1° Bimestre', '2° Bimestre', '1° Cuatrim.', '3° Bimestre', '4° Bimestre', '2° Cuatrim.', 'Prom. Final']];
+ 
+  const body = estActuales.map(e => {
+    const b1 = e.bimestres?.[1]?.nota || '';
+    const b2 = e.bimestres?.[2]?.nota || '';
+    const b3 = e.bimestres?.[3]?.nota || '';
+    const b4 = e.bimestres?.[4]?.nota || '';
+    const c1 = calcularCuatrimestre(b1, b2) || '—';
+    const c2 = calcularCuatrimestre(b3, b4) || '—';
+    const pf = calcularPromedioFinal(b1, b2, b3, b4) || '—';
+    return [e.nombre, b1||'—', b2||'—', c1, b3||'—', b4||'—', c2, pf];
+  });
+ 
+  autoTable(doc, {
+    startY: 32,
+    head,
+    body,
+    styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, halign: 'center' },
+    headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 62 },
+      3: { fillColor: [237, 233, 254] },
+      6: { fillColor: [237, 233, 254] },
+      7: { fillColor: [199, 210, 254], fontStyle: 'bold' },
+    },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 7) {
+        const val = parseFloat(data.cell.raw);
+        if (!isNaN(val)) {
+          data.cell.styles.textColor = val >= 7 ? [22, 163, 74] : val >= 4 ? [180, 83, 9] : [220, 38, 38];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+  });
+ 
+  // Criterios al pie
+  const todosLoscrits = [1,2,3,4].flatMap(b => (criteriosPorBimestre[b]||[]).map(c => `${b}°: ${c}`));
+  const finalY = doc.lastAutoTable.finalY + 12;
+  if (todosLoscrits.length > 0) {
+    doc.setFontSize(7); doc.setTextColor(130,130,130);
+    doc.text('Criterios de evaluación: ' + todosLoscrits.join('  ·  '), 14, finalY, { maxWidth: pageW - 28 });
+  }
+ 
+  // Firma
+  const firmaY = finalY + (todosLoscrits.length > 0 ? 12 : 0);
+  doc.setTextColor(60,60,60); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+  doc.text('_ _ _ _ _ _ _ _ _ _ _ _ _ _ _', 40, firmaY + 4);
+  doc.text(nombreDocente, 40, firmaY + 10);
+  doc.text(`Prof. ${materia.nombre}`, 40, firmaY + 15);
+  doc.text(hoy, 40, firmaY + 20);
+ 
+  doc.save(`Calificaciones_${materia.nombre.replace(/[^\w]/g,'_')}_${grado}_${hoy.replace(/\//g,'-')}.pdf`);
+}
+ 
 // ════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
@@ -288,6 +377,10 @@ export default function SistemaCalificaciones() {
   const [alumnosGlobales, setAlumnosGlobales] = useState({});
   const [criteriosPorBimestre, setCriteriosPorBimestre] = useState({ 1: [], 2: [], 3: [], 4: [] });
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
+  const [bimestresBlockeados, setBimestresBlockeados] = useState({ 1: false, 2: false, 3: false, 4: false });
+  const [toastVisible, setToastVisible] = useState(false);
+  const toastTimer = useRef(null);
+  const [pdfGenerando, setPdfGenerando] = useState(false);
  
   // Login con email real
   const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
@@ -401,10 +494,10 @@ export default function SistemaCalificaciones() {
       return {
         id: `${alumno.dni}_${Date.now()}`, nombre: alumno.nombre, dni: alumno.dni,
         bimestres: {
-          1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'' },
-          2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'' },
-          3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'' },
-          4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'' },
+          1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
         }
       };
     });
@@ -417,9 +510,11 @@ export default function SistemaCalificaciones() {
         const d = snap.data();
         setDocenteNombre({ actual: '', guardado: d.docente || '' });
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
+        setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       } else {
         setDocenteNombre({ actual: '', guardado: '' });
         setCriteriosPorBimestre({ 1: [], 2: [], 3: [], 4: [] });
+        setBimestresBlockeados({ 1: false, 2: false, 3: false, 4: false });
       }
     };
     cargarConfig();
@@ -469,6 +564,45 @@ export default function SistemaCalificaciones() {
     if (d.password.length < 6) {
       await showAlert('La contraseña debe tener al menos 6 caracteres.', 'warning'); return;
     }
+    // ── Validación de duplicados ──
+    try {
+      const snapUsuarios = await getDoc(doc(db, 'datos', 'usuariosIndex'));
+      // Buscamos en la colección usuarios directamente      
+      const q = query(collection(db, 'usuarios'), where('activo', '!=', null));
+      const snaps = await getDocs(q);
+      const todosUsuarios = snaps.docs.map(d => d.data());
+ 
+      if (d.rol === 'docente_grado') {
+        const gradoOcupado = todosUsuarios.find(u =>
+          u.rol === 'docente_grado' && u.gradoAsignado === d.gradoAsignado &&
+          u.materiasAsignadas?.some(m => d.materiasAsignadas.includes(m))
+        );
+        if (gradoOcupado) {
+          const materiasConflicto = (gradoOcupado.materiasAsignadas || []).filter(m => d.materiasAsignadas.includes(m));
+          await showAlert(
+            `Atención: Ya existe un/a docente a cargo de "${materiasConflicto.join(', ')}" en ${gradoLabel(d.gradoAsignado)}. Por favor, verificá tus datos o consultá en Dirección.`,
+            'warning', '⚠️ Asignación duplicada'
+          );
+          return;
+        }
+      } else if (d.rol === 'area_especial') {
+        for (const ma of d.materiasAsignadas) {
+          const conflicto = todosUsuarios.find(u =>
+            u.rol === 'area_especial' &&
+            u.materiasAsignadas?.some(um => um.nombre === ma.nombre && um.grados?.some(g => ma.grados.includes(g)))
+          );
+          if (conflicto) {
+            const gradosConflicto = (conflicto.materiasAsignadas?.find(um => um.nombre === ma.nombre)?.grados || []).filter(g => ma.grados.includes(g));
+            await showAlert(
+              `Atención: Ya existe un/a docente a cargo de "${ma.nombre}" en ${gradosConflicto.map(gradoLabel).join(', ')}. Por favor, verificá tus datos o consultá en Dirección.`,
+              'warning', '⚠️ Asignación duplicada'
+            );
+            return;
+          }
+        }
+      }
+    } catch (e) { /* Si falla la validación, continuamos igual */ }
+ 
     setRegistroCargando(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, d.email.trim(), d.password);
@@ -555,7 +689,14 @@ export default function SistemaCalificaciones() {
     }
   };
  
+  const showToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastVisible(true);
+    toastTimer.current = setTimeout(() => setToastVisible(false), 1800);
+  }, []);
+ 
   const actualizarCampo = (id, bimestre, campo, valor) => {
+    if (bimestresBlockeados[bimestre]) return; // bloqueado
     const key = `${materia.nombre}-${grado}`;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
     setEstudiantes(prev => {
@@ -570,9 +711,33 @@ export default function SistemaCalificaciones() {
         return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBim } };
       });
       nuevos[key] = lista;
-      setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
+      setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true })
+        .then(() => showToast());
       return nuevos;
     });
+  };
+ 
+  const actualizarObservacion = (id, bimestre, texto) => {
+    if (bimestresBlockeados[bimestre]) return;
+    const key = `${materia.nombre}-${grado}`;
+    const fsKey = safeKey(`${materia.nombre}_${grado}`);
+    setEstudiantes(prev => {
+      const nuevos = { ...prev };
+      const lista = (nuevos[key] || []).map(est => {
+        if (est.id !== id) return est;
+        return { ...est, bimestres: { ...est.bimestres, [bimestre]: { ...est.bimestres[bimestre], observacion: texto } } };
+      });
+      nuevos[key] = lista;
+      setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true })
+        .then(() => showToast());
+      return nuevos;
+    });
+  };
+ 
+  const toggleBloquearBimestre = async (bim) => {
+    const nuevo = { ...bimestresBlockeados, [bim]: !bimestresBlockeados[bim] };
+    setBimestresBlockeados(nuevo);
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevo }, { merge: true });
   };
  
   const agregarCriterio = async (bimestre) => {
@@ -643,7 +808,7 @@ export default function SistemaCalificaciones() {
  
   const rolLabel = (u) => {
     if (!u) return '';
-    if (u.rol === 'docente_grado') return `Docente de Grado • ${u.gradoAsignado}`;
+    if (u.rol === 'docente_grado') return `Docente de Grado • ${gradoLabel(u.gradoAsignado)}`;
     if (u.rol === 'area_especial') return 'Docente Área Especial';
     return 'Administrador';
   };
@@ -754,7 +919,7 @@ export default function SistemaCalificaciones() {
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${loginForm.recordarme ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
                     {loginForm.recordarme && <svg width="11" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
-                  <span className="text-sm text-gray-600 font-semibold">Recordar mi correo</span>
+                  <span className="text-sm text-gray-600 font-semibold">Recordarme</span>
                 </label>
                 <button onClick={handleLogin} disabled={loginCargando}
                   className="btn-primary w-full py-3 rounded-xl font-extrabold text-white text-lg shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
@@ -792,7 +957,7 @@ export default function SistemaCalificaciones() {
                   <select value={registro.data.gradoAsignado}
                     onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, gradoAsignado: e.target.value } }))}
                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-purple-500">
-                    {grados.map(g => <option key={g} value={g}>{g}</option>)}
+                    {grados.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
                   </select>
                 )}
                 <div className="border-2 border-gray-200 rounded-xl p-3">
@@ -815,7 +980,7 @@ export default function SistemaCalificaciones() {
                         <div className="grid grid-cols-4 gap-1">
                           {grados.map(g => (
                             <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-white rounded p-1 cursor-pointer">
-                              <input type="checkbox" checked={ma.grados.includes(g)} onChange={() => toggleGradoRegistro(ma.nombre, g)} className="accent-purple-600" /> {g}
+                              <input type="checkbox" checked={ma.grados.includes(g)} onChange={() => toggleGradoRegistro(ma.nombre, g)} className="accent-purple-600" /> {gradoLabel(g)}
                             </label>
                           ))}
                         </div>
@@ -859,7 +1024,7 @@ export default function SistemaCalificaciones() {
               </div>
             )}
             <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
-              <h3 className="text-lg font-extrabold text-gray-800 mb-4">{alumnoForm.editando ? '✏️ Editar alumno' : '➕ Agregar alumno'} <span className="text-blue-600">• {gradoActual}</span></h3>
+              <h3 className="text-lg font-extrabold text-gray-800 mb-4">{alumnoForm.editando ? '✏️ Editar alumno' : '➕ Agregar alumno'} <span className="text-blue-600">• {gradoLabel(gradoActual)}</span></h3>
               <div className="flex flex-wrap gap-3">
                 <input type="text" value={alumnoForm.nombre} onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })} placeholder="Apellido y nombre(s)..."
                   className="flex-1 min-w-48 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
@@ -895,7 +1060,7 @@ export default function SistemaCalificaciones() {
                 );
                 if (coincidencias.length === 0) return (
                   <div className="mt-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-400 font-semibold">
-                    Sin resultados en {gradoActual}
+                    Sin resultados en {gradoLabel(gradoActual)}
                   </div>
                 );
                 return (
@@ -905,12 +1070,12 @@ export default function SistemaCalificaciones() {
                         className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-green-50 transition-colors">
                         <div>
                           <p className="font-bold text-gray-800 text-sm">{a.nombre}</p>
-                          <p className="text-xs text-gray-500 font-semibold">DNI: {a.dni} · {gradoActual}</p>
+                          <p className="text-xs text-gray-500 font-semibold">DNI: {a.dni} · {gradoLabel(gradoActual)}</p>
                         </div>
                       </div>
                     ))}
                     <div className="px-4 py-2 bg-green-50 text-xs text-green-700 font-bold">
-                      {coincidencias.length} resultado{coincidencias.length !== 1 ? 's' : ''} en {gradoActual}
+                      {coincidencias.length} resultado{coincidencias.length !== 1 ? 's' : ''} en {gradoLabel(gradoActual)}
                     </div>
                   </div>
                 );
@@ -918,14 +1083,14 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-extrabold text-gray-800">Lista · {gradoActual}</h3>
+                <h3 className="text-lg font-extrabold text-gray-800">Lista · {gradoLabel(gradoActual)}</h3>
                 <Badge color="blue">{alumnosGr.length} alumnos</Badge>
               </div>
               {alumnosGr.length === 0 ? (
                 <div className="text-center py-14 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-lg">No hay alumnos registrados</p></div>
               ) : (
                 <table className="w-full">
-                  <thead><tr className="tabla-header"><th className="p-3 text-left font-bold text-sm">#</th><th className="p-3 text-center font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
+                  <thead><tr className="tabla-header"><th className="p-3 text-left font-bold text-sm">#</th><th className="p-3 text-left font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
                   <tbody>
                     {alumnosGr.map((a, i) => (
                       <tr key={i} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
@@ -1096,6 +1261,17 @@ export default function SistemaCalificaciones() {
               <div className="flex flex-col gap-2">
                 <button onClick={() => setPantalla('inicio')} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
+                <button
+                  disabled={pdfGenerando || estActuales.length === 0}
+                  onClick={async () => {
+                    setPdfGenerando(true);
+                    try {
+                      await generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario, gradoLabel, calcularCuatrimestre, calcularPromedioFinal });
+                    } finally { setPdfGenerando(false); }
+                  }}
+                  className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
+                  <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
+                </button>
               </div>
             </div>
             {docenteNombre.guardado && (
@@ -1112,24 +1288,38 @@ export default function SistemaCalificaciones() {
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-4">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
+            <p className="text-sm text-gray-600 mb-4">Etiquetas para cada nota (n1, n2...). Ej: <em>Evaluación escrita, Concepto, Trabajo áulico...</em></p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(bim => (
-                <div key={bim} className="bg-white border-2 border-amber-100 rounded-xl p-4">
+                <div key={bim} className={`bg-white border-2 rounded-xl p-4 ${bimestresBlockeados[bim] ? 'border-red-200 bg-red-50' : 'border-amber-100'}`}>
                   <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-extrabold text-gray-700">{bim}° Bimestre</h4>
-                    {usuario?.rol !== 'administrador' && (
-                      <button onClick={() => agregarCriterio(bim)} className="btn-primary flex items-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"><Plus size={14} /> Agregar</button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-extrabold text-gray-700">{bim}° Bimestre</h4>
+                      {bimestresBlockeados[bim] && <span className="text-xs font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full">🔒 Cerrado</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
+                        <button onClick={() => agregarCriterio(bim)} className="btn-primary flex items-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"><Plus size={14} /> Agregar</button>
+                      )}
+                      {usuario?.rol !== 'administrador' && (
+                        <button
+                          onClick={() => toggleBloquearBimestre(bim)}
+                          title={bimestresBlockeados[bim] ? 'Desbloquear bimestre' : 'Cerrar bimestre (bloquear edición)'}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-colors ${bimestresBlockeados[bim] ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+                          {bimestresBlockeados[bim] ? <LockIcon size={13} /> : <Unlock size={13} />}
+                          {bimestresBlockeados[bim] ? 'Cerrado' : 'Cerrar'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {criteriosPorBimestre[bim]?.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">Sin criterios definidos.</p>
+                    <p className="text-xs text-gray-400 italic">Sin criterios aún.</p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {criteriosPorBimestre[bim].map((c, i) => (
                         <div key={i} className="flex items-center gap-1 bg-amber-50 border border-amber-300 px-3 py-1 rounded-lg">
                           <span className="text-xs font-bold text-gray-700">{c}</span>
-                          {usuario?.rol !== 'administrador' && (
+                          {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
                             <button onClick={() => eliminarCriterio(bim, c)} className="text-red-400 hover:text-red-600 transition-colors ml-1"><X size={12} /></button>
                           )}
                         </div>
@@ -1141,13 +1331,13 @@ export default function SistemaCalificaciones() {
             </div>
           </div>
           {estActuales.length === 0 ? (
-            <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay alumnos registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
+            <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay estudiantes registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="tabla-header">
-                    <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
+                    <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                     {[1, 2].map(b => (
                       <th key={b} className="p-2 text-center text-sm font-bold">
@@ -1177,8 +1367,10 @@ export default function SistemaCalificaciones() {
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
                     const CeldaBimestre = ({ bim }) => {
                       const crits = criteriosPorBimestre[bim] || [];
+                      const bloqueado = bimestresBlockeados[bim];
                       return (
-                        <td className="p-2 border-r border-gray-100" style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
+                        <td className={`p-2 border-r border-gray-100 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
+                          {bloqueado && <div className="text-center text-xs text-red-400 font-bold mb-1">🔒</div>}
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
                               <span className="text-xs font-bold text-gray-500 italic bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">Sin criterios</span>
@@ -1192,16 +1384,15 @@ export default function SistemaCalificaciones() {
                                       style={{ maxWidth: '64px', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
-                                    <NotaInput
-                                      value={val}
-                                      onCommit={v => actualizarCampo(e.id, bim, campo, v)}
-                                      title={crit}
-                                    />
+                                    {bloqueado ? (
+                                      <div className="nota-input flex items-center justify-center font-black text-gray-600">{val || '—'}</div>
+                                    ) : (
+                                      <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} />
+                                    )}
                                   </div>
                                 );
                               })
                             )}
-                            {/* Promedio del bimestre */}
                             {crits.length > 0 && (
                               <div className="flex flex-col items-center gap-0.5 ml-1">
                                 <span className="text-[9px] font-bold text-purple-500">Prom.</span>
@@ -1233,10 +1424,46 @@ export default function SistemaCalificaciones() {
             </div>
           )}
           <div className="mt-5 text-center text-xs text-gray-400 font-semibold">
-            ☁️ Los datos se sincronizan automáticamente con Firebase · {estActuales.length} estudiante(s) en {grado}
+            ☁️ Los datos se sincronizan automáticamente con Firebase · {estActuales.length} estudiante(s) en {gradoLabel(grado)}
           </div>
+ 
+          {/* ── Observaciones por alumno/bimestre ── */}
+          {estActuales.length > 0 && (
+            <div className="mt-8 bg-slate-50 border-2 border-slate-200 rounded-2xl p-5">
+              <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Observaciones por Alumno</h3>
+              <p className="text-sm text-gray-500 mb-5">Anotaciones sobre el rendimiento o situaciones de cada alumno en cada bimestre.</p>
+              <div className="flex flex-col gap-4">
+                {estActuales.map(e => (
+                  <div key={e.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                    <p className="font-extrabold text-gray-800 text-sm mb-3">👤 {e.nombre}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map(bim => {
+                        const bloqueado = bimestresBlockeados[bim];
+                        return (
+                          <div key={bim}>
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-1">
+                              {bim}° Bimestre {bloqueado && '🔒'}
+                            </label>
+                            <textarea
+                              disabled={bloqueado}
+                              rows={3}
+                              placeholder={bloqueado ? 'Bimestre cerrado' : 'Ej: Participa activamente, debe reforzar...'}
+                              className={`w-full text-xs p-2 border rounded-xl resize-none transition-colors focus:outline-none ${bloqueado ? 'bg-red-50 border-red-200 text-gray-400 cursor-not-allowed' : 'border-slate-200 focus:border-purple-400 bg-white'}`}
+                              value={e.bimestres?.[bim]?.observacion || ''}
+                              onChange={ev => actualizarObservacion(e.id, bim, ev.target.value)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      <Toast visible={toastVisible} />
       {showModalSolicitudes && <ModalSolicitudes />}
       {modalCerrarSesion && <ModalCerrarSesion />}
     </>
@@ -1355,7 +1582,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                                       <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md font-bold inline-block">{ma.nombre}</span>
                                       {ma.grados?.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-0.5 justify-center">
-                                          {ma.grados.map((g, j) => <span key={j} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{g}</span>)}
+                                          {ma.grados.map((g, j) => <span key={j} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{gradoLabel(g)}</span>)}
                                         </div>
                                       )}
                                     </div>
@@ -1453,7 +1680,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoSel}</strong>) para completar los boletines de calificaciones de los alumnos.
+              Vista de <strong>solo lectura</strong>. Aquí podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoLabel(gradoSel)}</strong>) para confeccionar las libretas.
             </p>
           </div>
  
@@ -1481,7 +1708,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                 </button>
                 <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
                   <span className="text-3xl">{materiasSel.icon}</span> {materiasSel.nombre}
-                  <Badge color="purple">{gradoSel}</Badge>
+                  <Badge color="purple">{gradoLabel(gradoSel)}</Badge>
                 </h3>
                 {configuracion.docente && (
                   <span className="text-sm text-gray-500 font-semibold">· Docente: <strong>{configuracion.docente}</strong></span>
@@ -1494,14 +1721,14 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                 <div className="text-center py-12 text-gray-400">
                   <p className="text-5xl mb-3">📭</p>
                   <p className="font-bold text-lg">Sin calificaciones cargadas aún</p>
-                  <p className="text-sm">El/la docente de {materiasSel.nombre} todavía no registró notas para {gradoSel}.</p>
+                  <p className="text-sm">El/la docente de {materiasSel.nombre} todavía no registró notas para {gradoLabel(gradoSel)}.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="tabla-header">
-                        <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
+                        <th className="p-3 text-left text-sm font-bold min-w-40">Estudiante</th>
                         <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                         {[1, 2].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
                         <th className="p-3 text-center text-sm font-bold bg-purple-800">1° Cuat.</th>
