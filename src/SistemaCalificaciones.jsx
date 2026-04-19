@@ -21,7 +21,7 @@ import {
 } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
- 
+
 // ─── DATOS ESTÁTICOS ────────────────────────────────────────────────────────
 const areas = {
   curriculares: [
@@ -47,12 +47,12 @@ const areas = {
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
   ]
 };
- 
+
 const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','2°E','3°A','3°B','3°C','3°D','3°E','4°A','4°B','4°C','4°D','4°E','5°A','5°B','5°C','5°D','5°E','6°A','6°B','6°C','6°D','6°E','7°A','7°B','7°C','7°D','7°E'];
- 
+
 // Formato visual del grado: 7°A → 7° "A"  (solo para mostrar, la clave interna sigue siendo 7°A)
 const gradoLabel = (g) => g ? g.replace(/°([A-Z])/, '° "$1"') : g;
- 
+
 // ─── UTILIDADES ─────────────────────────────────────────────────────────────
 const asegurarEstructuraEstudiante = (estudiante) => {
   const bimestres = { ...estudiante.bimestres || {} };
@@ -62,12 +62,12 @@ const asegurarEstructuraEstudiante = (estudiante) => {
   }
   return { ...estudiante, bimestres };
 };
- 
+
 const calcularCuatrimestre = (b1, b2) => {
   const n1 = parseFloat(b1), n2 = parseFloat(b2);
   return isNaN(n1) || isNaN(n2) ? '' : ((n1 + n2) / 2).toFixed(2);
 };
- 
+
 const calcularPromedioFinal = (b1, b2, b3, b4) => {
   const vals = [b1, b2, b3, b4].map(parseFloat).filter(n => !isNaN(n));
   if (vals.length < 4) return '';
@@ -75,9 +75,9 @@ const calcularPromedioFinal = (b1, b2, b3, b4) => {
   const c2 = (vals[2] + vals[3]) / 2;
   return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
 };
- 
+
 const safeKey = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
- 
+
 // ─── SISTEMA DE MODALES ──────────────────────────────────────────────────────
 function useModal() {
   const [modal, setModal] = useState(null);
@@ -92,7 +92,7 @@ function useModal() {
   }, []);
   return { modal, showAlert, showConfirm, showPrompt, closeModal };
 }
- 
+
 function ModalRenderer({ modal, closeModal }) {
   const [inputVal, setInputVal] = useState('');
   useEffect(() => setInputVal(''), [modal]);
@@ -152,7 +152,7 @@ function ModalRenderer({ modal, closeModal }) {
     </div>
   );
 }
- 
+
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 const globalStyles = `
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
@@ -179,7 +179,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.05); }
 `;
- 
+
 // ─── SUBCOMPONENTES ──────────────────────────────────────────────────────────
 function TopBar({ titulo, onInicio, onCerrarSesion }) {
   return (
@@ -196,7 +196,7 @@ function TopBar({ titulo, onInicio, onCerrarSesion }) {
     </div>
   );
 }
- 
+
 function ChipsGrado({ lista, seleccionado, onChange }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -209,12 +209,12 @@ function ChipsGrado({ lista, seleccionado, onChange }) {
     </div>
   );
 }
- 
+
 function Badge({ children, color = 'purple' }) {
   const colores = { purple: 'bg-purple-100 text-purple-800', blue: 'bg-blue-100 text-blue-800', green: 'bg-green-100 text-green-800', red: 'bg-red-100 text-red-800' };
   return <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${colores[color]}`}>{children}</span>;
 }
- 
+
 function Spinner({ texto = 'Cargando...' }) {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)' }}>
@@ -225,23 +225,23 @@ function Spinner({ texto = 'Cargando...' }) {
     </div>
   );
 }
- 
+
 // ─── NOTA INPUT ─────────────────────────────────────────────────────────────
 // Estado local para evitar pérdida de foco al escribir números de 2 dígitos
 function NotaInput({ value, onCommit, title }) {
   const [local, setLocal] = useState(value ?? '');
- 
+
   useEffect(() => {
     setLocal(value ?? '');
   }, [value]);
- 
+
   const handleChange = (ev) => {
     const v = ev.target.value;
     if (/^(\d{0,2}([.,]\d{0,1})?)?$/.test(v)) {
       setLocal(v.replace(',', '.'));
     }
   };
- 
+
   const handleBlur = () => {
     const n = parseFloat(local);
     if (!isNaN(n) && local !== '') {
@@ -254,7 +254,7 @@ function NotaInput({ value, onCommit, title }) {
       onCommit('');
     }
   };
- 
+
   const step = (dir) => {
     const current = parseFloat(local) || 0;
     const next = Math.min(10, Math.max(1, Math.round((current + dir * 0.5) * 2) / 2));
@@ -262,7 +262,7 @@ function NotaInput({ value, onCommit, title }) {
     setLocal(final);
     onCommit(final);
   };
- 
+
   return (
     <div className="flex flex-col items-center" title={title}>
       <button type="button"
@@ -281,7 +281,7 @@ function NotaInput({ value, onCommit, title }) {
     </div>
   );
 }
- 
+
 // ─── TOAST DE FEEDBACK ───────────────────────────────────────────────────────
 function Toast({ visible }) {
   if (!visible) return null;
@@ -293,7 +293,7 @@ function Toast({ visible }) {
     </div>
   );
 }
- 
+
 // ─── GENERADOR DE PDF ────────────────────────────────────────────────────────
 function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario }) {
   try {
@@ -301,7 +301,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   const pageW = doc.internal.pageSize.getWidth();
   const hoy = new Date().toLocaleDateString('es-AR');
   const nombreDocente = usuario?.nombre || '—';
- 
+
   // Header violeta
   doc.setFillColor(124, 58, 237);
   doc.rect(0, 0, pageW, 28, 'F');
@@ -313,10 +313,10 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   doc.setFont('helvetica', 'normal');
   doc.text(`Asignatura: ${materia.nombre}   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}`, pageW / 2, 18, { align: 'center' });
   doc.text(`Fecha de emisión: ${hoy}`, pageW / 2, 24, { align: 'center' });
- 
+
   // Cabecera de tabla
   const head = [['Apellido y Nombres', '1° Bimestre', '2° Bimestre', '1° Cuatrim.', '3° Bimestre', '4° Bimestre', '2° Cuatrim.', 'Prom. Final']];
- 
+
   const body = estActuales.map(e => {
     const b1 = e.bimestres?.[1]?.nota || '';
     const b2 = e.bimestres?.[2]?.nota || '';
@@ -327,7 +327,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     const pf = calcularPromedioFinal(b1, b2, b3, b4) || '—';
     return [e.nombre, b1||'—', b2||'—', c1, b3||'—', b4||'—', c2, pf];
   });
- 
+
   autoTable(doc, {
     startY: 32,
     head,
@@ -351,7 +351,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
       }
     },
   });
- 
+
   // Criterios al pie
   const todosLoscrits = [1,2,3,4].flatMap(b => (criteriosPorBimestre[b]||[]).map(c => `${b}°: ${c}`));
   const finalY = doc.lastAutoTable.finalY + 12;
@@ -359,15 +359,19 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     doc.setFontSize(7); doc.setTextColor(130,130,130);
     doc.text('Criterios de evaluación: ' + todosLoscrits.join('  ·  '), 14, finalY, { maxWidth: pageW - 28 });
   }
- 
+
   // Firma
   const firmaY = finalY + (todosLoscrits.length > 0 ? 12 : 0);
+  const esDocGrado = usuario?.rol === 'docente_grado';
+  const lineaRol = esDocGrado
+    ? `Docente ${gradoLabel(grado)}`
+    : `Prof. ${materia.nombre}`;
   doc.setTextColor(60,60,60); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
   doc.text('_ _ _ _ _ _ _ _ _ _ _ _ _ _ _', 40, firmaY + 4);
   doc.text(nombreDocente, 40, firmaY + 10);
-  doc.text(`Prof. ${materia.nombre}`, 40, firmaY + 15);
+  doc.text(lineaRol, 40, firmaY + 15);
   doc.text(hoy, 40, firmaY + 20);
- 
+
   doc.save(`Calificaciones_${materia.nombre.replace(/[^\w]/g,'_')}_${grado}_${hoy.replace(/\//g,'-')}.pdf`);
     return true;
   } catch(err) {
@@ -375,13 +379,13 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     return false;
   }
 }
- 
+
 // ════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
 export default function SistemaCalificaciones() {
   const { modal, showAlert, showConfirm, showPrompt, closeModal } = useModal();
- 
+
   const [pantalla, setPantalla] = useState('cargando');
   const [usuario, setUsuario] = useState(null);
   const [authUser, setAuthUser] = useState(null);
@@ -395,50 +399,53 @@ export default function SistemaCalificaciones() {
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
- 
+
   // Login con email real
   const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
   const [loginCargando, setLoginCargando] = useState(false);
- 
+
   // Cargar email guardado si el usuario lo había marcado
   useEffect(() => {
     const emailGuardado = localStorage.getItem('recordar-email');
     if (emailGuardado) setLoginForm(prev => ({ ...prev, email: emailGuardado, recordarme: true }));
   }, []);
- 
+
   // Registro con email real
   const [registro, setRegistro] = useState({
     show: false,
     data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] }
   });
   const [registroCargando, setRegistroCargando] = useState(false);
- 
+
   const [solicitudes, setSolicitudes] = useState([]);
   const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
   const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', editando: null });
   const [busquedaDNI, setBusquedaDNI] = useState('');
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
- 
+
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
     setBusquedaDNI('');
     setResultadoBusqueda(null);
   }, [grado]);
- 
+
   const inactividadTimeout = useRef(null);
- 
+
   const cerrarSesion = useCallback(async () => {
     await signOut(auth);
     setUsuario(null); setAuthUser(null); setPantalla('login'); setModalCerrarSesion(false);
     if (inactividadTimeout.current) clearTimeout(inactividadTimeout.current);
+    // Limpiar contraseña al cerrar sesión; mantener email solo si recordarme está guardado
+    const emailGuardado = localStorage.getItem('recordar-email');
+    setLoginForm({ email: emailGuardado || '', pass: '', verPass: false, recordarme: !!emailGuardado });
   }, []);
- 
+
   const resetInactividad = useCallback(() => {
     if (inactividadTimeout.current) clearTimeout(inactividadTimeout.current);
     inactividadTimeout.current = setTimeout(cerrarSesion, 10 * 60 * 1000);
   }, [cerrarSesion]);
- 
+
   // ── Auth state ──
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -465,7 +472,7 @@ export default function SistemaCalificaciones() {
       if (inactividadTimeout.current) clearTimeout(inactividadTimeout.current);
     };
   }, [resetInactividad]);
- 
+
   // ── Solicitudes pendientes ──
   useEffect(() => {
     if (!authUser || usuario?.rol !== 'administrador') return;
@@ -475,7 +482,7 @@ export default function SistemaCalificaciones() {
     });
     return () => unsub();
   }, [authUser, usuario]);
- 
+
   // ── Alumnos globales ──
   useEffect(() => {
     if (!authUser) return;
@@ -484,7 +491,7 @@ export default function SistemaCalificaciones() {
     });
     return () => unsub();
   }, [authUser]);
- 
+
   // ── Calificaciones ──
   useEffect(() => {
     if (!authUser || !materia) return;
@@ -495,7 +502,7 @@ export default function SistemaCalificaciones() {
     });
     return () => unsub();
   }, [authUser, materia, grado]);
- 
+
   // ── Sincronizar alumnos ──
   useEffect(() => {
     if (!materia || !alumnosGlobales[grado]) return;
@@ -534,11 +541,11 @@ export default function SistemaCalificaciones() {
     cargarConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grado, materia, alumnosGlobales]);
- 
+
   // ════════════════════════════════════════════════════════
   // HANDLERS
   // ════════════════════════════════════════════════════════
- 
+
   const handleLogin = async () => {
     if (!loginForm.email.trim() || !loginForm.pass.trim()) {
       await showAlert('Ingresá tu correo y contraseña.', 'warning'); return;
@@ -566,7 +573,7 @@ export default function SistemaCalificaciones() {
       setLoginCargando(false);
     }
   };
- 
+
   const handleRegistro = async () => {
     const d = registro.data;
     if (!d.nombre.trim() || !d.email.trim() || !d.password.trim()) {
@@ -580,10 +587,9 @@ export default function SistemaCalificaciones() {
     }
     // ── Validación de duplicados ──
     try {
-      const q = query(collection(db, 'usuarios'), where('activo', '!=', null));
-      const snaps = await getDocs(q);
+      const snaps = await getDocs(collection(db, 'usuarios'));
       const todosUsuarios = snaps.docs.map(snap => snap.data());
- 
+
       if (d.rol === 'docente_grado') {
         // Para docentes de grado: un solo docente por grado
         const gradoOcupado = todosUsuarios.find(u =>
@@ -618,7 +624,7 @@ export default function SistemaCalificaciones() {
         }
       }
     } catch (e) { console.warn('Validación duplicados falló:', e); }
- 
+
     setRegistroCargando(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, d.email.trim(), d.password);
@@ -641,21 +647,20 @@ export default function SistemaCalificaciones() {
       setRegistroCargando(false);
     }
   };
- 
+
   const aprobarDocente = async (uid) => {
     try {
       await updateDoc(doc(db, 'usuarios', uid), { activo: true });
-      await showAlert('Docente aprobado con éxito.', 'success');
     } catch (error) { console.error('Error al aprobar:', error); }
   };
- 
+
   const abrirMateria = (m) => {
     setMateria(m);
     const gradosAsig = getGradosParaMateria(m.nombre);
     setGrado(gradosAsig[0] || '1°A');
     setPantalla('materia');
   };
- 
+
   const agregarAlumno = async () => {
     if (!alumnoForm.nombre.trim() || !alumnoForm.dni.trim()) {
       await showAlert('Completá el nombre y el DNI del alumno.', 'warning'); return;
@@ -675,7 +680,7 @@ export default function SistemaCalificaciones() {
     await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
     setAlumnoForm({ nombre: '', dni: '', editando: null });
   };
- 
+
   const eliminarAlumno = async (alumno) => {
     const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
     const ok = await showConfirm(`¿Eliminás a "${alumno.nombre}"? Se borrarán sus calificaciones en TODAS las materias del grado.`, 'Eliminar alumno');
@@ -684,7 +689,7 @@ export default function SistemaCalificaciones() {
       ...alumnosGlobales, [gradoActual]: (alumnosGlobales[gradoActual] || []).filter(a => a.dni !== alumno.dni)
     });
   };
- 
+
   const buscarAlumnoPorDNI = async () => {
     if (!busquedaDNI.trim()) return;
     const termino = busquedaDNI.trim().toLowerCase();
@@ -704,13 +709,13 @@ export default function SistemaCalificaciones() {
       await showAlert(`No se encontró ningún alumno con ese nombre o DNI.`, 'warning', 'Sin resultados');
     }
   };
- 
+
   const showToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToastVisible(true);
     toastTimer.current = setTimeout(() => setToastVisible(false), 1800);
   }, []);
- 
+
   const actualizarCampo = (id, bimestre, campo, valor) => {
     if (bimestresBlockeados[bimestre]) return; // bloqueado
     const key = `${materia.nombre}-${grado}`;
@@ -732,7 +737,7 @@ export default function SistemaCalificaciones() {
       return nuevos;
     });
   };
- 
+
   const actualizarObservacion = (id, bimestre, texto) => {
     if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
@@ -749,13 +754,13 @@ export default function SistemaCalificaciones() {
       return nuevos;
     });
   };
- 
+
   const toggleBloquearBimestre = async (bim) => {
     const nuevo = { ...bimestresBlockeados, [bim]: !bimestresBlockeados[bim] };
     setBimestresBlockeados(nuevo);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevo }, { merge: true });
   };
- 
+
   const agregarCriterio = async (bimestre) => {
     const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Evaluación escrita, Concepto...', 'Nuevo criterio');
     if (!c?.trim()) return;
@@ -763,7 +768,7 @@ export default function SistemaCalificaciones() {
     setCriteriosPorBimestre(nuevos);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
   };
- 
+
   const eliminarCriterio = async (bimestre, c) => {
     const ok = await showConfirm(`¿Eliminás el criterio "${c}" del ${bimestre}° Bimestre?`, 'Eliminar criterio');
     if (!ok) return;
@@ -771,14 +776,14 @@ export default function SistemaCalificaciones() {
     setCriteriosPorBimestre(nuevosCrit);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevosCrit }, { merge: true });
   };
- 
+
   const guardarDocente = async () => {
     if (!docenteNombre.actual.trim()) { await showAlert('Ingresá el nombre del docente antes de guardar.', 'warning'); return; }
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { docente: docenteNombre.actual.trim() }, { merge: true });
     setDocenteNombre({ actual: '', guardado: docenteNombre.actual.trim() });
     await showAlert('Guardado correctamente.', 'success', 'Guardado');
   };
- 
+
   // ── Getters de roles ──
   const getMateriasDisponibles = () => {
     if (!usuario) return [];
@@ -787,7 +792,7 @@ export default function SistemaCalificaciones() {
     if (usuario.rol === 'area_especial') return [...areas.especiales, ...areas.talleres].filter(m => usuario.materiasAsignadas.some(ma => ma.nombre === m.nombre));
     return [];
   };
- 
+
   const getGradosParaMateria = (materiaNombre) => {
     if (!usuario) return [];
     if (usuario.rol === 'administrador') return grados;
@@ -798,13 +803,13 @@ export default function SistemaCalificaciones() {
     }
     return [];
   };
- 
+
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActuales = estudiantes[`${materia?.nombre}-${grado}`] || [];
   const alumnosGr = alumnosGlobales[usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado] || [];
   const puedeGestionarAlumnos = ['docente_grado', 'administrador'].includes(usuario?.rol);
   const puedeGestionarUsuarios = usuario?.rol === 'administrador';
- 
+
   const toggleMateriaRegistro = (mNombre) => {
     const d = registro.data;
     if (d.rol === 'docente_grado') {
@@ -813,7 +818,7 @@ export default function SistemaCalificaciones() {
       setRegistro({ ...registro, data: { ...d, materiasAsignadas: d.materiasAsignadas.some(ma => ma.nombre === mNombre) ? d.materiasAsignadas.filter(ma => ma.nombre !== mNombre) : [...d.materiasAsignadas, { nombre: mNombre, grados: [] }] } });
     }
   };
- 
+
   const toggleGradoRegistro = (mNombre, g) => {
     const d = registro.data;
     setRegistro({ ...registro, data: { ...d, materiasAsignadas: d.materiasAsignadas.map(ma => {
@@ -821,14 +826,14 @@ export default function SistemaCalificaciones() {
       return { ...ma, grados: ma.grados.includes(g) ? ma.grados.filter(x => x !== g) : [...ma.grados, g] };
     })}});
   };
- 
+
   const rolLabel = (u) => {
     if (!u) return '';
     if (u.rol === 'docente_grado') return `Docente de Grado • ${gradoLabel(u.gradoAsignado)}`;
     if (u.rol === 'area_especial') return 'Docente Área Especial';
     return 'Administrador';
   };
- 
+
   // ── Modales internos ──
   const ModalCerrarSesion = () => (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
@@ -842,7 +847,7 @@ export default function SistemaCalificaciones() {
       </div>
     </div>
   );
- 
+
   const ModalSolicitudes = () => (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ animation: 'modalEntrada 0.2s ease-out' }}>
@@ -863,7 +868,11 @@ export default function SistemaCalificaciones() {
                   {sol.gradoAsignado && <p className="text-sm text-slate-600">📚 Grado: {gradoLabel(sol.gradoAsignado)}</p>}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={async () => { await aprobarDocente(sol.uid); setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid)); }}
+                  <button onClick={async () => {
+                    await aprobarDocente(sol.uid);
+                    setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
+                    if (solicitudes.length <= 1) setShowModalSolicitudes(false);
+                  }}
                     className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
                     ✅ Aprobar
                   </button>
@@ -873,6 +882,7 @@ export default function SistemaCalificaciones() {
                     try {
                       await deleteDoc(doc(db, 'usuarios', sol.uid));
                       setSolicitudes(prev => prev.filter(s => s.uid !== sol.uid));
+                      if (solicitudes.length <= 1) setShowModalSolicitudes(false);
                     } catch (e) { console.error(e); }
                   }}
                     className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-all shadow-md">
@@ -889,15 +899,15 @@ export default function SistemaCalificaciones() {
       </div>
     </div>
   );
- 
+
   // ════════════════════════════════════════════════════════
   // RENDERS POR PANTALLA
   // ════════════════════════════════════════════════════════
- 
+
   if (pantalla === 'cargando') return (
     <><style>{globalStyles}</style><Spinner texto="Verificando sesión..." /></>
   );
- 
+
   if (pantalla === 'login') return (
     <>
       <style>{globalStyles}</style>
@@ -1032,7 +1042,7 @@ export default function SistemaCalificaciones() {
       </div>
     </>
   );
- 
+
   if (pantalla === 'administracion') {
     const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
     return (
@@ -1144,7 +1154,7 @@ export default function SistemaCalificaciones() {
       </>
     );
   }
- 
+
   if (pantalla === 'gestion_usuarios') {
     return (
       <GestionUsuarios db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
@@ -1154,7 +1164,7 @@ export default function SistemaCalificaciones() {
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
     );
   }
- 
+
   if (pantalla === 'inicio') {
     const materiasDisp = getMateriasDisponibles();
     const curricularesFilt = areas.curriculares.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
@@ -1256,7 +1266,7 @@ export default function SistemaCalificaciones() {
       </>
     );
   }
- 
+
   // ════════════════════════════════════════════════════════
   // PANTALLA: NOTAS ÁREAS ESPECIALES (solo lectura, para maestras de grado)
   // ════════════════════════════════════════════════════════
@@ -1271,7 +1281,7 @@ export default function SistemaCalificaciones() {
       />
     );
   }
- 
+
   // ════════════════════════════════════════════════════════
   // PANTALLA: MATERIA
   // ════════════════════════════════════════════════════════
@@ -1458,7 +1468,7 @@ export default function SistemaCalificaciones() {
           <div className="mt-5 text-center text-xs text-gray-400 font-semibold">
             ☁️ Los datos se sincronizan automáticamente con Firebase · {estActuales.length} estudiante(s) en {gradoLabel(grado)}
           </div>
- 
+
           {/* ── Observaciones generales ── */}
           {estActuales.length > 0 && (
             <ObservacionesGenerales
@@ -1477,7 +1487,7 @@ export default function SistemaCalificaciones() {
     </>
   );
 }
- 
+
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Observaciones Generales por materia/grado
 // ════════════════════════════════════════════════════════
@@ -1486,7 +1496,7 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
   const [texto, setTexto] = useState('');
   const [cargado, setCargado] = useState(false);
   const timerRef = useRef(null);
- 
+
   useEffect(() => {
     setCargado(false);
     getDoc(doc(db, 'observaciones', fsKey)).then(snap => {
@@ -1494,7 +1504,7 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
       setCargado(true);
     });
   }, [fsKey, db]);
- 
+
   const handleChange = (ev) => {
     const val = ev.target.value;
     setTexto(val);
@@ -1504,7 +1514,7 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
       if (showToast) showToast();
     }, 800);
   };
- 
+
   if (!cargado) return null;
   return (
     <div className="mt-8 bg-slate-50 border-2 border-slate-200 rounded-2xl p-5">
@@ -1521,21 +1531,22 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
     </div>
   );
 }
- 
+
 // ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
 function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
- 
+  const [editando, setEditando] = useState(null);
+
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
       setUsuarios(snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(u => u.rol !== 'administrador'));
     });
     return () => unsub();
   }, [db]);
- 
+
   const eliminarUsuario = async (u) => {
     const ok = await showConfirm(
       `¿Eliminás al docente "${u.nombre}" (${u.email})? Esta acción no se puede deshacer.`,
@@ -1550,15 +1561,40 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
       await showAlert('Hubo un error al eliminar el docente. Intentá de nuevo.', 'error');
     }
   };
- 
-  // Filtro predictivo
+
+  const guardarEdicion = async () => {
+    if (!editando) return;
+    try {
+      await updateDoc(doc(db, 'usuarios', editando.uid), {
+        gradoAsignado: editando.rol === 'docente_grado' ? editando.gradoAsignado : null,
+        materiasAsignadas: editando.materiasAsignadas,
+      });
+      await showAlert('Datos del docente actualizados correctamente.', 'success', 'Guardado');
+      setEditando(null);
+    } catch (e) {
+      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
+    }
+  };
+
+  const toggleGradoEdicion = (mNombre, g) => {
+    setEditando(prev => ({
+      ...prev,
+      materiasAsignadas: prev.materiasAsignadas.map(ma =>
+        ma.nombre !== mNombre ? ma : {
+          ...ma,
+          grados: ma.grados.includes(g) ? ma.grados.filter(x => x !== g) : [...ma.grados, g]
+        }
+      )
+    }));
+  };
+
   const usuariosFiltrados = busqueda.trim() === ''
     ? usuarios
     : usuarios.filter(u =>
         u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
         u.email?.toLowerCase().includes(busqueda.toLowerCase())
       );
- 
+
   return (
     <>
       <style>{globalStyles}</style>
@@ -1566,7 +1602,84 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
       <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
         <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
           <TopBar titulo="👤 Gestión de Docentes" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
- 
+
+          {/* Modal de edición */}
+          {editando && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+                style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+                <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
+                  <h3 className="text-lg font-bold text-green-800">✏️ Editar asignaciones — {editando.nombre}</h3>
+                  <button onClick={() => setEditando(null)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+                </div>
+                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto space-y-4">
+                  {editando.rol === 'docente_grado' && (
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grado asignado</label>
+                      <select
+                        value={editando.gradoAsignado || ''}
+                        onChange={e => setEditando(prev => ({ ...prev, gradoAsignado: e.target.value }))}
+                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-green-500">
+                        {grados.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
+                      </select>
+                      <div className="mt-4">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Materias asignadas</label>
+                        <div className="border-2 border-gray-100 rounded-xl p-3 space-y-1">
+                          {areas.curriculares.map(m => (
+                            <label key={m.nombre} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+                              <input type="checkbox"
+                                className="accent-green-600 w-4 h-4"
+                                checked={editando.materiasAsignadas?.includes(m.nombre) || false}
+                                onChange={() => setEditando(prev => ({
+                                  ...prev,
+                                  materiasAsignadas: prev.materiasAsignadas?.includes(m.nombre)
+                                    ? prev.materiasAsignadas.filter(x => x !== m.nombre)
+                                    : [...(prev.materiasAsignadas || []), m.nombre]
+                                }))} />
+                              <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {editando.rol === 'area_especial' && (
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados por materia</label>
+                      {editando.materiasAsignadas?.map(ma => (
+                        <div key={ma.nombre} className="mb-4 border-2 border-gray-100 rounded-xl p-3">
+                          <p className="font-bold text-gray-800 text-sm mb-2">{ma.nombre}</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {grados.map(g => (
+                              <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
+                                <input type="checkbox"
+                                  className="accent-green-600"
+                                  checked={ma.grados?.includes(g) || false}
+                                  onChange={() => toggleGradoEdicion(ma.nombre, g)} />
+                                {gradoLabel(g)}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="px-6 pb-5 flex gap-3 justify-end border-t pt-4">
+                  <button onClick={() => setEditando(null)}
+                    className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">
+                    Cancelar
+                  </button>
+                  <button onClick={guardarEdicion}
+                    className="px-5 py-2.5 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-all">
+                    💾 Guardar cambios
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Buscador predictivo */}
           <div className="mb-6 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -1584,7 +1697,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
               </button>
             )}
           </div>
- 
+
           <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
             <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-extrabold text-gray-800">Docentes registrados</h3>
@@ -1600,7 +1713,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                 <table className="w-full">
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #059669, #10b981)', color: 'white' }}>
-                      {['Nombre', 'Correo', 'Rol', 'Grado(s) / Materia(s)', 'Estado', 'Creado', 'Acción'].map(h => (
+                      {['Nombre', 'Correo', 'Rol', 'Grado(s) / Materia(s)', 'Estado', 'Creado', 'Acciones'].map(h => (
                         <th key={h} className="p-4 text-center font-bold text-sm tracking-wide align-middle">{h}</th>
                       ))}
                     </tr>
@@ -1646,12 +1759,20 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         <td className="p-4 align-top text-center">{u.activo ? <Badge color="green">✓ Activo</Badge> : <Badge color="red">⏳ Pendiente</Badge>}</td>
                         <td className="p-4 align-top text-center text-xs text-gray-400 font-semibold whitespace-nowrap">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
                         <td className="p-4 align-top text-center">
-                          <button
-                            onClick={() => eliminarUsuario(u)}
-                            className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow mx-auto"
-                            title="Eliminar docente">
-                            <Trash2 size={14} /> Eliminar
-                          </button>
+                          <div className="flex flex-col gap-2 items-center">
+                            <button
+                              onClick={() => setEditando({ ...u })}
+                              className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
+                              title="Editar asignaciones">
+                              <Save size={14} /> Editar
+                            </button>
+                            <button
+                              onClick={() => eliminarUsuario(u)}
+                              className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
+                              title="Eliminar docente">
+                              <Trash2 size={14} /> Eliminar
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1666,7 +1787,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     </>
   );
 }
- 
+
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Calificaciones Áreas Especiales (solo lectura para docentes de grado)
 // ════════════════════════════════════════════════════════
@@ -1678,7 +1799,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
   const [calificaciones, setCalificaciones] = useState([]);
   const [configuracion, setConfiguracion] = useState({ criterios: { 1: [], 2: [], 3: [], 4: [] }, docente: '' });
   const [cargando, setCargando] = useState(false);
- 
+
   const todasLasEspeciales = [
     { nombre: 'Educación Artística: Plástica', color1: '#fa709a', color2: '#fee140', icon: '🎨' },
     { nombre: 'Educación Física', color1: '#30cfd0', color2: '#330867', icon: '⚽' },
@@ -1692,9 +1813,9 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
   ];
- 
+
   const safeKeyLocal = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
- 
+
   const cargarMateria = async (m) => {
     setMateriasSel(m);
     setCargando(true);
@@ -1712,7 +1833,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
       setCargando(false);
     }
   };
- 
+
   const calcCuat = (b1, b2) => { const n1 = parseFloat(b1), n2 = parseFloat(b2); return isNaN(n1) || isNaN(n2) ? '-' : ((n1 + n2) / 2).toFixed(2); };
   const calcFinal = (b1, b2, b3, b4) => {
     const vals = [b1, b2, b3, b4].map(parseFloat).filter(n => !isNaN(n));
@@ -1720,7 +1841,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     const c1 = (vals[0] + vals[1]) / 2; const c2 = (vals[2] + vals[3]) / 2;
     return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
   };
- 
+
   return (
     <>
       <style>{globalStyles}</style>
@@ -1728,14 +1849,14 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
       <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
           <TopBar titulo="📋 Calificaciones Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
- 
+
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
             <p className="text-amber-800 font-semibold text-sm leading-relaxed">
               Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoLabel(gradoSel)}</strong>) para completar los boletines de calificaciones de los alumnos.
             </p>
           </div>
- 
+
           {!materiasSel ? (
             <>
               <p className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Seleccioná el área o taller:</p>
@@ -1766,7 +1887,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                   <span className="text-sm text-gray-500 font-semibold">· Docente: <strong>{configuracion.docente}</strong></span>
                 )}
               </div>
- 
+
               {cargando ? (
                 <div className="text-center py-12 text-gray-400"><p className="text-4xl mb-3">⏳</p><p className="font-bold">Cargando...</p></div>
               ) : calificaciones.length === 0 ? (
@@ -1800,7 +1921,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                         const pf = calcFinal(b1, b2, b3, b4);
                         const pfNum = parseFloat(pf);
                         const pfColor = isNaN(pfNum) ? 'bg-purple-600' : pfNum >= 7 ? 'bg-green-600' : pfNum >= 4 ? 'bg-amber-500' : 'bg-red-600';
- 
+
                         const CeldaLectura = ({ bim }) => {
                           const notaBim = e.bimestres?.[bim]?.nota || '';
                           const num = parseFloat(notaBim);
@@ -1817,7 +1938,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                             </td>
                           );
                         };
- 
+
                         return (
                           <tr key={e.id || i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
                             <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
