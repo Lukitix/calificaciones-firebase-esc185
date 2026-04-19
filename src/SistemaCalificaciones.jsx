@@ -352,24 +352,31 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     },
   });
 
-  // Criterios al pie
-  const todosLoscrits = [1,2,3,4].flatMap(b => (criteriosPorBimestre[b]||[]).map(c => `${b}°: ${c}`));
+  // Criterios al pie — agrupados por bimestre
+  const bimestresConCrits = [1,2,3,4].filter(b => (criteriosPorBimestre[b]||[]).length > 0);
   const finalY = doc.lastAutoTable.finalY + 12;
-  if (todosLoscrits.length > 0) {
+  if (bimestresConCrits.length > 0) {
     doc.setFontSize(7); doc.setTextColor(130,130,130);
-    doc.text('Criterios de evaluación: ' + todosLoscrits.join('  ·  '), 14, finalY, { maxWidth: pageW - 28 });
+    let lineaY = finalY;
+    bimestresConCrits.forEach(b => {
+      const critsB = criteriosPorBimestre[b].join(', ');
+      const texto = `Criterios de evaluación considerados en el ${b}° Bimestre: ${critsB}`;
+      doc.text(texto, 14, lineaY, { maxWidth: pageW - 28 });
+      lineaY += 5;
+    });
   }
 
-  // Firma — abajo a la derecha
-  const firmaY = finalY + (todosLoscrits.length > 0 ? 12 : 0);
+  // Firma — abajo a la derecha, línea alineada con nombre
+  const firmaY = finalY + (bimestresConCrits.length > 0 ? bimestresConCrits.length * 5 + 8 : 0);
   const esDocGrado = usuario?.rol === 'docente_grado';
   const lineaRol = esDocGrado ? `Docente ${gradoLabel(grado)}` : `Prof. ${materia.nombre}`;
-  const firmaX = pageW - 70;
+  const firmaX = pageW - 75;
+  const anchoLinea = 65;
   doc.setTextColor(60,60,60); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-  doc.text('_ _ _ _ _ _ _ _ _ _ _ _ _ _ _', firmaX, firmaY + 4, { align: 'left' });
-  doc.text(nombreDocente, firmaX + 32, firmaY + 10, { align: 'center' });
-  doc.text(lineaRol, firmaX + 32, firmaY + 15, { align: 'center' });
-  doc.text(hoy, firmaX + 32, firmaY + 20, { align: 'center' });
+  doc.line(firmaX, firmaY + 4, firmaX + anchoLinea, firmaY + 4);
+  doc.text(nombreDocente, firmaX + anchoLinea / 2, firmaY + 9, { align: 'center' });
+  doc.text(lineaRol, firmaX + anchoLinea / 2, firmaY + 14, { align: 'center' });
+  doc.text(hoy, firmaX + anchoLinea / 2, firmaY + 19, { align: 'center' });
 
   doc.save(`Calificaciones_${materia.nombre.replace(/[^\w]/g,'_')}_${grado}_${hoy.replace(/\//g,'-')}.pdf`);
     return true;
@@ -584,46 +591,44 @@ export default function SistemaCalificaciones() {
     if (d.password.length < 6) {
       await showAlert('La contraseña debe tener al menos 6 caracteres.', 'warning'); return;
     }
-    // ── Validación de duplicados ──
-    try {
-      const snaps = await getDocs(collection(db, 'usuarios'));
-      const todosUsuarios = snaps.docs.map(snap => snap.data());
+    // ── Validación de duplicados (solo si hay sesión activa) ──
+    if (auth.currentUser) {
+      try {
+        const snaps = await getDocs(collection(db, 'usuarios'));
+        const todosUsuarios = snaps.docs.map(snap => snap.data());
 
-      if (d.rol === 'docente_grado') {
-        const gradoOcupado = todosUsuarios.find(u =>
-          u.rol === 'docente_grado' && u.gradoAsignado === d.gradoAsignado
-        );
-        if (gradoOcupado) {
-          await showAlert(
-            `Atención: Ya existe una docente de grado asignada a ${gradoLabel(d.gradoAsignado)} (${gradoOcupado.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
-            'warning', '⚠️ Grado ya asignado'
+        if (d.rol === 'docente_grado') {
+          const gradoOcupado = todosUsuarios.find(u =>
+            u.rol === 'docente_grado' && u.gradoAsignado === d.gradoAsignado
           );
-          return;
-        }
-      } else if (d.rol === 'area_especial') {
-        for (const ma of d.materiasAsignadas) {
-          if (!ma.grados || ma.grados.length === 0) continue;
-          const conflicto = todosUsuarios.find(u =>
-            u.rol === 'area_especial' &&
-            u.materiasAsignadas?.some(um =>
-              um.nombre === ma.nombre && um.grados?.some(g => ma.grados.includes(g))
-            )
-          );
-          if (conflicto) {
-            const gradosConflicto = (conflicto.materiasAsignadas?.find(um => um.nombre === ma.nombre)?.grados || [])
-              .filter(g => ma.grados.includes(g));
+          if (gradoOcupado) {
             await showAlert(
-              `Atención: Ya existe un/a docente a cargo de "${ma.nombre}" en ${gradosConflicto.map(gradoLabel).join(', ')} (${conflicto.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
-              'warning', '⚠️ Asignación duplicada'
+              `Atención: Ya existe una docente de grado asignada a ${gradoLabel(d.gradoAsignado)} (${gradoOcupado.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
+              'warning', '⚠️ Grado ya asignado'
             );
             return;
           }
+        } else if (d.rol === 'area_especial') {
+          for (const ma of d.materiasAsignadas) {
+            if (!ma.grados || ma.grados.length === 0) continue;
+            const conflicto = todosUsuarios.find(u =>
+              u.rol === 'area_especial' &&
+              u.materiasAsignadas?.some(um =>
+                um.nombre === ma.nombre && um.grados?.some(g => ma.grados.includes(g))
+              )
+            );
+            if (conflicto) {
+              const gradosConflicto = (conflicto.materiasAsignadas?.find(um => um.nombre === ma.nombre)?.grados || [])
+                .filter(g => ma.grados.includes(g));
+              await showAlert(
+                `Atención: Ya existe un/a docente a cargo de "${ma.nombre}" en ${gradosConflicto.map(gradoLabel).join(', ')} (${conflicto.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
+                'warning', '⚠️ Asignación duplicada'
+              );
+              return;
+            }
+          }
         }
-      }
-    } catch (e) {
-      console.warn('Validación duplicados falló:', e);
-      await showAlert('No se pudo verificar si ya existe un docente asignado. Revisá tu conexión e intentá de nuevo.', 'warning', 'Error de verificación');
-      return;
+      } catch (e) { console.warn('Validación duplicados falló:', e); }
     }
 
     setRegistroCargando(true);
@@ -923,7 +928,7 @@ export default function SistemaCalificaciones() {
               src="https://scontent.fres2-1.fna.fbcdn.net/v/t39.30808-6/250838744_105881078567433_8505050702522636894_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=1d70fc&_nc_ohc=odhG9vvlZ94Q7kNvwFg11cz&_nc_oc=AdoR60NWvlmixckn9Q40Z4EAjLLrCFdN7Wes1sdww8aLuzWH-RWGYpwGRy_SLr3Vdic&_nc_zt=23&_nc_ht=scontent.fres2-1.fna&_nc_gid=LL7-rYWA7g6YQcnaJa-mSg&_nc_ss=7a389&oh=00_Af36MpLFP7VChoP1o1NJZENNKHd_sG5yZyslLcEdBJwScQ&oe=69E8C653"
               alt="Escuela Provincial N° 185"
               className="mx-auto mb-3 rounded-2xl shadow-md"
-              style={{ width: 160, height: 130, objectFit: 'cover' }}
+              style={{ width: 190, height: 150, objectFit: 'cover' }}
               onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }}
             />
             <div className="text-6xl mb-3" style={{ display: 'none' }}>🏫</div>
@@ -1032,7 +1037,7 @@ export default function SistemaCalificaciones() {
                 )}
               </div>
               <div className="flex gap-3 mt-4">
-                <button onClick={() => setRegistro({ ...registro, show: false })} className="flex-1 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">Cancelar</button>
+                <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })} className="flex-1 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">Cancelar</button>
                 <button onClick={handleRegistro} disabled={registroCargando}
                   className="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold shadow disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
