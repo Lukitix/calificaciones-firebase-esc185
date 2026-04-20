@@ -45,6 +45,7 @@ const areas = {
     { nombre: 'Taller de Ajedrez', color1: '#1a1a2e', color2: '#16213e', icon: '♟️' },
     { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
+    { nombre: 'Taller de Danza', color1: '#ec4899', color2: '#be123c', icon: '💃' },
   ]
 };
 
@@ -429,6 +430,7 @@ export default function SistemaCalificaciones() {
   const [busquedaDNI, setBusquedaDNI] = useState('');
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
+  const [bajas, setBajas] = useState([]);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -494,6 +496,15 @@ export default function SistemaCalificaciones() {
     if (!authUser) return;
     const unsub = onSnapshot(doc(db, 'datos', 'alumnosGlobales'), (snap) => {
       setAlumnosGlobales(snap.exists() ? snap.data() : {});
+    });
+    return () => unsub();
+  }, [authUser]);
+
+  // ── Bajas ──
+  useEffect(() => {
+    if (!authUser) return;
+    const unsub = onSnapshot(doc(db, 'datos', 'bajas'), (snap) => {
+      setBajas(snap.exists() ? (snap.data().lista || []) : []);
     });
     return () => unsub();
   }, [authUser]);
@@ -689,14 +700,41 @@ export default function SistemaCalificaciones() {
 
   const eliminarAlumno = async (alumno) => {
     const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
-    const ok = await showConfirm(`¿Eliminás a "${alumno.nombre}"? Se borrarán sus calificaciones en TODAS las materias del grado.`, 'Eliminar alumno');
+    const motivo = await showPrompt(
+      `Ingresá el motivo de la baja de "${alumno.nombre}":`,
+      'Ej: Cambio de escuela, Abandono, Expulsión...',
+      '📋 Registrar baja'
+    );
+    if (motivo === null) return; // canceló
+    const ok = await showConfirm(
+      `¿Confirmás la baja de "${alumno.nombre}"? Sus calificaciones se eliminarán de TODAS las materias del grado.`,
+      'Confirmar baja'
+    );
     if (!ok) return;
+    // Guardar registro de baja en Firestore
+    const registroBaja = {
+      nombre: alumno.nombre,
+      dni: alumno.dni,
+      grado: gradoActual,
+      motivo: motivo.trim() || 'Sin especificar',
+      fecha: new Date().toLocaleDateString('es-AR'),
+      fechaISO: new Date().toISOString(),
+    };
+    const bajasSnap = await getDoc(doc(db, 'datos', 'bajas'));
+    const bajasActuales = bajasSnap.exists() ? (bajasSnap.data().lista || []) : [];
+    await setDoc(doc(db, 'datos', 'bajas'), { lista: [...bajasActuales, registroBaja] });
+    // Eliminar de la lista activa
     await setDoc(doc(db, 'datos', 'alumnosGlobales'), {
       ...alumnosGlobales, [gradoActual]: (alumnosGlobales[gradoActual] || []).filter(a => a.dni !== alumno.dni)
     });
   };
 
-  const buscarAlumnoPorDNI = async () => {
+  const eliminarRegistroBaja = async (baja) => {
+    const ok = await showConfirm(`¿Eliminás el registro de baja de "${baja.nombre}"?`, 'Eliminar registro');
+    if (!ok) return;
+    const nuevaLista = bajas.filter(b => !(b.dni === baja.dni && b.fechaISO === baja.fechaISO));
+    await setDoc(doc(db, 'datos', 'bajas'), { lista: nuevaLista });
+  };
     if (!busquedaDNI.trim()) return;
     const termino = busquedaDNI.trim().toLowerCase();
     let resultados = [];
@@ -1157,6 +1195,42 @@ export default function SistemaCalificaciones() {
                 </table>
               )}
             </div>
+            {/* ── Registro de Bajas ── */}
+            {bajas.filter(b => b.grado === gradoActual).length > 0 && (
+              <div className="mt-8 bg-red-50 border-2 border-red-200 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 bg-red-100 border-b-2 border-red-200 flex items-center justify-between">
+                  <h3 className="text-lg font-extrabold text-red-800">📋 Registro de Bajas · {gradoLabel(gradoActual)}</h3>
+                  <Badge color="red">{bajas.filter(b => b.grado === gradoActual).length} baja(s)</Badge>
+                </div>
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-red-200">
+                      <th className="p-3 text-center font-bold text-sm text-red-900">Nombre completo</th>
+                      <th className="p-3 text-center font-bold text-sm text-red-900">D.N.I N°</th>
+                      <th className="p-3 text-center font-bold text-sm text-red-900">Motivo</th>
+                      <th className="p-3 text-center font-bold text-sm text-red-900">Fecha</th>
+                      <th className="p-3 text-center font-bold text-sm text-red-900">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bajas.filter(b => b.grado === gradoActual).map((b, i) => (
+                      <tr key={i} className={`border-b border-red-100 ${i % 2 === 0 ? 'bg-white' : 'bg-red-50'}`}>
+                        <td className="p-3 font-bold text-gray-800 text-center">{b.nombre}</td>
+                        <td className="p-3 text-center"><Badge color="red">{b.dni}</Badge></td>
+                        <td className="p-3 text-center text-sm text-gray-700 font-semibold">{b.motivo}</td>
+                        <td className="p-3 text-center text-sm text-gray-500 font-semibold">{b.fecha}</td>
+                        <td className="p-3 text-center">
+                          <button onClick={() => eliminarRegistroBaja(b)}
+                            className="btn-primary flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold mx-auto">
+                            <Trash2 size={14} /> Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
         {modalCerrarSesion && <ModalCerrarSesion />}
@@ -1821,6 +1895,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     { nombre: 'Taller de Ajedrez', color1: '#1a1a2e', color2: '#16213e', icon: '♟️' },
     { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
+    { nombre: 'Taller de Danza', color1: '#ec4899', color2: '#be123c', icon: '💃' },
   ];
 
   const safeKeyLocal = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
