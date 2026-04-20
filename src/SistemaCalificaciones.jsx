@@ -735,6 +735,8 @@ export default function SistemaCalificaciones() {
     const nuevaLista = bajas.filter(b => !(b.dni === baja.dni && b.fechaISO === baja.fechaISO));
     await setDoc(doc(db, 'datos', 'bajas'), { lista: nuevaLista });
   };
+
+  const buscarAlumnoPorDNI = async () => {
     if (!busquedaDNI.trim()) return;
     const termino = busquedaDNI.trim().toLowerCase();
     let resultados = [];
