@@ -1673,12 +1673,30 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     }));
   };
 
-  const usuariosFiltrados = busqueda.trim() === ''
-    ? usuarios
-    : usuarios.filter(u =>
-        u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        u.email?.toLowerCase().includes(busqueda.toLowerCase())
-      );
+  const ordenarUsuarios = (lista) => {
+    return [...lista].sort((a, b) => {
+      // Docentes de grado primero, luego especiales
+      if (a.rol === 'docente_grado' && b.rol !== 'docente_grado') return -1;
+      if (a.rol !== 'docente_grado' && b.rol === 'docente_grado') return 1;
+      // Dentro de docentes de grado: por grado (1°A, 1°B... 7°E)
+      if (a.rol === 'docente_grado' && b.rol === 'docente_grado') {
+        return (a.gradoAsignado || '').localeCompare(b.gradoAsignado || '', 'es', { numeric: true });
+      }
+      // Dentro de especiales: por nombre de primera materia asignada
+      const mA = a.materiasAsignadas?.[0]?.nombre || a.materiasAsignadas?.[0] || '';
+      const mB = b.materiasAsignadas?.[0]?.nombre || b.materiasAsignadas?.[0] || '';
+      return mA.localeCompare(mB, 'es');
+    });
+  };
+
+  const usuariosFiltrados = ordenarUsuarios(
+    busqueda.trim() === ''
+      ? usuarios
+      : usuarios.filter(u =>
+          u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+          u.email?.toLowerCase().includes(busqueda.toLowerCase())
+        )
+  );
 
   return (
     <>
