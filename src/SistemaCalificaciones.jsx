@@ -163,10 +163,21 @@ html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !im
 .animate-marquee { display: inline-block; animation: marquee 22s linear infinite; }
 @keyframes modalEntrada { from { opacity: 0; transform: scale(0.92) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(0.95); } }
 .fade-in { animation: fadeIn 0.3s ease-out both; }
-.card-materia { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-materia { transition: transform 0.2s ease, box-shadow 0.2s ease; animation: fadeInUp 0.4s ease-out both; }
 .card-materia:hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 20px 40px rgba(0,0,0,0.18); }
+.card-materia:nth-child(1) { animation-delay: 0.03s; }
+.card-materia:nth-child(2) { animation-delay: 0.07s; }
+.card-materia:nth-child(3) { animation-delay: 0.11s; }
+.card-materia:nth-child(4) { animation-delay: 0.15s; }
+.card-materia:nth-child(5) { animation-delay: 0.19s; }
+.card-materia:nth-child(6) { animation-delay: 0.23s; }
+.card-materia:nth-child(7) { animation-delay: 0.27s; }
+.card-materia:nth-child(8) { animation-delay: 0.31s; }
 .btn-primary { transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); filter: brightness(1.05); }
 .btn-primary:active { transform: translateY(0); }
@@ -177,8 +188,10 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .nota-input { width: 38px; height: 32px; padding: 2px; border: 2px solid #ddd6fe; border-radius: 6px; text-align: center; font-size: 12px; font-weight: 700; color: #374151; background: #faf5ff; transition: border-color 0.15s, background 0.15s; }
 .nota-input:focus { outline: none; border-color: #7c3aed; background: #fff; }
 .tabla-header { background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; }
+.tabla-row { transition: background-color 0.18s ease; }
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.05); }
+.toast-visible { animation: toastIn 0.25s ease-out both; }
 `;
 
 // ─── SUBCOMPONENTES ──────────────────────────────────────────────────────────
@@ -287,8 +300,7 @@ function NotaInput({ value, onCommit, title }) {
 function Toast({ visible }) {
   if (!visible) return null;
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-2 bg-green-500 text-white px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm"
-      style={{ animation: 'fadeIn 0.2s ease-out' }}>
+    <div className="fixed bottom-6 right-6 z-[100] flex items-center gap-2 bg-green-500 text-white px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm toast-visible">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5L7 13.5L15 5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
       Guardado en la nube ☁️
     </div>
@@ -1533,7 +1545,7 @@ export default function SistemaCalificaciones() {
                       );
                     };
                     return (
-                      <tr key={e.id} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                      <tr key={e.id} className={`tabla-row border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
                         <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
                         <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
                         <CeldaBimestre bim={1} />
