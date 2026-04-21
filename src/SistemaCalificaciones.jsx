@@ -1275,7 +1275,7 @@ export default function SistemaCalificaciones() {
           <div className="w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <div className="overflow-hidden mb-8 rounded-2xl py-3" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
               <div className="animate-marquee whitespace-nowrap">
-                {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 --- "Juan Areco" --- Ciclo Lectivo 2026</span>)}
+                {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 "Juan Areco" — Oberá, Misiones — Ciclo Lectivo 2026</span>)}
               </div>
             </div>
             <div className="relative text-center mb-8">
@@ -1309,17 +1309,24 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">📚 Áreas Curriculares</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <div className={`grid gap-4 justify-center ${
+                  curricularesFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
+                  curricularesFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
+                  curricularesFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
+                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+                }`}>
                   {curricularesFilt.map(m => (
-                    <button key={m.nombre} onClick={() => abrirMateria(m)} className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg" style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                      <span className="text-5xl">{m.icon}</span>
-                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                    <button key={m.nombre} onClick={() => abrirMateria(m)}
+                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: curricularesFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
+                      <span className={curricularesFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
+                      <span className={`font-extrabold text-center leading-tight ${curricularesFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -1329,11 +1336,18 @@ export default function SistemaCalificaciones() {
             {especielesFilt.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🎨 Áreas Especiales</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className={`grid gap-4 justify-center ${
+                  especielesFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
+                  especielesFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
+                  especielesFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
+                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                }`}>
                   {especielesFilt.map(m => (
-                    <button key={m.nombre} onClick={() => abrirMateria(m)} className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg" style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                      <span className="text-5xl">{m.icon}</span>
-                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                    <button key={m.nombre} onClick={() => abrirMateria(m)}
+                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: especielesFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
+                      <span className={especielesFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
+                      <span className={`font-extrabold text-center leading-tight ${especielesFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -1343,11 +1357,18 @@ export default function SistemaCalificaciones() {
             {talleresFilt.length > 0 && (
               <div className="mb-8">
                 <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏆 Talleres</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={`grid gap-4 justify-center ${
+                  talleresFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
+                  talleresFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
+                  talleresFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
+                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                }`}>
                   {talleresFilt.map(m => (
-                    <button key={m.nombre} onClick={() => abrirMateria(m)} className="card-materia rounded-2xl p-6 text-white flex flex-col items-center gap-3 shadow-lg" style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                      <span className="text-5xl">{m.icon}</span>
-                      <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                    <button key={m.nombre} onClick={() => abrirMateria(m)}
+                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: talleresFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
+                      <span className={talleresFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
+                      <span className={`font-extrabold text-center leading-tight ${talleresFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
