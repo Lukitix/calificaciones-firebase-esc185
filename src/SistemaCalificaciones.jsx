@@ -554,22 +554,27 @@ export default function SistemaCalificaciones() {
     if (JSON.stringify(estudiantesActuales) !== JSON.stringify(estudiantesActualizados)) {
       setDoc(doc(db, 'calificaciones', safeKey(`${materia.nombre}_${grado}`)), { estudiantes: estudiantesActualizados }, { merge: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grado, materia, alumnosGlobales]);
+
+  // ── Cargar configuración (criterios, candados, docente) — siempre que cambie materia o grado ──
+  useEffect(() => {
+    if (!materia) return;
     const cargarConfig = async () => {
+      // Limpiar inmediatamente para que no queden criterios de la materia anterior
+      setCriteriosPorBimestre({ 1: [], 2: [], 3: [], 4: [] });
+      setBimestresBlockeados({ 1: false, 2: false, 3: false, 4: false });
+      setDocenteNombre({ actual: '', guardado: '' });
       const snap = await getDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)));
       if (snap.exists()) {
         const d = snap.data();
         setDocenteNombre({ actual: '', guardado: d.docente || '' });
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
-      } else {
-        setDocenteNombre({ actual: '', guardado: '' });
-        setCriteriosPorBimestre({ 1: [], 2: [], 3: [], 4: [] });
-        setBimestresBlockeados({ 1: false, 2: false, 3: false, 4: false });
       }
     };
     cargarConfig();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grado, materia, alumnosGlobales]);
+  }, [grado, materia]);
 
   // ════════════════════════════════════════════════════════
   // HANDLERS
@@ -1275,7 +1280,7 @@ export default function SistemaCalificaciones() {
           <div className="w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <div className="overflow-hidden mb-8 rounded-2xl py-3" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
               <div className="animate-marquee whitespace-nowrap">
-                {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 "Juan Areco" — Oberá, Misiones — Ciclo Lectivo 2026</span>)}
+                {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 --- "Juan Areco" --- Ciclo Lectivo 2026</span>)}
               </div>
             </div>
             <div className="relative text-center mb-8">
@@ -1309,7 +1314,7 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
