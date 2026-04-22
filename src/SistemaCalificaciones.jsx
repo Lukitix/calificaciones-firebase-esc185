@@ -1044,7 +1044,7 @@ export default function SistemaCalificaciones() {
               <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center">Registrar Usuario</h3>
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {[
-                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Nombre completo',                      type: 'text' },
+                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Apellido y nombre(s)',                 type: 'text' },
                   { val: registro.data.email,    key: 'email',    ph: 'Correo electrónico (Gmail u otro)',     type: 'email' },
                   { val: registro.data.password, key: 'password', ph: 'Contraseña (mín. 6 caracteres)',        type: 'password' },
                 ].map(({ val, key, ph, type }) => (
@@ -1314,7 +1314,7 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
@@ -1687,8 +1687,12 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 
   const guardarEdicion = async () => {
     if (!editando) return;
+    if (!editando.nombre?.trim()) {
+      await showAlert('El nombre no puede estar vacío.', 'warning'); return;
+    }
     try {
       await updateDoc(doc(db, 'usuarios', editando.uid), {
+        nombre: editando.nombre.trim(),
         gradoAsignado: editando.rol === 'docente_grado' ? editando.gradoAsignado : null,
         materiasAsignadas: editando.materiasAsignadas,
       });
@@ -1751,10 +1755,20 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
                 style={{ animation: 'modalEntrada 0.2s ease-out' }}>
                 <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
-                  <h3 className="text-lg font-bold text-green-800">✏️ Editar asignaciones — {editando.nombre}</h3>
+                  <h3 className="text-lg font-bold text-green-800">✏️ Editar docente — {editando.nombre}</h3>
                   <button onClick={() => setEditando(null)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
                 </div>
                 <div className="px-6 py-5 max-h-[60vh] overflow-y-auto space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Apellido y nombre(s)</label>
+                    <input
+                      type="text"
+                      value={editando.nombre || ''}
+                      onChange={e => setEditando(prev => ({ ...prev, nombre: e.target.value }))}
+                      placeholder="Apellido y nombre(s)..."
+                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold focus:outline-none focus:border-green-500"
+                    />
+                  </div>
                   {editando.rol === 'docente_grado' && (
                     <div>
                       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grado asignado</label>
@@ -1902,7 +1916,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         <td className="p-4 align-top text-center">
                           <div className="flex flex-col gap-2 items-center">
                             <button
-                              onClick={() => setEditando({ ...u })}
+                              onClick={() => { setEditando({ ...u }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                               className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
                               title="Editar asignaciones">
                               <Save size={14} /> Editar
