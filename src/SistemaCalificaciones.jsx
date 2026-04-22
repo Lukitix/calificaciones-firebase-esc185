@@ -79,6 +79,34 @@ const calcularPromedioFinal = (b1, b2, b3, b4) => {
 
 const safeKey = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
 
+// ─── ESCALA CONCEPTUAL (solo 1°, 2° y 3° grado) ─────────────────────────────
+const esPrimerCiclo = (grado) => grado && ['1','2','3'].includes(grado.charAt(0));
+
+const escalaConceptual = [
+  { min: 2, max: 3, abrev: 'NS',  texto: 'NO SATISFACTORIO' },
+  { min: 4, max: 5, abrev: 'PS',  texto: 'POCO SATISFACTORIO' },
+  { min: 6, max: 7, abrev: 'SAT', texto: 'SATISFACTORIO' },
+  { min: 8, max: 8, abrev: 'MUY', texto: 'MUY SATISFACTORIO' },
+  { min: 9, max: 9, abrev: 'DIS', texto: 'DISTINGUIDO' },
+  { min: 10, max: 10, abrev: 'SOB', texto: 'SOBRESALIENTE' },
+];
+
+const getConceptual = (nota) => {
+  const n = parseFloat(nota);
+  if (isNaN(n)) return null;
+  return escalaConceptual.find(e => n >= e.min && n <= e.max) || null;
+};
+
+const abrevConceptual = (nota) => {
+  const c = getConceptual(nota);
+  return c ? c.abrev : (nota || '');
+};
+
+const textoConceptual = (nota) => {
+  const c = getConceptual(nota);
+  return c ? `${c.texto} (${Math.round(parseFloat(nota))})` : (nota || '');
+};
+
 // ─── SISTEMA DE MODALES ──────────────────────────────────────────────────────
 function useModal() {
   const [modal, setModal] = useState(null);
@@ -314,6 +342,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   const pageW = doc.internal.pageSize.getWidth();
   const hoy = new Date().toLocaleDateString('es-AR');
   const nombreDocente = usuario?.nombre || '—';
+  const primerCiclo = esPrimerCiclo(grado);
 
   // Header violeta
   doc.setFillColor(124, 58, 237);
@@ -335,27 +364,28 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     const b2 = e.bimestres?.[2]?.nota || '';
     const b3 = e.bimestres?.[3]?.nota || '';
     const b4 = e.bimestres?.[4]?.nota || '';
-    const c1 = calcularCuatrimestre(b1, b2) || '—';
-    const c2 = calcularCuatrimestre(b3, b4) || '—';
-    const pf = calcularPromedioFinal(b1, b2, b3, b4) || '—';
-    return [e.nombre, b1||'—', b2||'—', c1, b3||'—', b4||'—', c2, pf];
+    const c1raw = calcularCuatrimestre(b1, b2);
+    const c2raw = calcularCuatrimestre(b3, b4);
+    const pfraw = calcularPromedioFinal(b1, b2, b3, b4);
+    const fmt = (v) => v ? (primerCiclo ? textoConceptual(v) : v) : '—';
+    return [e.nombre, fmt(b1), fmt(b2), fmt(c1raw), fmt(b3), fmt(b4), fmt(c2raw), fmt(pfraw)];
   });
 
   autoTable(doc, {
     startY: 32,
     head,
     body,
-    styles: { font: 'helvetica', fontSize: 9, cellPadding: 3, halign: 'center' },
+    styles: { font: 'helvetica', fontSize: primerCiclo ? 7 : 9, cellPadding: 3, halign: 'center' },
     headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', halign: 'center' },
     columnStyles: {
-      0: { halign: 'left', cellWidth: 62 },
+      0: { halign: 'left', cellWidth: 55 },
       3: { fillColor: [237, 233, 254] },
       6: { fillColor: [237, 233, 254] },
       7: { fillColor: [199, 210, 254], fontStyle: 'bold' },
     },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 7) {
+      if (data.section === 'body' && data.column.index === 7 && !primerCiclo) {
         const val = parseFloat(data.cell.raw);
         if (!isNaN(val)) {
           data.cell.styles.textColor = val >= 7 ? [22, 163, 74] : val >= 4 ? [180, 83, 9] : [220, 38, 38];
@@ -367,20 +397,33 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
 
   // Criterios al pie — agrupados por bimestre
   const bimestresConCrits = [1,2,3,4].filter(b => (criteriosPorBimestre[b]||[]).length > 0);
-  const finalY = doc.lastAutoTable.finalY + 12;
+  const finalY = doc.lastAutoTable.finalY + 8;
+  let currentY = finalY;
   if (bimestresConCrits.length > 0) {
     doc.setFontSize(7); doc.setTextColor(130,130,130);
-    let lineaY = finalY;
     bimestresConCrits.forEach(b => {
       const critsB = criteriosPorBimestre[b].join(', ');
       const texto = `Criterios de evaluación considerados en el ${b}° Bimestre: ${critsB}`;
-      doc.text(texto, 14, lineaY, { maxWidth: pageW - 28 });
-      lineaY += 5;
+      doc.text(texto, 14, currentY, { maxWidth: pageW - 28 });
+      currentY += 5;
     });
+    currentY += 3;
+  }
+
+  // Tabla de escala conceptual al pie (solo primer ciclo)
+  if (primerCiclo) {
+    doc.setFontSize(7); doc.setTextColor(100, 50, 200);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Escala de calificaciones conceptuales:', 14, currentY);
+    currentY += 4;
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(80,80,80);
+    const escalaTexto = escalaConceptual.map(e => `${e.abrev} = ${e.texto} (${e.min === e.max ? e.min : `${e.min}-${e.max}`})`).join('   ·   ');
+    doc.text(escalaTexto, 14, currentY, { maxWidth: pageW - 28 });
+    currentY += 8;
   }
 
   // Firma — abajo a la derecha, línea alineada con nombre
-  const firmaY = finalY + (bimestresConCrits.length > 0 ? bimestresConCrits.length * 5 + 8 : 0);
+  const firmaY = currentY;
   const esDocGrado = usuario?.rol === 'docente_grado';
   const lineaRol = esDocGrado ? `Docente ${gradoLabel(grado)}` : `Prof. ${materia.nombre}`;
   const firmaX = pageW - 75;
@@ -418,6 +461,7 @@ export default function SistemaCalificaciones() {
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
+  const [showEscala, setShowEscala] = useState(false);
 
   // Login con email real
   const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
@@ -1314,7 +1358,7 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
@@ -1437,6 +1481,12 @@ export default function SistemaCalificaciones() {
                   className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
                   <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
                 </button>
+                {esPrimerCiclo(grado) && (
+                  <button onClick={() => setShowEscala(true)}
+                    className="btn-primary flex items-center gap-2 bg-violet-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
+                    📊 Escala
+                  </button>
+                )}
               </div>
             </div>
             {docenteNombre.guardado && (
@@ -1529,10 +1579,12 @@ export default function SistemaCalificaciones() {
                     const c2 = calcularCuatrimestre(b3, b4);
                     const promFinal = calcularPromedioFinal(b1, b2, b3, b4);
                     const pf = parseFloat(promFinal);
+                    const primerCiclo = esPrimerCiclo(grado);
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
                     const CeldaBimestre = ({ bim }) => {
                       const crits = criteriosPorBimestre[bim] || [];
                       const bloqueado = bimestresBlockeados[bim];
+                      const notaBim = e.bimestres?.[bim]?.nota || '';
                       return (
                         <td className={`p-2 border-r border-gray-100 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
                           {bloqueado && <div className="text-center text-xs text-red-400 font-bold mb-1">🔒</div>}
@@ -1543,6 +1595,7 @@ export default function SistemaCalificaciones() {
                               crits.map((crit, idx) => {
                                 const campo = `n${idx + 1}`;
                                 const val = e.bimestres?.[bim]?.[campo] ?? '';
+                                const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
                                     <span className="text-center text-[9px] font-bold text-gray-500 leading-tight px-0.5"
@@ -1550,9 +1603,9 @@ export default function SistemaCalificaciones() {
                                       {crit}
                                     </span>
                                     {bloqueado ? (
-                                      <div className="nota-input flex items-center justify-center font-black text-gray-600">{val || '—'}</div>
+                                      <div className="nota-input flex items-center justify-center font-black text-gray-600" style={{ fontSize: primerCiclo ? '9px' : '12px' }}>{mostrar || '—'}</div>
                                     ) : (
-                                      <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} />
+                                      <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} display={primerCiclo ? abrevConceptual(val) : null} />
                                     )}
                                   </div>
                                 );
@@ -1561,8 +1614,9 @@ export default function SistemaCalificaciones() {
                             {crits.length > 0 && (
                               <div className="flex flex-col items-center gap-0.5 ml-1">
                                 <span className="text-[9px] font-bold text-purple-500">Prom.</span>
-                                <div className="flex items-center justify-center w-10 h-8 bg-purple-100 text-purple-800 font-black rounded-lg text-xs border-2 border-purple-200">
-                                  {e.bimestres?.[bim]?.nota || '-'}
+                                <div className="flex items-center justify-center bg-purple-100 text-purple-800 font-black rounded-lg border-2 border-purple-200"
+                                  style={{ minWidth: '40px', height: '32px', fontSize: primerCiclo && notaBim ? '9px' : '12px', padding: '2px 4px', textAlign: 'center' }}>
+                                  {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '-'}
                                 </div>
                               </div>
                             )}
@@ -1576,11 +1630,24 @@ export default function SistemaCalificaciones() {
                         <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
-                        <td className="p-3 text-center bg-purple-50"><span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c1 || '-'}</span></td>
+                        <td className="p-3 text-center bg-purple-50">
+                          <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">
+                            {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '-'}
+                          </span>
+                        </td>
                         <CeldaBimestre bim={3} />
                         <CeldaBimestre bim={4} />
-                        <td className="p-3 text-center bg-purple-50"><span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c2 || '-'}</span></td>
-                        <td className="p-3 text-center"><span className={`inline-block text-white px-4 py-2 rounded-xl font-black text-base shadow ${pfColor}`}>{promFinal || '-'}</span></td>
+                        <td className="p-3 text-center bg-purple-50">
+                          <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">
+                            {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '-'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-block text-white px-4 py-2 rounded-xl font-black shadow ${pfColor}`}
+                            style={{ fontSize: primerCiclo && promFinal ? '11px' : '16px' }}>
+                            {promFinal ? (primerCiclo ? textoConceptual(promFinal) : promFinal) : '-'}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1607,6 +1674,45 @@ export default function SistemaCalificaciones() {
       <Toast visible={toastVisible} />
       {showModalSolicitudes && <ModalSolicitudes />}
       {modalCerrarSesion && <ModalCerrarSesion />}
+      {showEscala && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+            <div className="bg-violet-50 px-6 py-4 flex items-center justify-between border-b">
+              <h3 className="text-lg font-bold text-violet-800">📊 Escala Conceptual — 1°, 2° y 3° Grado</h3>
+              <button onClick={() => setShowEscala(false)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-500 mb-4 font-semibold">Las notas numéricas en el primer ciclo se expresan con la siguiente equivalencia:</p>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-violet-100">
+                    <th className="p-2 text-left font-bold text-violet-800 rounded-tl-lg">Nota</th>
+                    <th className="p-2 text-left font-bold text-violet-800">Abrev.</th>
+                    <th className="p-2 text-left font-bold text-violet-800 rounded-tr-lg">Calificación conceptual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {escalaConceptual.map((e, i) => (
+                    <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-violet-50'}>
+                      <td className="p-2 font-bold text-gray-700">{e.min === e.max ? e.min : `${e.min} - ${e.max}`}</td>
+                      <td className="p-2 font-black text-violet-700">{e.abrev}</td>
+                      <td className="p-2 font-semibold text-gray-800">{e.texto}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-6 pb-5">
+              <button onClick={() => setShowEscala(false)}
+                className="w-full py-2.5 rounded-xl bg-violet-500 text-white font-bold hover:bg-violet-600 transition-all">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -2004,7 +2110,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
-          <TopBar titulo="📋 Calificaciones Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+          <TopBar titulo="📋 Calificaciones de Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
