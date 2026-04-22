@@ -270,8 +270,10 @@ function Spinner({ texto = 'Cargando...' }) {
 
 // ─── NOTA INPUT ─────────────────────────────────────────────────────────────
 // Estado local para evitar pérdida de foco al escribir números de 2 dígitos
-function NotaInput({ value, onCommit, title }) {
+// primerCiclo: si true, muestra abreviatura conceptual al perder el foco
+function NotaInput({ value, onCommit, title, primerCiclo = false }) {
   const [local, setLocal] = useState(value ?? '');
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     setLocal(value ?? '');
@@ -285,6 +287,7 @@ function NotaInput({ value, onCommit, title }) {
   };
 
   const handleBlur = () => {
+    setFocused(false);
     const n = parseFloat(local);
     if (!isNaN(n) && local !== '') {
       const clamped = Math.min(10, Math.max(1, Math.round(n * 2) / 2));
@@ -297,6 +300,8 @@ function NotaInput({ value, onCommit, title }) {
     }
   };
 
+  const handleFocus = () => setFocused(true);
+
   const step = (dir) => {
     const current = parseFloat(local) || 0;
     const next = Math.min(10, Math.max(1, Math.round((current + dir * 0.5) * 2) / 2));
@@ -305,6 +310,10 @@ function NotaInput({ value, onCommit, title }) {
     onCommit(final);
   };
 
+  // En primer ciclo: si hay valor y no está en foco, mostrar abreviatura
+  const mostrarAbrev = primerCiclo && !focused && local !== '';
+  const abrev = mostrarAbrev ? abrevConceptual(local) : null;
+
   return (
     <div className="flex flex-col items-center" title={title}>
       <button type="button"
@@ -312,9 +321,19 @@ function NotaInput({ value, onCommit, title }) {
         className="w-[38px] h-[14px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
         style={{ background: '#f3f0ff', border: '1px solid #ddd6fe', borderBottom: 'none', borderRadius: '4px 4px 0 0' }}
       >▲</button>
-      <input type="text" inputMode="decimal" className="nota-input"
-        style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe' }}
-        value={local} onChange={handleChange} onBlur={handleBlur} />
+      {mostrarAbrev ? (
+        <div
+          onClick={() => setFocused(true)}
+          className="nota-input flex items-center justify-center font-black cursor-text"
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: '#6d28d9', background: '#f5f3ff' }}
+        >
+          {abrev}
+        </div>
+      ) : (
+        <input type="text" inputMode="decimal" className="nota-input"
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe' }}
+          value={local} onChange={handleChange} onBlur={handleBlur} onFocus={handleFocus} />
+      )}
       <button type="button"
         onMouseDown={e => { e.preventDefault(); step(-1); }}
         className="w-[38px] h-[14px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
@@ -1605,7 +1624,7 @@ export default function SistemaCalificaciones() {
                                     {bloqueado ? (
                                       <div className="nota-input flex items-center justify-center font-black text-gray-600" style={{ fontSize: primerCiclo ? '9px' : '12px' }}>{mostrar || '—'}</div>
                                     ) : (
-                                      <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} display={primerCiclo ? abrevConceptual(val) : null} />
+                                      <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} primerCiclo={primerCiclo} />
                                     )}
                                   </div>
                                 );
