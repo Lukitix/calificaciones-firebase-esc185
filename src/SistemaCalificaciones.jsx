@@ -623,12 +623,14 @@ export default function SistemaCalificaciones() {
   // ── Cargar configuración (criterios, candados, docente) — siempre que cambie materia o grado ──
   useEffect(() => {
     if (!materia) return;
+    let cancelado = false;
     const cargarConfig = async () => {
       // Limpiar inmediatamente para que no queden criterios de la materia anterior
       setCriteriosPorBimestre({ 1: [], 2: [], 3: [], 4: [] });
       setBimestresBlockeados({ 1: false, 2: false, 3: false, 4: false });
       setDocenteNombre({ actual: '', guardado: '' });
       const snap = await getDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)));
+      if (cancelado) return; // navegó a otra materia antes de que resolviera
       if (snap.exists()) {
         const d = snap.data();
         setDocenteNombre({ actual: '', guardado: d.docente || '' });
@@ -637,6 +639,7 @@ export default function SistemaCalificaciones() {
       }
     };
     cargarConfig();
+    return () => { cancelado = true; };
   }, [grado, materia]);
 
   // ════════════════════════════════════════════════════════
@@ -898,9 +901,35 @@ export default function SistemaCalificaciones() {
   const eliminarCriterio = async (bimestre, c) => {
     const ok = await showConfirm(`¿Eliminás el criterio "${c}" del ${bimestre}° Bimestre?`, 'Eliminar criterio');
     if (!ok) return;
+    const idxElim = criteriosPorBimestre[bimestre].indexOf(c);
     const nuevosCrit = { ...criteriosPorBimestre, [bimestre]: criteriosPorBimestre[bimestre].filter(x => x !== c) };
     setCriteriosPorBimestre(nuevosCrit);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevosCrit }, { merge: true });
+    // Limpiar la nota del criterio eliminado y reordenar las restantes en todos los estudiantes
+    if (idxElim >= 0) {
+      const key = `${materia.nombre}-${grado}`;
+      const fsKey = safeKey(`${materia.nombre}_${grado}`);
+      const campoElim = `n${idxElim + 1}`;
+      const totalCrits = criteriosPorBimestre[bimestre].length; // antes de eliminar
+      setEstudiantes(prev => {
+        const nuevos = { ...prev };
+        const lista = (nuevos[key] || []).map(est => {
+          const bim = { ...est.bimestres[bimestre] };
+          // Desplazar notas: eliminar la posición idxElim y compactar
+          for (let i = idxElim; i < totalCrits - 1; i++) {
+            bim[`n${i + 1}`] = bim[`n${i + 2}`] || '';
+          }
+          bim[`n${totalCrits}`] = ''; // limpiar la última
+          // Recalcular promedio
+          const notas = Array.from({ length: totalCrits - 1 }, (_, i) => parseFloat(bim[`n${i + 1}`])).filter(n => !isNaN(n) && n > 0);
+          bim.nota = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : '';
+          return { ...est, bimestres: { ...est.bimestres, [bimestre]: bim } };
+        });
+        nuevos[key] = lista;
+        setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
+        return nuevos;
+      });
+    }
   };
 
   const guardarDocente = async () => {
