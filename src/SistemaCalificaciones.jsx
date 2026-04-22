@@ -274,10 +274,18 @@ function Spinner({ texto = 'Cargando...' }) {
 function NotaInput({ value, onCommit, title, primerCiclo = false }) {
   const [local, setLocal] = useState(value ?? '');
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     setLocal(value ?? '');
   }, [value]);
+
+  // Cuando focused pasa a true, hacer foco real en el input
+  useEffect(() => {
+    if (focused && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [focused]);
 
   const handleChange = (ev) => {
     const v = ev.target.value;
@@ -300,8 +308,6 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
     }
   };
 
-  const handleFocus = () => setFocused(true);
-
   const step = (dir) => {
     const current = parseFloat(local) || 0;
     const next = Math.min(10, Math.max(1, Math.round((current + dir * 0.5) * 2) / 2));
@@ -312,7 +318,6 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
 
   // En primer ciclo: si hay valor y no está en foco, mostrar abreviatura
   const mostrarAbrev = primerCiclo && !focused && local !== '';
-  const abrev = mostrarAbrev ? abrevConceptual(local) : null;
 
   return (
     <div className="flex flex-col items-center" title={title}>
@@ -327,12 +332,14 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
           className="nota-input flex items-center justify-center font-black cursor-text"
           style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: '#6d28d9', background: '#f5f3ff' }}
         >
-          {abrev}
+          {abrevConceptual(local)}
         </div>
       ) : (
-        <input type="text" inputMode="decimal" className="nota-input"
+        <input
+          ref={inputRef}
+          type="text" inputMode="decimal" className="nota-input"
           style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe' }}
-          value={local} onChange={handleChange} onBlur={handleBlur} onFocus={handleFocus} />
+          value={local} onChange={handleChange} onBlur={handleBlur} onFocus={() => setFocused(true)} />
       )}
       <button type="button"
         onMouseDown={e => { e.preventDefault(); step(-1); }}
@@ -360,7 +367,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const hoy = new Date().toLocaleDateString('es-AR');
-  const nombreDocente = usuario?.nombre || '—';
+  const nombreDocente = usuario?.rol === 'administrador' ? 'Raquel Noemí Maciszonek' : (usuario?.nombre || '—');
   const primerCiclo = esPrimerCiclo(grado);
 
   // Header violeta
@@ -506,6 +513,8 @@ export default function SistemaCalificaciones() {
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
   const [bajas, setBajas] = useState([]);
+  const [mensajes, setMensajes] = useState([]);
+  const [showModalMensajes, setShowModalMensajes] = useState(false);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -583,6 +592,20 @@ export default function SistemaCalificaciones() {
     });
     return () => unsub();
   }, [authUser]);
+
+  // ── Mensajes ──
+  useEffect(() => {
+    if (!authUser || !usuario) return;
+    const unsub = onSnapshot(collection(db, 'mensajes'), (snap) => {
+      const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (usuario.rol === 'administrador') {
+        setMensajes(todos);
+      } else {
+        setMensajes(todos.filter(m => m.destinatarioUid === authUser.uid || m.destinatarioUid === 'todos'));
+      }
+    });
+    return () => unsub();
+  }, [authUser, usuario]);
 
   // ── Calificaciones ──
   useEffect(() => {
@@ -986,7 +1009,13 @@ export default function SistemaCalificaciones() {
     if (!u) return '';
     if (u.rol === 'docente_grado') return `Docente de Grado • ${gradoLabel(u.gradoAsignado)}`;
     if (u.rol === 'area_especial') return 'Docente Área Especial';
-    return 'Administrador';
+    return 'Directora';
+  };
+
+  const nombreMostrado = (u) => {
+    if (!u) return '';
+    if (u.rol === 'administrador') return 'Raquel Noemí Maciszonek';
+    return u.nombre;
   };
 
   // ── Modales internos ──
@@ -1377,18 +1406,37 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="relative text-center mb-8">
               {usuario?.rol === 'administrador' && (
-                <button onClick={() => setShowModalSolicitudes(true)}
-                  className="absolute top-0 right-0 flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl" title="Solicitudes pendientes">
-                  <span className="text-xl">🔔</span>
-                  {solicitudes.length > 0
-                    ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{solicitudes.length}</span>
-                    : <span className="text-xs font-bold text-purple-600">Solicitudes</span>}
-                </button>
+                <div className="absolute top-0 right-0 flex gap-2">
+                  <button onClick={() => setShowModalMensajes(true)}
+                    className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
+                    <span className="text-xl">✉️</span>
+                    <span className="text-xs font-bold text-blue-600">Mensajes</span>
+                  </button>
+                  <button onClick={() => setShowModalSolicitudes(true)}
+                    className="flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl" title="Solicitudes pendientes">
+                    <span className="text-xl">🔔</span>
+                    {solicitudes.length > 0
+                      ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{solicitudes.length}</span>
+                      : <span className="text-xs font-bold text-purple-600">Solicitudes</span>}
+                  </button>
+                </div>
               )}
+              {usuario?.rol !== 'administrador' && (() => {
+                const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
+                return (
+                  <button onClick={() => setShowModalMensajes(true)}
+                    className="absolute top-0 right-0 flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
+                    <span className="text-xl">✉️</span>
+                    {noLeidos > 0
+                      ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{noLeidos}</span>
+                      : <span className="text-xs font-bold text-blue-600">Mensajes</span>}
+                  </button>
+                );
+              })()}
               <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenidos Colegas! 👋</h1>
               <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl mb-4">
                 <div className="text-left">
-                  <p className="font-extrabold text-gray-800 text-lg">{usuario?.nombre}</p>
+                  <p className="font-extrabold text-gray-800 text-lg">{nombreMostrado(usuario)}</p>
                   <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
                 </div>
               </div>
@@ -1478,6 +1526,14 @@ export default function SistemaCalificaciones() {
         </div>
         {showModalSolicitudes && <ModalSolicitudes />}
         {modalCerrarSesion && <ModalCerrarSesion />}
+        {showModalMensajes && (
+          <ModalMensajes
+            db={db} usuario={usuario} authUser={authUser}
+            mensajes={mensajes} nombreMostrado={nombreMostrado}
+            onClose={() => setShowModalMensajes(false)}
+            showConfirm={showConfirm}
+          />
+        )}
       </>
     );
   }
@@ -1762,6 +1818,207 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal de Mensajes
+// ════════════════════════════════════════════════════════
+function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClose, showConfirm }) {
+  const esAdmin = usuario?.rol === 'administrador';
+  const [destinatario, setDestinatario] = useState('todos');
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [docentes, setDocentes] = useState([]);
+  const [vista, setVista] = useState(esAdmin ? 'redactar' : 'bandeja');
+
+  useEffect(() => {
+    if (!esAdmin) return;
+    const unsub = onSnapshot(collection(db, 'usuarios'), snap => {
+      setDocentes(snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+        .filter(u => u.rol !== 'administrador' && u.activo));
+    });
+    return () => unsub();
+  }, [db, esAdmin]);
+
+  const enviarMensaje = async () => {
+    if (!texto.trim()) return;
+    setEnviando(true);
+    try {
+      const destinatarioNombre = destinatario === 'todos'
+        ? 'Todos los docentes'
+        : docentes.find(d => d.uid === destinatario)?.nombre || '—';
+      await setDoc(doc(collection(db, 'mensajes')), {
+        texto: texto.trim(),
+        remitenteUid: authUser.uid,
+        remitenteNombre: 'Raquel Noemí Maciszonek',
+        destinatarioUid: destinatario,
+        destinatarioNombre,
+        fecha: new Date().toISOString(),
+        fechaCorta: new Date().toLocaleDateString('es-AR'),
+        leidoPor: {},
+        confirmadoPor: {},
+      });
+      setTexto('');
+      setVista('enviados');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const confirmarRecibido = async (msg) => {
+    await updateDoc(doc(db, 'mensajes', msg.id), {
+      [`leidoPor.${authUser.uid}`]: true,
+      [`confirmadoPor.${authUser.uid}`]: true,
+    });
+  };
+
+  const eliminarMensaje = async (msg) => {
+    const ok = await showConfirm(`¿Eliminás el mensaje "${msg.texto.substring(0,40)}..."?`, 'Eliminar mensaje');
+    if (!ok) return;
+    await deleteDoc(doc(db, 'mensajes', msg.id));
+  };
+
+  // Marcar como leído al abrir
+  useEffect(() => {
+    if (!authUser || esAdmin) return;
+    mensajes.forEach(async (m) => {
+      if (!m.leidoPor?.[authUser.uid]) {
+        await updateDoc(doc(db, 'mensajes', m.id), {
+          [`leidoPor.${authUser.uid}`]: true,
+        });
+      }
+    });
+  }, [mensajes, authUser, esAdmin, db]);
+
+  const mensajesDocente = mensajes.filter(m =>
+    m.destinatarioUid === authUser?.uid || m.destinatarioUid === 'todos'
+  );
+  const mensajesEnviados = mensajes.filter(m => m.remitenteUid === authUser?.uid);
+  const confirmaciones = mensajesEnviados.map(m => ({
+    ...m,
+    cantConfirmados: Object.keys(m.confirmadoPor || {}).length,
+  }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="bg-blue-50 px-6 py-4 flex items-center justify-between border-b">
+          <h3 className="text-lg font-bold text-blue-800">✉️ Mensajes</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+        </div>
+
+        {/* Tabs */}
+        {esAdmin ? (
+          <div className="flex border-b">
+            {[['redactar','✏️ Redactar'],['enviados','📤 Enviados']].map(([key,label]) => (
+              <button key={key} onClick={() => setVista(key)}
+                className={`flex-1 py-2.5 text-sm font-bold transition-colors ${vista === key ? 'bg-blue-500 text-white' : 'text-gray-500 hover:bg-gray-50'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-2 bg-gray-50 border-b text-xs text-gray-500 font-semibold">
+            Mensajes de la Dirección
+          </div>
+        )}
+
+        <div className="max-h-[65vh] overflow-y-auto">
+          {/* Admin: Redactar */}
+          {esAdmin && vista === 'redactar' && (
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Destinatario</label>
+                <select value={destinatario} onChange={e => setDestinatario(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-blue-400">
+                  <option value="todos">📢 Todos los docentes</option>
+                  {docentes.map(d => (
+                    <option key={d.uid} value={d.uid}>{d.nombre} — {d.rol === 'docente_grado' ? gradoLabel(d.gradoAsignado) : 'Área Especial'}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Mensaje</label>
+                <textarea rows={5} value={texto} onChange={e => setTexto(e.target.value)}
+                  placeholder="Escribí tu mensaje acá..."
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold resize-none focus:outline-none focus:border-blue-400" />
+              </div>
+              <button onClick={enviarMensaje} disabled={!texto.trim() || enviando}
+                className="btn-primary w-full py-3 rounded-xl bg-blue-500 text-white font-bold shadow disabled:opacity-50">
+                {enviando ? 'Enviando...' : '📨 Enviar mensaje'}
+              </button>
+            </div>
+          )}
+
+          {/* Admin: Enviados con confirmaciones */}
+          {esAdmin && vista === 'enviados' && (
+            <div className="p-4 space-y-3">
+              {mensajesEnviados.length === 0 ? (
+                <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📭</p><p className="font-bold">No hay mensajes enviados</p></div>
+              ) : (
+                [...mensajesEnviados].reverse().map(m => (
+                  <div key={m.id} className="border-2 border-gray-100 rounded-xl p-4 bg-gray-50">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-xs font-bold text-blue-600">Para: {m.destinatarioNombre}</p>
+                        <p className="text-xs text-gray-400 font-semibold">{m.fechaCorta}</p>
+                      </div>
+                      <button onClick={() => eliminarMensaje(m)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={15} /></button>
+                    </div>
+                    <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-2">{m.texto}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                        ✅ {Object.keys(m.confirmadoPor || {}).length} confirmado(s)
+                      </span>
+                      <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
+                        👁️ {Object.keys(m.leidoPor || {}).length} leído(s)
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Docente: Bandeja de entrada */}
+          {!esAdmin && (
+            <div className="p-4 space-y-3">
+              {mensajesDocente.length === 0 ? (
+                <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📭</p><p className="font-bold">No tenés mensajes</p></div>
+              ) : (
+                [...mensajesDocente].reverse().map(m => {
+                  const confirmado = m.confirmadoPor?.[authUser?.uid];
+                  return (
+                    <div key={m.id} className={`border-2 rounded-xl p-4 ${confirmado ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="text-xs font-bold text-blue-700">De: {m.remitenteNombre} · Directora</p>
+                        <p className="text-xs text-gray-400 font-semibold">{m.fechaCorta}</p>
+                      </div>
+                      <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-3">{m.texto}</p>
+                      {confirmado ? (
+                        <span className="text-xs font-bold text-green-700 bg-green-100 px-3 py-1 rounded-lg">✅ Confirmado</span>
+                      ) : (
+                        <button onClick={() => confirmarRecibido(m)}
+                          className="btn-primary text-xs font-bold bg-blue-500 text-white px-4 py-1.5 rounded-lg shadow">
+                          ✅ Confirmar recibido
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
