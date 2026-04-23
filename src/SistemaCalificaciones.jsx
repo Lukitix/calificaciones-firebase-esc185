@@ -213,7 +213,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 3px; }
-.nota-input { width: 38px; height: 32px; padding: 2px; border: 2px solid #ddd6fe; border-radius: 6px; text-align: center; font-size: 12px; font-weight: 700; color: #374151; background: #faf5ff; transition: border-color 0.15s, background 0.15s; }
+.nota-input { width: 44px; height: 36px; padding: 2px; border: 2px solid #ddd6fe; border-radius: 6px; text-align: center; font-size: 13px; font-weight: 700; color: #374151; background: #faf5ff; transition: border-color 0.15s, background 0.15s; }
 .nota-input:focus { outline: none; border-color: #7c3aed; background: #fff; }
 .tabla-header { background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; }
 .tabla-row { transition: background-color 0.18s ease; }
@@ -323,7 +323,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
     <div className="flex flex-col items-center" title={title}>
       <button type="button"
         onMouseDown={e => { e.preventDefault(); step(1); }}
-        className="w-[38px] h-[14px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
+        className="w-[44px] h-[16px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
         style={{ background: '#f3f0ff', border: '1px solid #ddd6fe', borderBottom: 'none', borderRadius: '4px 4px 0 0' }}
       >▲</button>
       {mostrarAbrev ? (
@@ -343,7 +343,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
       )}
       <button type="button"
         onMouseDown={e => { e.preventDefault(); step(-1); }}
-        className="w-[38px] h-[14px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
+        className="w-[44px] h-[16px] flex items-center justify-center text-[9px] text-gray-400 hover:text-purple-700 hover:bg-purple-100 select-none transition-colors"
         style={{ background: '#f3f0ff', border: '1px solid #ddd6fe', borderTop: 'none', borderRadius: '0 0 4px 4px' }}
       >▼</button>
     </div>
@@ -401,7 +401,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     startY: 32,
     head,
     body,
-    styles: { font: 'helvetica', fontSize: primerCiclo ? 7 : 9, cellPadding: 3, halign: 'center' },
+    styles: { font: 'helvetica', fontSize: primerCiclo ? 8 : 11, cellPadding: 3, halign: 'center' },
     headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', halign: 'center' },
     columnStyles: {
       0: { halign: 'left', cellWidth: 55 },
@@ -508,7 +508,7 @@ export default function SistemaCalificaciones() {
 
   const [solicitudes, setSolicitudes] = useState([]);
   const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
-  const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', editando: null });
+  const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', sexo: 'V', editando: null });
   const [busquedaDNI, setBusquedaDNI] = useState('');
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
@@ -715,15 +715,22 @@ export default function SistemaCalificaciones() {
         const todosUsuarios = snaps.docs.map(snap => snap.data());
 
         if (d.rol === 'docente_grado') {
-          const gradoOcupado = todosUsuarios.find(u =>
-            u.rol === 'docente_grado' && u.gradoAsignado === d.gradoAsignado
-          );
-          if (gradoOcupado) {
-            await showAlert(
-              `Atención: Ya existe una docente de grado asignada a ${gradoLabel(d.gradoAsignado)} (${gradoOcupado.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
-              'warning', '⚠️ Grado ya asignado'
+          const gradosElegidos = d.gradosAsignados?.length > 0 ? d.gradosAsignados : [d.gradoAsignado].filter(Boolean);
+          if (gradosElegidos.length === 0) {
+            await showAlert('Seleccioná al menos un grado.', 'warning'); return;
+          }
+          for (const g of gradosElegidos) {
+            const gradoOcupado = todosUsuarios.find(u =>
+              u.rol === 'docente_grado' &&
+              (u.gradosAsignados?.includes(g) || u.gradoAsignado === g)
             );
-            return;
+            if (gradoOcupado) {
+              await showAlert(
+                `Atención: Ya existe una docente de grado asignada a ${gradoLabel(g)} (${gradoOcupado.nombre}). Por favor, verificá tus datos o consultá en Dirección.`,
+                'warning', '⚠️ Grado ya asignado'
+              );
+              return;
+            }
           }
         } else if (d.rol === 'area_especial') {
           for (const ma of d.materiasAsignadas) {
@@ -751,14 +758,19 @@ export default function SistemaCalificaciones() {
     setRegistroCargando(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, d.email.trim(), d.password);
+      const gradosAsig = d.rol === 'docente_grado'
+        ? (d.gradosAsignados?.length > 0 ? d.gradosAsignados : [d.gradoAsignado].filter(Boolean))
+        : null;
       const perfil = {
         uid: cred.user.uid, nombre: d.nombre.trim(), email: d.email.trim(),
-        rol: d.rol, gradoAsignado: d.rol === 'docente_grado' ? d.gradoAsignado : null,
+        rol: d.rol,
+        gradoAsignado: gradosAsig ? gradosAsig[0] : null,
+        gradosAsignados: gradosAsig,
         materiasAsignadas: d.materiasAsignadas, fechaCreacion: new Date().toISOString(), activo: false
       };
       await setDoc(doc(db, 'usuarios', cred.user.uid), perfil);
-      await signOut(auth); // Desloguear hasta aprobación
-      setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } });
+      await signOut(auth);
+      setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', gradosAsignados: [], materiasAsignadas: [] } });
       await showAlert('Registro enviado. Esperá a que el Administrador apruebe tu cuenta para poder ingresar.', 'success', '¡Recibido!');
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -788,24 +800,24 @@ export default function SistemaCalificaciones() {
     if (!alumnoForm.nombre.trim() || !alumnoForm.dni.trim()) {
       await showAlert('Completá el nombre y el DNI del alumno.', 'warning'); return;
     }
-    const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
+    const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
     const nuevos = { ...alumnosGlobales };
     if (!nuevos[gradoActual]) nuevos[gradoActual] = [];
     if (alumnoForm.editando) {
       const idx = nuevos[gradoActual].findIndex(a => a.dni === alumnoForm.editando.dni);
-      if (idx !== -1) nuevos[gradoActual][idx] = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim() };
+      if (idx !== -1) nuevos[gradoActual][idx] = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' };
     } else {
       if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
         await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
       }
-      nuevos[gradoActual].push({ nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim() });
+      nuevos[gradoActual].push({ nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' });
     }
     await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
-    setAlumnoForm({ nombre: '', dni: '', editando: null });
+    setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null });
   };
 
   const eliminarAlumno = async (alumno) => {
-    const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
+    const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
     const motivo = await showPrompt(
       `Ingresá el motivo de la baja de "${alumno.nombre}":`,
       'Ej: Cambio de escuela, Abandono, Expulsión...',
@@ -974,7 +986,10 @@ export default function SistemaCalificaciones() {
   const getGradosParaMateria = (materiaNombre) => {
     if (!usuario) return [];
     if (usuario.rol === 'administrador') return grados;
-    if (usuario.rol === 'docente_grado') return [usuario.gradoAsignado];
+    if (usuario.rol === 'docente_grado') {
+      // Soporta tanto gradosAsignados (array) como gradoAsignado (legacy)
+      return usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados : [usuario.gradoAsignado].filter(Boolean);
+    }
     if (usuario.rol === 'area_especial') {
       const ma = usuario.materiasAsignadas.find(ma => ma.nombre === materiaNombre);
       return ma ? ma.grados : [];
@@ -984,7 +999,10 @@ export default function SistemaCalificaciones() {
 
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActuales = estudiantes[`${materia?.nombre}-${grado}`] || [];
-  const alumnosGr = alumnosGlobales[usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado] || [];
+  const gradoActivoDocente = usuario?.rol === 'docente_grado'
+    ? (usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados[0] : usuario.gradoAsignado)
+    : grado;
+  const alumnosGr = alumnosGlobales[usuario?.rol === 'docente_grado' ? gradoActivoDocente : grado] || [];
   const puedeGestionarAlumnos = ['docente_grado', 'administrador'].includes(usuario?.rol);
   const puedeGestionarUsuarios = usuario?.rol === 'administrador';
 
@@ -1007,7 +1025,10 @@ export default function SistemaCalificaciones() {
 
   const rolLabel = (u) => {
     if (!u) return '';
-    if (u.rol === 'docente_grado') return `Docente de Grado • ${gradoLabel(u.gradoAsignado)}`;
+    if (u.rol === 'docente_grado') {
+      const gs = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
+      return `Docente de Grado • ${gs.map(gradoLabel).join(', ')}`;
+    }
     if (u.rol === 'area_especial') return 'Docente Área Especial';
     return 'Directora';
   };
@@ -1049,7 +1070,7 @@ export default function SistemaCalificaciones() {
                   <p className="font-bold text-slate-800 text-lg">{sol.nombre}</p>
                   <p className="text-sm text-slate-600">📧 {sol.email}</p>
                   <p className="text-sm text-slate-600">👤 Rol: {sol.rol.replace('_', ' ').toUpperCase()}</p>
-                  {sol.gradoAsignado && <p className="text-sm text-slate-600">📚 Grado: {gradoLabel(sol.gradoAsignado)}</p>}
+                  {sol.gradoAsignado && <p className="text-sm text-slate-600">📚 Grado(s): {(sol.gradosAsignados?.length > 0 ? sol.gradosAsignados : [sol.gradoAsignado]).map(gradoLabel).join(', ')}</p>}
                 </div>
                 <div className="flex gap-2">
                   <button onClick={async () => {
@@ -1180,11 +1201,23 @@ export default function SistemaCalificaciones() {
                   <option value="area_especial">Docente Área Especial</option>
                 </select>
                 {registro.data.rol === 'docente_grado' && (
-                  <select value={registro.data.gradoAsignado}
-                    onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, gradoAsignado: e.target.value } }))}
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-purple-500">
-                    {grados.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
-                  </select>
+                  <div className="border-2 border-purple-200 rounded-xl p-3 bg-purple-50">
+                    <p className="font-bold text-purple-800 mb-3 text-sm uppercase tracking-wide">Grados a cargo</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      {grados.map(g => (
+                        <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-white rounded p-1 cursor-pointer">
+                          <input type="checkbox"
+                            checked={(registro.data.gradosAsignados || [registro.data.gradoAsignado]).includes(g)}
+                            onChange={() => {
+                              const actual = registro.data.gradosAsignados || [registro.data.gradoAsignado].filter(Boolean);
+                              const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
+                              setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
+                            }}
+                            className="accent-purple-600" /> {gradoLabel(g)}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 <div className="border-2 border-gray-200 rounded-xl p-3">
                   <p className="font-bold text-gray-700 mb-2 text-sm uppercase tracking-wide">Materias asignadas</p>
@@ -1231,7 +1264,7 @@ export default function SistemaCalificaciones() {
   );
 
   if (pantalla === 'administracion') {
-    const gradoActual = usuario?.rol === 'docente_grado' ? usuario.gradoAsignado : grado;
+    const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
     return (
       <>
         <style>{globalStyles}</style>
@@ -1256,8 +1289,18 @@ export default function SistemaCalificaciones() {
                   className="flex-1 min-w-48 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
                 <input type="text" value={alumnoForm.dni} onChange={e => setAlumnoForm({ ...alumnoForm, dni: e.target.value })} onKeyDown={e => e.key === 'Enter' && agregarAlumno()} placeholder="D.N.I N°..."
                   className="w-44 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
+                <div className="flex gap-1 items-center bg-white border-2 border-blue-300 rounded-xl px-3 py-1">
+                  <span className="text-xs font-bold text-gray-500 mr-1">Sexo:</span>
+                  {['V', 'M'].map(s => (
+                    <button key={s} type="button"
+                      onClick={() => setAlumnoForm({ ...alumnoForm, sexo: s })}
+                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-all ${alumnoForm.sexo === s ? (s === 'V' ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white') : 'text-gray-500 hover:bg-gray-100'}`}>
+                      {s === 'V' ? '♂ V' : '♀ M'}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={agregarAlumno} className="btn-primary flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-xl font-bold shadow"><Plus size={18} /> {alumnoForm.editando ? 'Actualizar' : 'Agregar'}</button>
-                {alumnoForm.editando && <button onClick={() => setAlumnoForm({ nombre: '', dni: '', editando: null })} className="flex items-center gap-1 bg-gray-300 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-400 transition-all"><X size={16} /> Cancelar</button>}
+                {alumnoForm.editando && <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null })} className="flex items-center gap-1 bg-gray-300 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-400 transition-all"><X size={16} /> Cancelar</button>}
               </div>
             </div>
             <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-5">
@@ -1281,9 +1324,9 @@ export default function SistemaCalificaciones() {
               {busquedaDNI.trim().length > 0 && (() => {
                 const termino = busquedaDNI.trim().toLowerCase();
                 const alumnosDelGrado = alumnosGlobales[gradoActual] || [];
-                const coincidencias = alumnosDelGrado.filter(a =>
+                const coincidencias = [...alumnosDelGrado].filter(a =>
                   a.nombre.toLowerCase().includes(termino) || a.dni.includes(termino)
-                );
+                ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
                 if (coincidencias.length === 0) return (
                   <div className="mt-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-400 font-semibold">
                     Sin resultados en {gradoLabel(gradoActual)}
@@ -1316,16 +1359,24 @@ export default function SistemaCalificaciones() {
                 <div className="text-center py-14 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-lg">No hay alumnos registrados</p></div>
               ) : (
                 <table className="w-full">
-                  <thead><tr className="tabla-header"><th className="p-3 text-center font-bold text-sm">#</th><th className="p-3 text-center font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
+                  <thead><tr className="tabla-header"><th className="p-3 text-center font-bold text-sm">#</th><th className="p-3 text-center font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Sexo</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
                   <tbody>
-                    {alumnosGr.map((a, i) => (
+                    {[...alumnosGr].sort((a, b) => {
+                      if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
+                      return a.nombre.localeCompare(b.nombre, 'es');
+                    }).map((a, i) => (
                       <tr key={i} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="p-3 text-gray-400 font-bold text-sm">{i + 1}</td>
                         <td className="p-3 font-bold text-gray-800">{a.nombre}</td>
                         <td className="p-3 text-center"><Badge>{a.dni}</Badge></td>
                         <td className="p-3 text-center">
+                          <span className={`inline-block px-2 py-1 rounded-lg text-xs font-bold ${(a.sexo || 'V') === 'V' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                            {(a.sexo || 'V') === 'V' ? '♂ V' : '♀ M'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
                           <div className="flex gap-2 justify-center">
-                            <button onClick={() => { setAlumnoForm({ nombre: a.nombre, dni: a.dni, editando: a }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="btn-primary flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Save size={14} /> Editar</button>
+                            <button onClick={() => { setAlumnoForm({ nombre: a.nombre, dni: a.dni, sexo: a.sexo || 'V', editando: a }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="btn-primary flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Save size={14} /> Editar</button>
                             <button onClick={() => eliminarAlumno(a)} className="btn-primary flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Trash2 size={14} /> Eliminar</button>
                           </div>
                         </td>
@@ -1454,7 +1505,7 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
               )}
               {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones Áreas Especiales</button>
+                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
               )}
             </div>
             {curricularesFilt.length > 0 && (
@@ -1674,7 +1725,7 @@ export default function SistemaCalificaciones() {
                   </tr>
                 </thead>
                 <tbody>
-                  {estActuales.map((e, i) => {
+                  {[...estActuales].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map((e, i) => {
                     const b1 = e.bimestres?.[1]?.nota || '';
                     const b2 = e.bimestres?.[2]?.nota || '';
                     const b3 = e.bimestres?.[3]?.nota || '';
@@ -1702,7 +1753,7 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center text-[9px] font-bold text-gray-500 leading-tight px-0.5"
+                                    <span className="text-center text-[11px] font-bold text-gray-500 leading-tight px-0.5"
                                       style={{ maxWidth: '64px', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
@@ -1717,7 +1768,7 @@ export default function SistemaCalificaciones() {
                             )}
                             {crits.length > 0 && (
                               <div className="flex flex-col items-center gap-0.5 ml-1">
-                                <span className="text-[9px] font-bold text-purple-500">Prom.</span>
+                                <span className="text-[11px] font-bold text-purple-500">Prom.</span>
                                 <div className="flex items-center justify-center bg-purple-100 text-purple-800 font-black rounded-lg border-2 border-purple-200"
                                   style={{ minWidth: '40px', height: '32px', fontSize: primerCiclo && notaBim ? '9px' : '12px', padding: '2px 4px', textAlign: 'center' }}>
                                   {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '-'}
@@ -1936,7 +1987,7 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
                   className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-blue-400">
                   <option value="todos">📢 Todos los docentes</option>
                   {docentes.map(d => (
-                    <option key={d.uid} value={d.uid}>{d.nombre} — {d.rol === 'docente_grado' ? gradoLabel(d.gradoAsignado) : 'Área Especial'}</option>
+                    <option key={d.uid} value={d.uid}>{d.nombre} — {d.rol === 'docente_grado' ? (d.gradosAsignados?.length > 0 ? d.gradosAsignados.map(gradoLabel).join(', ') : gradoLabel(d.gradoAsignado)) : 'Área Especial'}</option>
                   ))}
                 </select>
               </div>
@@ -2102,9 +2153,13 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
       await showAlert('El nombre no puede estar vacío.', 'warning'); return;
     }
     try {
+      const gradosAsig = editando.rol === 'docente_grado'
+        ? (editando.gradosAsignados?.length > 0 ? editando.gradosAsignados : [editando.gradoAsignado].filter(Boolean))
+        : null;
       await updateDoc(doc(db, 'usuarios', editando.uid), {
         nombre: editando.nombre.trim(),
-        gradoAsignado: editando.rol === 'docente_grado' ? editando.gradoAsignado : null,
+        gradoAsignado: gradosAsig ? gradosAsig[0] : null,
+        gradosAsignados: gradosAsig,
         materiasAsignadas: editando.materiasAsignadas,
       });
       await showAlert('Datos del docente actualizados correctamente.', 'success', 'Guardado');
@@ -2182,13 +2237,26 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                   </div>
                   {editando.rol === 'docente_grado' && (
                     <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grado asignado</label>
-                      <select
-                        value={editando.gradoAsignado || ''}
-                        onChange={e => setEditando(prev => ({ ...prev, gradoAsignado: e.target.value }))}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-green-500">
-                        {grados.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
-                      </select>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados a cargo</label>
+                      <div className="border-2 border-gray-100 rounded-xl p-3">
+                        <div className="grid grid-cols-4 gap-1">
+                          {grados.map(g => {
+                            const actual = editando.gradosAsignados?.length > 0 ? editando.gradosAsignados : [editando.gradoAsignado].filter(Boolean);
+                            return (
+                              <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
+                                <input type="checkbox"
+                                  className="accent-green-600"
+                                  checked={actual.includes(g)}
+                                  onChange={() => {
+                                    const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
+                                    setEditando(prev => ({ ...prev, gradosAsignados: nuevo, gradoAsignado: nuevo[0] || '' }));
+                                  }} />
+                                {gradoLabel(g)}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div className="mt-4">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Materias asignadas</label>
                         <div className="border-2 border-gray-100 rounded-xl p-3 space-y-1">
@@ -2415,7 +2483,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
-          <TopBar titulo="📋 Calificaciones Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+          <TopBar titulo="📋 Calificaciones de Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
             <span className="text-xl mt-0.5">👁️</span>
