@@ -520,6 +520,7 @@ export default function SistemaCalificaciones() {
   const [bajas, setBajas] = useState([]);
   const [mensajes, setMensajes] = useState([]);
   const [showModalMensajes, setShowModalMensajes] = useState(false);
+  const [showPerfil, setShowPerfil] = useState(false);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -1376,7 +1377,7 @@ export default function SistemaCalificaciones() {
                     }).map((a, i) => (
                       <tr key={i} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                         <td className="p-3 text-gray-400 font-bold text-sm">{i + 1}</td>
-                        <td className="p-3 font-bold text-gray-800">{a.nombre}</td>
+                        <td className="p-3 font-bold text-gray-800 text-left">{a.nombre}</td>
                         <td className="p-3 text-center"><Badge>{a.dni}</Badge></td>
                         <td className="p-3 text-center">
                           <span className={`inline-block px-2 py-1 rounded-lg text-xs font-bold ${(a.sexo || 'V') === 'V' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
@@ -1499,6 +1500,12 @@ export default function SistemaCalificaciones() {
                   <p className="font-extrabold text-gray-800 text-lg">{nombreMostrado(usuario)}</p>
                   <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
                 </div>
+                {usuario?.rol !== 'administrador' && (
+                  <button onClick={() => setShowPerfil(true)}
+                    className="btn-primary flex items-center gap-1 bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all">
+                    ✏️ Mi perfil
+                  </button>
+                )}
               </div>
               <div>
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
@@ -1592,6 +1599,14 @@ export default function SistemaCalificaciones() {
             mensajes={mensajes} nombreMostrado={nombreMostrado}
             onClose={() => setShowModalMensajes(false)}
             showConfirm={showConfirm}
+          />
+        )}
+        {showPerfil && (
+          <ModalPerfil
+            db={db} usuario={usuario} authUser={authUser}
+            showAlert={showAlert}
+            onClose={() => setShowPerfil(false)}
+            onActualizar={(nuevosDatos) => setUsuario(prev => ({ ...prev, ...nuevosDatos }))}
           />
         )}
       </>
@@ -1878,6 +1893,153 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal de Perfil (edición propia del docente)
+// ════════════════════════════════════════════════════════
+function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }) {
+  const [nombre, setNombre] = useState(usuario?.nombre || '');
+  const [gradosAsignados, setGradosAsignados] = useState(
+    usuario?.gradosAsignados?.length > 0 ? usuario.gradosAsignados : [usuario?.gradoAsignado].filter(Boolean)
+  );
+  const [materiasAsignadas, setMateriasAsignadas] = useState(usuario?.materiasAsignadas || []);
+  const [guardando, setGuardando] = useState(false);
+
+  const toggleGradoPerfil = (g) => {
+    setGradosAsignados(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
+  };
+
+  const toggleGradoEspecialPerfil = (mNombre, g) => {
+    setMateriasAsignadas(prev => prev.map(ma =>
+      ma.nombre !== mNombre ? ma : {
+        ...ma,
+        grados: ma.grados.includes(g) ? ma.grados.filter(x => x !== g) : [...ma.grados, g]
+      }
+    ));
+  };
+
+  const guardar = async () => {
+    if (!nombre.trim()) { await showAlert('El nombre no puede estar vacío.', 'warning'); return; }
+    if (usuario.rol === 'docente_grado' && gradosAsignados.length === 0) {
+      await showAlert('Seleccioná al menos un grado.', 'warning'); return;
+    }
+    setGuardando(true);
+    try {
+      const datos = {
+        nombre: capitalizarNombre(nombre),
+        ...(usuario.rol === 'docente_grado' && {
+          gradosAsignados,
+          gradoAsignado: gradosAsignados[0] || usuario.gradoAsignado,
+          materiasAsignadas,
+        }),
+        ...(usuario.rol === 'area_especial' && { materiasAsignadas }),
+      };
+      await updateDoc(doc(db, 'usuarios', authUser.uid), datos);
+      onActualizar(datos);
+      await showAlert('Tu perfil fue actualizado correctamente.', 'success', '✅ Guardado');
+      onClose();
+    } catch (e) {
+      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="bg-purple-50 px-6 py-4 flex items-center justify-between border-b">
+          <h3 className="text-lg font-bold text-purple-800">👤 Mi Perfil</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+        </div>
+        <div className="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-4">
+          {/* Nombre */}
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Apellido y nombre(s)</label>
+            <input type="text" value={nombre}
+              onChange={e => setNombre(e.target.value)}
+              onBlur={e => setNombre(capitalizarNombre(e.target.value))}
+              placeholder="Ej: García, María José"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold focus:outline-none focus:border-purple-500" />
+          </div>
+          {/* Email — solo lectura */}
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Correo electrónico</label>
+            <div className="w-full px-4 py-2.5 border-2 border-gray-100 rounded-xl text-gray-400 font-semibold bg-gray-50 text-sm">
+              {usuario?.email} <span className="text-xs">(no editable)</span>
+            </div>
+          </div>
+          {/* Grados — docente de grado */}
+          {usuario?.rol === 'docente_grado' && (
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados a cargo</label>
+              <div className="border-2 border-gray-100 rounded-xl p-3">
+                <div className="grid grid-cols-4 gap-1">
+                  {grados.map(g => (
+                    <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
+                      <input type="checkbox" className="accent-purple-600"
+                        checked={gradosAsignados.includes(g)}
+                        onChange={() => toggleGradoPerfil(g)} />
+                      {gradoLabel(g)}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Materias asignadas</label>
+                <div className="border-2 border-gray-100 rounded-xl p-3 space-y-1">
+                  {areas.curriculares.map(m => (
+                    <label key={m.nombre} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+                      <input type="checkbox" className="accent-purple-600 w-4 h-4"
+                        checked={materiasAsignadas?.includes(m.nombre) || false}
+                        onChange={() => setMateriasAsignadas(prev =>
+                          prev.includes(m.nombre) ? prev.filter(x => x !== m.nombre) : [...prev, m.nombre]
+                        )} />
+                      <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Grados por materia — área especial */}
+          {usuario?.rol === 'area_especial' && (
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados por materia</label>
+              {materiasAsignadas.map(ma => (
+                <div key={ma.nombre} className="mb-4 border-2 border-gray-100 rounded-xl p-3">
+                  <p className="font-bold text-gray-800 text-sm mb-2">{ma.nombre}</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {grados.map(g => (
+                      <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
+                        <input type="checkbox" className="accent-purple-600"
+                          checked={ma.grados?.includes(g) || false}
+                          onChange={() => toggleGradoEspecialPerfil(ma.nombre, g)} />
+                        {gradoLabel(g)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="px-6 pb-5 flex gap-3 justify-end border-t pt-4">
+          <button onClick={onClose}
+            className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">
+            Cancelar
+          </button>
+          <button onClick={guardar} disabled={guardando}
+            className="px-5 py-2.5 rounded-xl bg-purple-500 text-white font-semibold hover:bg-purple-600 transition-all disabled:opacity-60">
+            {guardando ? 'Guardando...' : '💾 Guardar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2231,7 +2393,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 
           {/* Modal de edición */}
           {editando && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
               style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
                 style={{ animation: 'modalEntrada 0.2s ease-out' }}>
@@ -2438,7 +2600,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 }
 
 // ════════════════════════════════════════════════════════
-// COMPONENTE: Calificaciones Áreas Especiales (solo lectura para docentes de grado)
+// COMPONENTE: Calificaciones de Áreas Especiales (solo lectura para docentes de grado)
 // ════════════════════════════════════════════════════════
 function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
   const gradoPropio = usuario?.gradoAsignado || '';
