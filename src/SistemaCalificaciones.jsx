@@ -79,6 +79,11 @@ const calcularPromedioFinal = (b1, b2, b3, b4) => {
 
 const safeKey = (str) => str.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ°]/g, '_');
 
+const capitalizarNombre = (str) => {
+  if (!str) return '';
+  return str.toLowerCase().replace(/(^|[\s,])(\p{L})/gu, (m) => m.toUpperCase()).trim();
+};
+
 // ─── ESCALA CONCEPTUAL (solo 1°, 2° y 3° grado) ─────────────────────────────
 const esPrimerCiclo = (grado) => grado && ['1','2','3'].includes(grado.charAt(0));
 
@@ -1186,12 +1191,13 @@ export default function SistemaCalificaciones() {
               <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center">Registrar Usuario</h3>
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                 {[
-                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Apellido y nombre(s)',                 type: 'text' },
+                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Ej: García, María José',               type: 'text' },
                   { val: registro.data.email,    key: 'email',    ph: 'Correo electrónico (Gmail u otro)',     type: 'email' },
                   { val: registro.data.password, key: 'password', ph: 'Contraseña (mín. 6 caracteres)',        type: 'password' },
                 ].map(({ val, key, ph, type }) => (
                   <input key={key} type={type} value={val} placeholder={ph}
                     onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, [key]: e.target.value } }))}
+                    onBlur={key === 'nombre' ? e => setRegistro(r => ({ ...r, data: { ...r.data, nombre: capitalizarNombre(e.target.value) } })) : undefined}
                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold" />
                 ))}
                 <select value={registro.data.rol}
@@ -1285,7 +1291,9 @@ export default function SistemaCalificaciones() {
             <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
               <h3 className="text-lg font-extrabold text-gray-800 mb-4">{alumnoForm.editando ? '✏️ Editar alumno' : '➕ Agregar alumno'} <span className="text-blue-600">• {gradoLabel(gradoActual)}</span></h3>
               <div className="flex flex-wrap gap-3">
-                <input type="text" value={alumnoForm.nombre} onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })} placeholder="Apellido y nombre(s)..."
+                <input type="text" value={alumnoForm.nombre} onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })}
+                  onBlur={e => setAlumnoForm(f => ({ ...f, nombre: capitalizarNombre(e.target.value) }))}
+                  placeholder="Ej: García, María José"
                   className="flex-1 min-w-48 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
                 <input type="text" value={alumnoForm.dni} onChange={e => setAlumnoForm({ ...alumnoForm, dni: e.target.value })} onKeyDown={e => e.key === 'Enter' && agregarAlumno()} placeholder="D.N.I N°..."
                   className="w-44 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
@@ -2124,6 +2132,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [editando, setEditando] = useState(null);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -2395,7 +2404,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         <td className="p-4 align-top text-center">
                           <div className="flex flex-col gap-2 items-center">
                             <button
-                              onClick={() => { setEditando({ ...u }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                              onClick={() => { window.scrollTo({ top: 0, behavior: 'instant' }); setTimeout(() => setEditando({ ...u }), 50); }}
                               className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
                               title="Editar asignaciones">
                               <Save size={14} /> Editar
