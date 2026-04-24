@@ -1007,7 +1007,8 @@ export default function SistemaCalificaciones() {
   const gradoActivoDocente = usuario?.rol === 'docente_grado'
     ? (usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados[0] : usuario.gradoAsignado)
     : grado;
-  const alumnosGr = alumnosGlobales[usuario?.rol === 'docente_grado' ? gradoActivoDocente : grado] || [];
+  const gradoParaAlumnos = usuario?.rol === 'docente_grado' ? gradoActivoDocente : grado;
+  const alumnosGr = alumnosGlobales[gradoParaAlumnos] || [];
   const puedeGestionarAlumnos = ['docente_grado', 'administrador'].includes(usuario?.rol);
   const puedeGestionarUsuarios = usuario?.rol === 'administrador';
 
@@ -2132,7 +2133,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [editando, setEditando] = useState(null);
-  const modalRef = useRef(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -2140,6 +2140,12 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     });
     return () => unsub();
   }, [db]);
+
+  // Bloquear scroll del body cuando el modal está abierto
+  useEffect(() => {
+    document.body.style.overflow = editando ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [editando]);
 
   const eliminarUsuario = async (u) => {
     const ok = await showConfirm(
@@ -2404,7 +2410,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         <td className="p-4 align-top text-center">
                           <div className="flex flex-col gap-2 items-center">
                             <button
-                              onClick={() => { window.scrollTo({ top: 0, behavior: 'instant' }); setTimeout(() => setEditando({ ...u }), 50); }}
+                              onClick={() => setEditando({ ...u })}
                               className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
                               title="Editar asignaciones">
                               <Save size={14} /> Editar
