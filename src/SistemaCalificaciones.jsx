@@ -1363,13 +1363,15 @@ export default function SistemaCalificaciones() {
             <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
               <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
                 <h3 className="text-lg font-extrabold text-gray-800">Lista · {gradoLabel(gradoActual)}</h3>
-                <Badge color="blue">{alumnosGr.length} alumnos</Badge>
+                <Badge color="blue">
+                  {alumnosGr.length} alumnos{alumnosGr.length > 0 ? ` (${alumnosGr.filter(a => (a.sexo||'V')==='V').length}V / ${alumnosGr.filter(a => a.sexo==='M').length}M)` : ''}
+                </Badge>
               </div>
               {alumnosGr.length === 0 ? (
                 <div className="text-center py-14 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-lg">No hay alumnos registrados</p></div>
               ) : (
                 <table className="w-full">
-                  <thead><tr className="tabla-header"><th className="p-3 text-center font-bold text-sm">#</th><th className="p-3 text-center font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Sexo</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
+                  <thead><tr className="tabla-header"><th className="p-3 text-center font-bold text-sm">#</th><th className="p-3 text-left font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Sexo</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
                   <tbody>
                     {[...alumnosGr].sort((a, b) => {
                       if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
@@ -1733,17 +1735,27 @@ export default function SistemaCalificaciones() {
                   <tr className="tabla-header">
                     <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
-                    {[1, 2].map(b => (
-                      <th key={b} className="p-2 text-center text-sm font-bold">
-                        <div>{b}° Bimestre</div>
-                      </th>
-                    ))}
+                    {[1, 2].map(b => {
+                      const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
+                      return (
+                        <th key={b} className="p-2 text-center text-sm font-bold">
+                          <div className="flex items-center justify-center gap-1">
+                            {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
+                          </div>
+                        </th>
+                      );
+                    })}
                     <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">1° Cuat.</th>
-                    {[3, 4].map(b => (
-                      <th key={b} className="p-2 text-center text-sm font-bold">
-                        <div>{b}° Bimestre</div>
-                      </th>
-                    ))}
+                    {[3, 4].map(b => {
+                      const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
+                      return (
+                        <th key={b} className="p-2 text-center text-sm font-bold">
+                          <div className="flex items-center justify-center gap-1">
+                            {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
+                          </div>
+                        </th>
+                      );
+                    })}
                     <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">2° Cuat.</th>
                     <th className="p-3 text-center text-sm font-bold bg-indigo-900 min-w-20">Prom. Final</th>
                   </tr>
@@ -1777,8 +1789,8 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center text-[11px] font-bold text-gray-500 leading-tight px-0.5"
-                                      style={{ maxWidth: '64px', wordBreak: 'break-word' }}>
+                                    <span className="text-center text-[10px] font-bold text-gray-800 leading-tight px-0.5"
+                                      style={{ maxWidth: '80px', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
                                     {bloqueado ? (
@@ -2181,7 +2193,11 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
               {mensajesEnviados.length === 0 ? (
                 <div className="text-center py-10 text-gray-400"><p className="text-4xl mb-2">📭</p><p className="font-bold">No hay mensajes enviados</p></div>
               ) : (
-                [...mensajesEnviados].reverse().map(m => (
+                [...mensajesEnviados].reverse().map(m => {
+                  const leidoUids = Object.keys(m.leidoPor || {});
+                  const confirmadoUids = Object.keys(m.confirmadoPor || {});
+                  const getNombre = (uid) => docentes.find(d => d.uid === uid)?.nombre || uid;
+                  return (
                   <div key={m.id} className="border-2 border-gray-100 rounded-xl p-4 bg-gray-50">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -2190,17 +2206,33 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
                       </div>
                       <button onClick={() => eliminarMensaje(m)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={15} /></button>
                     </div>
-                    <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-2">{m.texto}</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                        ✅ {Object.keys(m.confirmadoPor || {}).length} confirmado(s)
-                      </span>
-                      <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
-                        👁️ {Object.keys(m.leidoPor || {}).length} leído(s)
-                      </span>
-                    </div>
+                    <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-3">{m.texto}</p>
+                    {confirmadoUids.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs font-bold text-green-700 mb-1">✅ Confirmaron ({confirmadoUids.length}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {confirmadoUids.map(uid => (
+                            <span key={uid} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-lg font-semibold">{getNombre(uid)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {leidoUids.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 mb-1">👁️ Visto por ({leidoUids.length}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {leidoUids.map(uid => (
+                            <span key={uid} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg font-semibold">{getNombre(uid)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {leidoUids.length === 0 && confirmadoUids.length === 0 && (
+                      <span className="text-xs text-gray-400 font-semibold">Sin lecturas aún</span>
+                    )}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -2251,12 +2283,14 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
   const fsKey = safeKey(`${materia.nombre}_${grado}`);
   const [texto, setTexto] = useState('');
   const [cargado, setCargado] = useState(false);
+  const [ultimaMod, setUltimaMod] = useState('');
   const timerRef = useRef(null);
 
   useEffect(() => {
     setCargado(false);
     getDoc(doc(db, 'observaciones', fsKey)).then(snap => {
       setTexto(snap.exists() ? (snap.data().texto || '') : '');
+      setUltimaMod(snap.exists() ? (snap.data().ultimaMod || '') : '');
       setCargado(true);
     });
   }, [fsKey, db]);
@@ -2266,7 +2300,9 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
     setTexto(val);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
-      await setDoc(doc(db, 'observaciones', fsKey), { texto: val }, { merge: true });
+      const ahora = new Date().toLocaleString('es-AR');
+      await setDoc(doc(db, 'observaciones', fsKey), { texto: val, ultimaMod: ahora }, { merge: true });
+      setUltimaMod(ahora);
       if (showToast) showToast();
     }, 800);
   };
@@ -2283,7 +2319,10 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
         value={texto}
         onChange={handleChange}
       />
-      <p className="text-xs text-gray-400 mt-1 font-semibold">☁️ Se guarda automáticamente</p>
+      <div className="flex justify-between items-center mt-1">
+        <p className="text-xs text-gray-400 font-semibold">☁️ Se guarda automáticamente</p>
+        {ultimaMod && <p className="text-xs text-gray-400 font-semibold">Última modificación: {ultimaMod}</p>}
+      </div>
     </div>
   );
 }
@@ -2393,8 +2432,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 
           {/* Modal de edición */}
           {editando && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
-              style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
                 style={{ animation: 'modalEntrada 0.2s ease-out' }}>
                 <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
