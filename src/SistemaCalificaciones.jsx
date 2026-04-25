@@ -1796,8 +1796,8 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center font-bold text-gray-800 leading-tight"
-                                      style={{ fontSize: '10px', width: '54px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
+                                    <span className="text-center font-bold text-gray-800 leading-tight px-0.5"
+                                      style={{ fontSize: '10px', maxWidth: '68px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
                                     {bloqueado ? (
@@ -2067,22 +2067,33 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
 // ════════════════════════════════════════════════════════
 function VistoPopup({ uids, getNombre }) {
   const [open, setOpen] = useState(false);
+  const [above, setAbove] = useState(true);
+  const btnRef = useRef(null);
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setAbove(rect.top > 200);
+    }
+    setOpen(v => !v);
+  };
+
   return (
-    <div className="relative inline-block">
-      <button onClick={() => setOpen(v => !v)}
+    <div className="relative inline-block" ref={btnRef}>
+      <button onClick={handleOpen}
         className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg transition-all">
         👁️ {uids.length} visto(s)
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute bottom-full mb-2 left-0 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl p-3 min-w-48 max-w-64"
+          <div className={`absolute ${above ? 'bottom-full mb-2' : 'top-full mt-2'} left-0 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl p-3 min-w-52 max-w-72`}
             style={{ animation: 'fadeIn 0.15s ease-out' }}>
             <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">👁️ Visto por:</p>
             {uids.length === 0 ? (
               <p className="text-xs text-gray-400 italic">Sin lecturas aún</p>
             ) : (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
                 {uids.map(uid => (
                   <span key={uid} className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded-lg font-semibold border border-gray-100">{getNombre(uid)}</span>
                 ))}
@@ -2455,8 +2466,8 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 
           {/* Modal de edición */}
           {editando && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
                 style={{ animation: 'modalEntrada 0.2s ease-out', maxHeight: '85vh', overflowY: 'auto' }}>
                 <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
                   <h3 className="text-lg font-bold text-green-800">✏️ Editar docente — {editando.nombre}</h3>
