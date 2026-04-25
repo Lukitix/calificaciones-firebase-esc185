@@ -932,8 +932,15 @@ export default function SistemaCalificaciones() {
   };
 
   const agregarCriterio = async (bimestre) => {
-    const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Evaluación escrita, Concepto...', 'Nuevo criterio');
+    const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Eval. escrita, Concepto...', 'Nuevo criterio');
     if (!c?.trim()) return;
+    if (c.trim().length > 20) {
+      await showAlert(
+        `El criterio "${c.trim()}" tiene ${c.trim().length} caracteres. Para una mejor visualización usá máximo 20 caracteres. Ej: abreviá "Evaluación escrita" como "Eval. escrita".`,
+        'warning', '⚠️ Criterio muy largo'
+      );
+      return;
+    }
     const nuevos = { ...criteriosPorBimestre, [bimestre]: [...(criteriosPorBimestre[bimestre] || []), c.trim()] };
     setCriteriosPorBimestre(nuevos);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
@@ -1733,7 +1740,7 @@ export default function SistemaCalificaciones() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="tabla-header">
-                    <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
+                    <th className="p-3 text-left text-sm font-bold min-w-40 pl-4">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                     {[1, 2].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
@@ -1789,8 +1796,8 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center text-[10px] font-bold text-gray-800 leading-tight px-0.5"
-                                      style={{ maxWidth: '80px', wordBreak: 'break-word' }}>
+                                    <span className="text-center font-bold text-gray-800 leading-tight"
+                                      style={{ fontSize: '10px', width: '54px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>
                                       {crit}
                                     </span>
                                     {bloqueado ? (
@@ -1817,7 +1824,7 @@ export default function SistemaCalificaciones() {
                     };
                     return (
                       <tr key={e.id} className={`tabla-row border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                        <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
+                        <td className="p-3 font-bold text-gray-800 text-sm text-left pl-4">{e.nombre}</td>
                         <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
@@ -2056,6 +2063,39 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Popup "Visto por"
+// ════════════════════════════════════════════════════════
+function VistoPopup({ uids, getNombre }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <button onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-lg transition-all">
+        👁️ {uids.length} visto(s)
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full mb-2 left-0 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl p-3 min-w-48 max-w-64"
+            style={{ animation: 'fadeIn 0.15s ease-out' }}>
+            <p className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">👁️ Visto por:</p>
+            {uids.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Sin lecturas aún</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {uids.map(uid => (
+                  <span key={uid} className="text-xs bg-gray-50 text-gray-700 px-2 py-1 rounded-lg font-semibold border border-gray-100">{getNombre(uid)}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE: Modal de Mensajes
 // ════════════════════════════════════════════════════════
 function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClose, showConfirm }) {
@@ -2207,29 +2247,12 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
                       <button onClick={() => eliminarMensaje(m)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={15} /></button>
                     </div>
                     <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-3">{m.texto}</p>
-                    {confirmadoUids.length > 0 && (
-                      <div className="mb-2">
-                        <p className="text-xs font-bold text-green-700 mb-1">✅ Confirmaron ({confirmadoUids.length}):</p>
-                        <div className="flex flex-wrap gap-1">
-                          {confirmadoUids.map(uid => (
-                            <span key={uid} className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-lg font-semibold">{getNombre(uid)}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {leidoUids.length > 0 && (
-                      <div>
-                        <p className="text-xs font-bold text-gray-500 mb-1">👁️ Visto por ({leidoUids.length}):</p>
-                        <div className="flex flex-wrap gap-1">
-                          {leidoUids.map(uid => (
-                            <span key={uid} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-lg font-semibold">{getNombre(uid)}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {leidoUids.length === 0 && confirmadoUids.length === 0 && (
-                      <span className="text-xs text-gray-400 font-semibold">Sin lecturas aún</span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+                        ✅ {confirmadoUids.length} confirmado(s)
+                      </span>
+                      <VistoPopup uids={leidoUids} getNombre={getNombre} />
+                    </div>
                   </div>
                   );
                 })
@@ -2432,9 +2455,9 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 
           {/* Modal de edición */}
           {editando && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
-                style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+                style={{ animation: 'modalEntrada 0.2s ease-out', maxHeight: '85vh', overflowY: 'auto' }}>
                 <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
                   <h3 className="text-lg font-bold text-green-800">✏️ Editar docente — {editando.nombre}</h3>
                   <button onClick={() => setEditando(null)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
@@ -2751,7 +2774,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="tabla-header">
-                        <th className="p-3 text-center text-sm font-bold min-w-40">Estudiante</th>
+                        <th className="p-3 text-left text-sm font-bold min-w-40 pl-4">Estudiante</th>
                         <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                         {[1, 2].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
                         <th className="p-3 text-center text-sm font-bold bg-purple-800">1° Cuat.</th>
@@ -2791,7 +2814,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
 
                         return (
                           <tr key={e.id || i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                            <td className="p-3 font-bold text-gray-800 text-sm">{e.nombre}</td>
+                            <td className="p-3 font-bold text-gray-800 text-sm text-left pl-4">{e.nombre}</td>
                             <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
                             <CeldaLectura bim={1} />
                             <CeldaLectura bim={2} />
