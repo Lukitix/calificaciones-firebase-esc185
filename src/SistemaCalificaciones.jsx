@@ -91,7 +91,7 @@ const escalaConceptual = [
   { min: 2, max: 3, abrev: 'NS',  texto: 'NO SATISFACTORIO' },
   { min: 4, max: 5, abrev: 'PS',  texto: 'POCO SATISFACTORIO' },
   { min: 6, max: 7, abrev: 'SAT', texto: 'SATISFACTORIO' },
-  { min: 8, max: 8, abrev: 'MUY', texto: 'MUY SATISFACTORIO' },
+  { min: 8, max: 8, abrev: 'MS',  texto: 'MUY SATISFACTORIO' },
   { min: 9, max: 9, abrev: 'DIS', texto: 'DISTINGUIDO' },
   { min: 10, max: 10, abrev: 'SOB', texto: 'SOBRESALIENTE' },
 ];
@@ -521,6 +521,7 @@ export default function SistemaCalificaciones() {
   const [mensajes, setMensajes] = useState([]);
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
+  const [docenteEditando, setDocenteEditando] = useState(null);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -932,11 +933,11 @@ export default function SistemaCalificaciones() {
   };
 
   const agregarCriterio = async (bimestre) => {
-    const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Eval. escrita, Concepto...', 'Nuevo criterio');
+    const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Evaluación escrita, Concepto...', 'Nuevo criterio');
     if (!c?.trim()) return;
-    if (c.trim().length > 20) {
+    if (c.trim().length > 25) {
       await showAlert(
-        `El criterio "${c.trim()}" tiene ${c.trim().length} caracteres. Para una mejor visualización usá máximo 20 caracteres. Ej: abreviá "Evaluación escrita" como "Eval. escrita".`,
+        `El criterio "${c.trim()}" tiene ${c.trim().length} caracteres. El máximo es 25 para una visualización prolija.`,
         'warning', '⚠️ Criterio muy largo'
       );
       return;
@@ -1453,8 +1454,22 @@ export default function SistemaCalificaciones() {
       <GestionUsuarios db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
         showConfirm={showConfirm} showAlert={showAlert}
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
+        onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
+    );
+  }
+
+  if (pantalla === 'editar_docente' && docenteEditando) {
+    return (
+      <EditarDocente
+        db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
+        showAlert={showAlert} docente={docenteEditando}
+        onVolver={() => { setDocenteEditando(null); setPantalla('gestion_usuarios'); }}
+        onCerrarSesion={() => setModalCerrarSesion(true)}
+        ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar}
+        modalCerrarSesion={modalCerrarSesion}
+      />
     );
   }
 
@@ -1740,6 +1755,7 @@ export default function SistemaCalificaciones() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="tabla-header">
+                    <th className="p-3 text-center text-sm font-bold w-10">#</th>
                     <th className="p-3 text-left text-sm font-bold min-w-40 pl-4">Estudiante</th>
                     <th className="p-3 text-center text-sm font-bold">D.N.I</th>
                     {[1, 2].map(b => {
@@ -1784,7 +1800,7 @@ export default function SistemaCalificaciones() {
                       const bloqueado = bimestresBlockeados[bim];
                       const notaBim = e.bimestres?.[bim]?.nota || '';
                       return (
-                        <td className={`p-2 border-r border-gray-100 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 80 + 60}px` : '120px' }}>
+                        <td className={`p-2 border-r border-gray-100 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px' }}>
                           {bloqueado && <div className="text-center text-xs text-red-400 font-bold mb-1">🔒</div>}
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
@@ -1796,8 +1812,8 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center font-bold text-gray-800 leading-tight px-0.5"
-                                      style={{ fontSize: '10px', maxWidth: '68px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                                    <span className="text-center font-bold text-gray-800 leading-snug"
+                                      style={{ fontSize: '10px', width: '90px', overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
                                       {crit}
                                     </span>
                                     {bloqueado ? (
@@ -1824,6 +1840,7 @@ export default function SistemaCalificaciones() {
                     };
                     return (
                       <tr key={e.id} className={`tabla-row border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                        <td className="p-3 text-center text-gray-400 font-bold text-sm">{i + 1}</td>
                         <td className="p-3 font-bold text-gray-800 text-sm text-left pl-4">{e.nombre}</td>
                         <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
                         <CeldaBimestre bim={1} />
@@ -2258,12 +2275,29 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
                       <button onClick={() => eliminarMensaje(m)} className="text-red-400 hover:text-red-600 transition-colors"><Trash2 size={15} /></button>
                     </div>
                     <p className="text-sm text-gray-800 font-semibold leading-relaxed mb-3">{m.texto}</p>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-                        ✅ {confirmadoUids.length} confirmado(s)
-                      </span>
-                      <VistoPopup uids={leidoUids} getNombre={getNombre} />
+                    <div className="flex gap-2 mb-3">
+                      <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">✅ {confirmadoUids.length} confirmado(s)</span>
+                      <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">👁️ {leidoUids.length} visto(s)</span>
                     </div>
+                    {leidoUids.length > 0 && (
+                      <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 uppercase tracking-wide">👁️ Visto por</div>
+                        <table className="w-full">
+                          <tbody>
+                            {leidoUids.map((uid, idx) => (
+                              <tr key={uid} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-3 py-1.5 text-xs font-semibold text-gray-700">{idx + 1}. {getNombre(uid)}</td>
+                                <td className="px-3 py-1.5 text-xs text-right">
+                                  {confirmadoUids.includes(uid)
+                                    ? <span className="text-green-600 font-bold">✅ Confirmó</span>
+                                    : <span className="text-gray-400">Visto</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                   );
                 })
@@ -2362,12 +2396,172 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE SEPARADO: Editar Docente (pantalla completa)
+// ════════════════════════════════════════════════════════
+function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente, onVolver, onCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, modalCerrarSesion }) {
+  const [datos, setDatos] = useState({ ...docente });
+  const [guardando, setGuardando] = useState(false);
+
+  const toggleGrado = (g) => {
+    const actual = datos.gradosAsignados?.length > 0 ? datos.gradosAsignados : [datos.gradoAsignado].filter(Boolean);
+    const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
+    setDatos(prev => ({ ...prev, gradosAsignados: nuevo, gradoAsignado: nuevo[0] || '' }));
+  };
+
+  const toggleMateria = (nombre) => {
+    setDatos(prev => ({
+      ...prev,
+      materiasAsignadas: prev.materiasAsignadas?.includes(nombre)
+        ? prev.materiasAsignadas.filter(x => x !== nombre)
+        : [...(prev.materiasAsignadas || []), nombre]
+    }));
+  };
+
+  const toggleGradoEspecial = (mNombre, g) => {
+    setDatos(prev => ({
+      ...prev,
+      materiasAsignadas: prev.materiasAsignadas.map(ma =>
+        ma.nombre !== mNombre ? ma : {
+          ...ma,
+          grados: ma.grados.includes(g) ? ma.grados.filter(x => x !== g) : [...ma.grados, g]
+        }
+      )
+    }));
+  };
+
+  const guardar = async () => {
+    if (!datos.nombre?.trim()) { await showAlert('El nombre no puede estar vacío.', 'warning'); return; }
+    if (datos.rol === 'docente_grado') {
+      const gs = datos.gradosAsignados?.length > 0 ? datos.gradosAsignados : [datos.gradoAsignado].filter(Boolean);
+      if (gs.length === 0) { await showAlert('Seleccioná al menos un grado.', 'warning'); return; }
+    }
+    setGuardando(true);
+    try {
+      const gradosAsig = datos.rol === 'docente_grado'
+        ? (datos.gradosAsignados?.length > 0 ? datos.gradosAsignados : [datos.gradoAsignado].filter(Boolean))
+        : null;
+      await updateDoc(doc(db, 'usuarios', datos.uid), {
+        nombre: capitalizarNombre(datos.nombre),
+        gradoAsignado: gradosAsig ? gradosAsig[0] : null,
+        gradosAsignados: gradosAsig,
+        materiasAsignadas: datos.materiasAsignadas,
+      });
+      await showAlert('Docente actualizado correctamente.', 'success', '✅ Guardado');
+      onVolver();
+    } catch (e) {
+      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const gradosActuales = datos.gradosAsignados?.length > 0 ? datos.gradosAsignados : [datos.gradoAsignado].filter(Boolean);
+
+  return (
+    <>
+      <style>{globalStyles}</style>
+      <ModalRenderer modal={modal} closeModal={closeModal} />
+      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
+        <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
+          <TopBar titulo="✏️ Editar Docente" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
+
+          <div className="mt-6 space-y-6">
+            {/* Nombre */}
+            <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-100">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Apellido y nombre(s)</label>
+              <input type="text"
+                value={datos.nombre || ''}
+                onChange={e => setDatos(prev => ({ ...prev, nombre: e.target.value }))}
+                onBlur={e => setDatos(prev => ({ ...prev, nombre: capitalizarNombre(e.target.value) }))}
+                placeholder="Apellido y nombre(s)..."
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold focus:outline-none focus:border-green-500 bg-white text-base" />
+            </div>
+
+            {/* Email — solo lectura */}
+            <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-100">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Correo electrónico</label>
+              <div className="px-4 py-3 bg-gray-100 rounded-xl text-gray-500 font-semibold text-sm">
+                {datos.email} <span className="text-xs text-gray-400">(no editable)</span>
+              </div>
+            </div>
+
+            {/* Grados — docente de grado */}
+            {datos.rol === 'docente_grado' && (
+              <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-100">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-3">Grados a cargo</label>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {grados.map(g => (
+                    <label key={g} className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer border-2 transition-all font-semibold text-sm ${gradosActuales.includes(g) ? 'bg-green-100 border-green-400 text-green-800' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                      <input type="checkbox" className="accent-green-600"
+                        checked={gradosActuales.includes(g)}
+                        onChange={() => toggleGrado(g)} />
+                      {gradoLabel(g)}
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-5">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-3">Materias asignadas</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {areas.curriculares.map(m => (
+                      <label key={m.nombre} className={`flex items-center gap-2 p-3 rounded-xl cursor-pointer border-2 transition-all ${datos.materiasAsignadas?.includes(m.nombre) ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200 hover:border-green-300'}`}>
+                        <input type="checkbox" className="accent-green-600 w-4 h-4"
+                          checked={datos.materiasAsignadas?.includes(m.nombre) || false}
+                          onChange={() => toggleMateria(m.nombre)} />
+                        <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Grados por materia — área especial */}
+            {datos.rol === 'area_especial' && (
+              <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-100">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-3">Grados por materia</label>
+                {datos.materiasAsignadas?.map(ma => (
+                  <div key={ma.nombre} className="mb-4 bg-white border-2 border-gray-200 rounded-xl p-4">
+                    <p className="font-bold text-gray-800 text-sm mb-3">{ma.nombre}</p>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {grados.map(g => (
+                        <label key={g} className={`flex items-center gap-1 p-2 rounded-lg cursor-pointer border-2 transition-all text-xs font-semibold ${ma.grados?.includes(g) ? 'bg-green-100 border-green-400 text-green-800' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-green-300'}`}>
+                          <input type="checkbox" className="accent-green-600"
+                            checked={ma.grados?.includes(g) || false}
+                            onChange={() => toggleGradoEspecial(ma.nombre, g)} />
+                          {gradoLabel(g)}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botones */}
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={onVolver}
+                className="px-6 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">
+                ← Volver
+              </button>
+              <button onClick={guardar} disabled={guardando}
+                className="px-6 py-3 rounded-xl bg-green-500 text-white font-bold hover:bg-green-600 transition-all shadow disabled:opacity-60">
+                {guardando ? 'Guardando...' : '💾 Guardar cambios'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {modalCerrarSesion && <ModalCerrarSesion />}
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-  const [editando, setEditando] = useState(null);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -2375,12 +2569,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     });
     return () => unsub();
   }, [db]);
-
-  // Bloquear scroll del body cuando el modal está abierto
-  useEffect(() => {
-    document.body.style.overflow = editando ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [editando]);
 
   const eliminarUsuario = async (u) => {
     const ok = await showConfirm(
@@ -2395,40 +2583,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
       console.error('Error al eliminar:', error);
       await showAlert('Hubo un error al eliminar el docente. Intentá de nuevo.', 'error');
     }
-  };
-
-  const guardarEdicion = async () => {
-    if (!editando) return;
-    if (!editando.nombre?.trim()) {
-      await showAlert('El nombre no puede estar vacío.', 'warning'); return;
-    }
-    try {
-      const gradosAsig = editando.rol === 'docente_grado'
-        ? (editando.gradosAsignados?.length > 0 ? editando.gradosAsignados : [editando.gradoAsignado].filter(Boolean))
-        : null;
-      await updateDoc(doc(db, 'usuarios', editando.uid), {
-        nombre: editando.nombre.trim(),
-        gradoAsignado: gradosAsig ? gradosAsig[0] : null,
-        gradosAsignados: gradosAsig,
-        materiasAsignadas: editando.materiasAsignadas,
-      });
-      await showAlert('Datos del docente actualizados correctamente.', 'success', 'Guardado');
-      setEditando(null);
-    } catch (e) {
-      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
-    }
-  };
-
-  const toggleGradoEdicion = (mNombre, g) => {
-    setEditando(prev => ({
-      ...prev,
-      materiasAsignadas: prev.materiasAsignadas.map(ma =>
-        ma.nombre !== mNombre ? ma : {
-          ...ma,
-          grados: ma.grados.includes(g) ? ma.grados.filter(x => x !== g) : [...ma.grados, g]
-        }
-      )
-    }));
   };
 
   const ordenarUsuarios = (lista) => {
@@ -2464,104 +2618,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
         <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
           <TopBar titulo="👤 Gestión de Docentes" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
-          {/* Modal de edición */}
-          {editando && (
-            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg"
-                style={{ animation: 'modalEntrada 0.2s ease-out', maxHeight: '85vh', overflowY: 'auto' }}>
-                <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
-                  <h3 className="text-lg font-bold text-green-800">✏️ Editar docente — {editando.nombre}</h3>
-                  <button onClick={() => setEditando(null)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
-                </div>
-                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto space-y-4">
-                  <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Apellido y nombre(s)</label>
-                    <input
-                      type="text"
-                      value={editando.nombre || ''}
-                      onChange={e => setEditando(prev => ({ ...prev, nombre: e.target.value }))}
-                      placeholder="Apellido y nombre(s)..."
-                      className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold focus:outline-none focus:border-green-500"
-                    />
-                  </div>
-                  {editando.rol === 'docente_grado' && (
-                    <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados a cargo</label>
-                      <div className="border-2 border-gray-100 rounded-xl p-3">
-                        <div className="grid grid-cols-4 gap-1">
-                          {grados.map(g => {
-                            const actual = editando.gradosAsignados?.length > 0 ? editando.gradosAsignados : [editando.gradoAsignado].filter(Boolean);
-                            return (
-                              <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
-                                <input type="checkbox"
-                                  className="accent-green-600"
-                                  checked={actual.includes(g)}
-                                  onChange={() => {
-                                    const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
-                                    setEditando(prev => ({ ...prev, gradosAsignados: nuevo, gradoAsignado: nuevo[0] || '' }));
-                                  }} />
-                                {gradoLabel(g)}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="mt-4">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Materias asignadas</label>
-                        <div className="border-2 border-gray-100 rounded-xl p-3 space-y-1">
-                          {areas.curriculares.map(m => (
-                            <label key={m.nombre} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer">
-                              <input type="checkbox"
-                                className="accent-green-600 w-4 h-4"
-                                checked={editando.materiasAsignadas?.includes(m.nombre) || false}
-                                onChange={() => setEditando(prev => ({
-                                  ...prev,
-                                  materiasAsignadas: prev.materiasAsignadas?.includes(m.nombre)
-                                    ? prev.materiasAsignadas.filter(x => x !== m.nombre)
-                                    : [...(prev.materiasAsignadas || []), m.nombre]
-                                }))} />
-                              <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {editando.rol === 'area_especial' && (
-                    <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados por materia</label>
-                      {editando.materiasAsignadas?.map(ma => (
-                        <div key={ma.nombre} className="mb-4 border-2 border-gray-100 rounded-xl p-3">
-                          <p className="font-bold text-gray-800 text-sm mb-2">{ma.nombre}</p>
-                          <div className="grid grid-cols-4 gap-1">
-                            {grados.map(g => (
-                              <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
-                                <input type="checkbox"
-                                  className="accent-green-600"
-                                  checked={ma.grados?.includes(g) || false}
-                                  onChange={() => toggleGradoEdicion(ma.nombre, g)} />
-                                {gradoLabel(g)}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="px-6 pb-5 flex gap-3 justify-end border-t pt-4">
-                  <button onClick={() => setEditando(null)}
-                    className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">
-                    Cancelar
-                  </button>
-                  <button onClick={guardarEdicion}
-                    className="px-5 py-2.5 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-all">
-                    💾 Guardar cambios
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Buscador predictivo */}
           <div className="mb-6 relative">
@@ -2644,7 +2701,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         <td className="p-4 align-top text-center">
                           <div className="flex flex-col gap-2 items-center">
                             <button
-                              onClick={() => setEditando({ ...u })}
+                              onClick={() => onEditarDocente({ ...u })}
                               className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
                               title="Editar asignaciones">
                               <Save size={14} /> Editar
