@@ -1012,7 +1012,12 @@ export default function SistemaCalificaciones() {
   };
 
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
-  const estActuales = estudiantes[`${materia?.nombre}-${grado}`] || [];
+  const estActualesRaw = estudiantes[`${materia?.nombre}-${grado}`] || [];
+  const alumnosDelGradoActual = alumnosGlobales[grado] || [];
+  const estActuales = estActualesRaw.map(e => ({
+    ...e,
+    sexo: e.sexo || alumnosDelGradoActual.find(a => a.dni === e.dni)?.sexo || 'V'
+  }));
   const gradoActivoDocente = usuario?.rol === 'docente_grado'
     ? (usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados[0] : usuario.gradoAsignado)
     : grado;
