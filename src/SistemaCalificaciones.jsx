@@ -1784,7 +1784,10 @@ export default function SistemaCalificaciones() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...estActuales].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map((e, i) => {
+                  {[...estActuales].sort((a, b) => {
+                    if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
+                    return a.nombre.localeCompare(b.nombre, 'es');
+                  }).map((e, i) => {
                     const b1 = e.bimestres?.[1]?.nota || '';
                     const b2 = e.bimestres?.[2]?.nota || '';
                     const b3 = e.bimestres?.[3]?.nota || '';
