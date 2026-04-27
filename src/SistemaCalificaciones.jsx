@@ -620,6 +620,8 @@ export default function SistemaCalificaciones() {
   useEffect(() => {
     if (!authUser || !materia) return;
     const key = safeKey(`${materia.nombre}_${grado}`);
+    // Inicializar como undefined para que el sync espere los datos reales
+    setEstudiantes(prev => ({ ...prev, [`${materia.nombre}-${grado}`]: undefined }));
     const unsub = onSnapshot(doc(db, 'calificaciones', key), (snap) => {
       const data = snap.exists() ? snap.data() : { estudiantes: [] };
       setEstudiantes(prev => ({ ...prev, [`${materia.nombre}-${grado}`]: data.estudiantes || [] }));
@@ -632,7 +634,9 @@ export default function SistemaCalificaciones() {
     if (!materia || !alumnosGlobales[grado]) return;
     const key = `${materia.nombre}-${grado}`;
     const alumnosDelGrado = alumnosGlobales[grado] || [];
-    const estudiantesActuales = estudiantes[key] || [];
+    const estudiantesActuales = estudiantes[key];
+    // Si aún no cargaron los datos de Firestore, no sincronizar
+    if (estudiantesActuales === undefined) return;
     const estudiantesActualizados = alumnosDelGrado.map(alumno => {
       const existente = estudiantesActuales.find(e => e.dni === alumno.dni);
       if (existente) return asegurarEstructuraEstudiante(existente);
@@ -650,7 +654,7 @@ export default function SistemaCalificaciones() {
       setDoc(doc(db, 'calificaciones', safeKey(`${materia.nombre}_${grado}`)), { estudiantes: estudiantesActualizados }, { merge: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grado, materia, alumnosGlobales]);
+  }, [grado, materia, alumnosGlobales, estudiantes]);
 
   // ── Cargar configuración (criterios, candados, docente) — siempre que cambie materia o grado ──
   useEffect(() => {
@@ -1699,7 +1703,7 @@ export default function SistemaCalificaciones() {
                 )}
               </div>
             </div>
-            {(nombreMostrado(usuario) || docenteNombre.guardado) && (
+            {usuario?.rol !== 'administrador' && (nombreMostrado(usuario) || docenteNombre.guardado) && (
               <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
                 <span className="text-purple-600">👤</span>
                 <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
@@ -1913,9 +1917,9 @@ export default function SistemaCalificaciones() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-violet-100">
-                    <th className="p-2 text-left font-bold text-violet-800 rounded-tl-lg">Nota</th>
-                    <th className="p-2 text-left font-bold text-violet-800">Abrev.</th>
-                    <th className="p-2 text-left font-bold text-violet-800 rounded-tr-lg">Calificación conceptual</th>
+                    <th className="p-2 pl-3 text-left font-bold text-violet-800 rounded-tl-lg">Nota</th>
+                    <th className="p-2 pl-4 text-left font-bold text-violet-800">Abrev.</th>
+                    <th className="p-2 pl-4 text-left font-bold text-violet-800 rounded-tr-lg">Calificación conceptual</th>
                   </tr>
                 </thead>
                 <tbody>
