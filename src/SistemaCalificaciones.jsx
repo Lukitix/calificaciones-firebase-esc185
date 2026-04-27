@@ -1463,16 +1463,16 @@ export default function SistemaCalificaciones() {
         <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
           <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)} />
-            {volverAGestion && usuario?.rol === 'administrador' && (
-              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                className="mb-4 flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm transition-all">
-                ← Volver a Gestión de Docentes
-              </button>
-            )}
             <div className="mb-6 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
               <span className="text-xl mt-0.5">⚠️</span>
               <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
             </div>
+            {volverAGestion && usuario?.rol === 'administrador' && (
+              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                className="mb-4 flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
+                ← Volver a Gestión de Docentes
+              </button>
+            )}
             {usuario?.rol !== 'docente_grado' && (
               <div className="mb-6">
                 <p className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Seleccioná el grado:</p>
