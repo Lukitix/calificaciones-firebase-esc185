@@ -524,6 +524,7 @@ export default function SistemaCalificaciones() {
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
+  const [docenteEntregas, setDocenteEntregas] = useState(null);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -1466,8 +1467,22 @@ export default function SistemaCalificaciones() {
         showConfirm={showConfirm} showAlert={showAlert}
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
+        onVerEntregas={(u) => { setDocenteEntregas(u); setPantalla('entregas_docente'); }}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
+    );
+  }
+
+  if (pantalla === 'entregas_docente' && docenteEntregas) {
+    return (
+      <EntregasDocente
+        db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
+        showAlert={showAlert} docente={docenteEntregas}
+        onVolver={() => { setDocenteEntregas(null); setPantalla('gestion_usuarios'); }}
+        onCerrarSesion={() => setModalCerrarSesion(true)}
+        ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar}
+        modalCerrarSesion={modalCerrarSesion}
+      />
     );
   }
 
@@ -1667,6 +1682,7 @@ export default function SistemaCalificaciones() {
   // PANTALLA: MATERIA
   // ════════════════════════════════════════════════════════
   const gradosDisp = getGradosParaMateria(materia?.nombre || '');
+  const soloLectura = usuario?.rol === 'administrador';
   return (
     <>
       <style>{globalStyles}</style>
@@ -1714,6 +1730,14 @@ export default function SistemaCalificaciones() {
             {gradosDisp.length > 1 && <p className="text-indigo-700 font-bold text-sm mb-3 text-center">📋 Seleccioná el grado correspondiente a tu asignatura</p>}
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Grado y división</p>
             <ChipsGrado lista={gradosDisp} seleccionado={grado} onChange={setGrado} />
+            {usuario?.rol === 'area_especial' && grado && (
+              <div className="mt-3 pt-3 border-t border-indigo-100">
+                <button onClick={() => setPantalla('administracion')}
+                  className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
+                  👥 Ver alumnos de {gradoLabel(grado)}
+                </button>
+              </div>
+            )}
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
@@ -1830,7 +1854,7 @@ export default function SistemaCalificaciones() {
                                       style={{ fontSize: '10px', width: '90px', overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
                                       {crit}
                                     </span>
-                                    {bloqueado ? (
+                                    {bloqueado || soloLectura ? (
                                       <div className="nota-input flex items-center justify-center font-black text-gray-600" style={{ fontSize: primerCiclo ? '9px' : '12px' }}>{mostrar || '—'}</div>
                                     ) : (
                                       <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} primerCiclo={primerCiclo} />
@@ -2410,6 +2434,191 @@ function ObservacionesGenerales({ materia, grado, db, showToast, bimestresBlocke
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Entregas Docente (pantalla completa, solo admin)
+// ════════════════════════════════════════════════════════
+const ESTRUCTURA_ENTREGAS = {
+  planificaciones: {
+    label: 'Planificaciones',
+    color: '#3b82f6',
+    cols: ['Diagnóstico', 'Inf. Diagnóstico', 'Anual', '1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
+  },
+  seguimiento: {
+    label: 'Seguimiento Pedagógico',
+    color: '#8b5cf6',
+    cols: ['1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
+  },
+  libretas: {
+    label: 'Presentación de Libretas',
+    color: '#f59e0b',
+    cols: ['1° BIM.', '2° BIM.', '3° BIM.', '4° BIM.']
+  },
+  registros: {
+    label: 'Registros',
+    color: '#10b981',
+    cols: ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Cierre']
+  }
+};
+
+function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docente, onVolver, onCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, modalCerrarSesion }) {
+  const [entregas, setEntregas] = useState({});
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const fsKey = `entregas_${docente.uid}`;
+
+  useEffect(() => {
+    getDoc(doc(db, 'entregas', docente.uid)).then(snap => {
+      setEntregas(snap.exists() ? snap.data() : {});
+      setCargando(false);
+    });
+  }, [db, docente.uid]);
+
+  const toggleEntrega = async (seccion, col) => {
+    const key = `${seccion}__${col}`;
+    const actual = entregas[key];
+    const nuevo = actual ? null : new Date().toLocaleDateString('es-AR');
+    const nuevasEntregas = { ...entregas, [key]: nuevo };
+    if (nuevo === null) delete nuevasEntregas[key];
+    setEntregas(nuevasEntregas);
+    setGuardando(true);
+    await setDoc(doc(db, 'entregas', docente.uid), nuevasEntregas);
+    setGuardando(false);
+  };
+
+  const grados = docente.rol === 'docente_grado'
+    ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
+    : [];
+
+  if (cargando) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+      <div className="text-white text-xl font-bold">Cargando...</div>
+    </div>
+  );
+
+  return (
+    <>
+      <style>{globalStyles}</style>
+      <ModalRenderer modal={modal} closeModal={closeModal} />
+      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+        <div className="max-w-full mx-auto bg-white rounded-3xl shadow-2xl p-6 fade-in">
+          <TopBar titulo="📋 Registro de Entregas" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
+
+          <div className="mt-4 mb-6 flex flex-wrap items-center gap-4">
+            <div>
+              <p className="text-xl font-black text-gray-800">{docente.nombre}</p>
+              <p className="text-sm text-purple-600 font-semibold">
+                {docente.rol === 'docente_grado'
+                  ? `Docente de Grado • ${grados.map(g => gradoLabel(g)).join(', ')}`
+                  : 'Docente Área Especial'}
+              </p>
+            </div>
+            {guardando && <span className="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1 rounded-lg">Guardando ☁️</span>}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm" style={{ minWidth: '900px' }}>
+              <thead>
+                <tr>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700 min-w-32">Grado</th>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700 min-w-40">Docente</th>
+                  {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { label, cols, color }]) => (
+                    <th key={sec} colSpan={cols.length}
+                      className="border border-gray-300 p-2 text-center font-bold text-white text-xs"
+                      style={{ background: color }}>
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  <th className="border border-gray-300 bg-gray-50 p-1"></th>
+                  <th className="border border-gray-300 bg-gray-50 p-1"></th>
+                  {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols, color }]) =>
+                    cols.map(col => (
+                      <th key={`${sec}-${col}`}
+                        className="border border-gray-300 p-1 text-center text-[10px] font-bold"
+                        style={{ color, background: `${color}15`, minWidth: '60px', writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '80px', verticalAlign: 'bottom' }}>
+                        {col}
+                      </th>
+                    ))
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {docente.rol === 'docente_grado' ? (
+                  grados.map((g, gi) => (
+                    <tr key={g} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="border border-gray-300 p-2 font-bold text-gray-700">{gradoLabel(g)}</td>
+                      <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
+                      {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                        cols.map(col => {
+                          const key = `${g}__${sec}__${col}`;
+                          const fecha = entregas[key];
+                          return (
+                            <td key={key} className="border border-gray-300 p-0 text-center">
+                              <button onClick={() => {
+                                const nuevas = { ...entregas };
+                                if (fecha) { delete nuevas[key]; } else { nuevas[key] = new Date().toLocaleDateString('es-AR'); }
+                                setEntregas(nuevas);
+                                setGuardando(true);
+                                setDoc(doc(db, 'entregas', docente.uid), nuevas).then(() => setGuardando(false));
+                              }}
+                                className={`w-full h-full min-h-10 px-1 py-1 text-[10px] font-bold transition-all ${fecha ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100 text-gray-300'}`}
+                                title={fecha ? `Entregado: ${fecha}` : 'Marcar como entregado'}>
+                                {fecha ? <span>{fecha}</span> : <span className="text-gray-200">—</span>}
+                              </button>
+                            </td>
+                          );
+                        })
+                      )}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="border border-gray-300 p-2 font-bold text-gray-700">
+                      {docente.materiasAsignadas?.map(ma => ma.nombre || ma).join(', ')}
+                    </td>
+                    <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
+                    {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                      cols.map(col => {
+                        const key = `especial__${sec}__${col}`;
+                        const fecha = entregas[key];
+                        return (
+                          <td key={key} className="border border-gray-300 p-0 text-center">
+                            <button onClick={() => {
+                              const nuevas = { ...entregas };
+                              if (fecha) { delete nuevas[key]; } else { nuevas[key] = new Date().toLocaleDateString('es-AR'); }
+                              setEntregas(nuevas);
+                              setGuardando(true);
+                              setDoc(doc(db, 'entregas', docente.uid), nuevas).then(() => setGuardando(false));
+                            }}
+                              className={`w-full h-full min-h-10 px-1 py-1 text-[10px] font-bold transition-all ${fecha ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100 text-gray-300'}`}
+                              title={fecha ? `Entregado: ${fecha}` : 'Marcar como entregado'}>
+                              {fecha ? <span>{fecha}</span> : <span className="text-gray-200">—</span>}
+                            </button>
+                          </td>
+                        );
+                      })
+                    )}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <p className="text-xs text-gray-400 font-semibold">💡 Tocá una celda para marcar/desmarcar la fecha de entrega</p>
+            <button onClick={onVolver}
+              className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">
+              ← Volver
+            </button>
+          </div>
+        </div>
+      </div>
+      {modalCerrarSesion && <ModalCerrarSesion />}
+    </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Editar Docente (pantalla completa)
 // ════════════════════════════════════════════════════════
 function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente, onVolver, onCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, modalCerrarSesion }) {
@@ -2573,7 +2782,7 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
 // ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
@@ -2609,11 +2818,12 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
         return (a.gradoAsignado || '').localeCompare(b.gradoAsignado || '', 'es', { numeric: true });
       }
       // Dentro de especiales: por nombre de primera materia asignada
-      const mA = a.materiasAsignadas?.[0]?.nombre || a.materiasAsignadas?.[0] || '';
-      const mB = b.materiasAsignadas?.[0]?.nombre || b.materiasAsignadas?.[0] || '';
-      return mA.localeCompare(mB, 'es');
+      // Dentro de especiales: alfabéticamente por nombre del docente
+      return a.nombre?.localeCompare(b.nombre || '', 'es') || 0;
     });
   };
+
+  const [tabActiva, setTabActiva] = useState('grado');
 
   const usuariosFiltrados = ordenarUsuarios(
     busqueda.trim() === ''
@@ -2622,7 +2832,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
           u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
           u.email?.toLowerCase().includes(busqueda.toLowerCase())
         )
-  );
+  ).filter(u => tabActiva === 'grado' ? u.rol === 'docente_grado' : u.rol === 'area_especial');
 
   return (
     <>
@@ -2633,6 +2843,16 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
           <TopBar titulo="👤 Gestión de Docentes" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
 
+
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6">
+            {[['grado','🏫 Docentes de Grado'],['especial','🎨 Áreas Especiales']].map(([key, label]) => (
+              <button key={key} onClick={() => setTabActiva(key)}
+                className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${tabActiva === key ? 'bg-green-500 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
 
           {/* Buscador predictivo */}
           <div className="mb-6 relative">
@@ -2719,6 +2939,12 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                               className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
                               title="Editar asignaciones">
                               <Save size={14} /> Editar
+                            </button>
+                            <button
+                              onClick={() => onVerEntregas({ ...u })}
+                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
+                              title="Registro de entregas">
+                              📋 Entregas
                             </button>
                             <button
                               onClick={() => eliminarUsuario(u)}
