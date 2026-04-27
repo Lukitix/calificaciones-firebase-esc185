@@ -1602,6 +1602,11 @@ export default function SistemaCalificaciones() {
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
         onVerEntregas={(u) => { setDocenteEntregas(u); setPantalla('entregas_docente'); }}
+        onVerAlumnos={(g) => { setGrado(g); setPantalla('administracion'); }}
+        onVerCalificaciones={(g, m) => {
+          const materiaObj = [...areas.curriculares, ...areas.especiales, ...areas.talleres].find(a => a.nombre === m);
+          if (materiaObj) { setGrado(g); abrirMateria(materiaObj); }
+        }}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
     );
@@ -2939,9 +2944,46 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Chip de grado con dropdown para admin
+// ════════════════════════════════════════════════════════
+function ChipGradoAdmin({ grado, materia, onVerAlumnos, onVerCalificaciones }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="bg-gray-100 hover:bg-indigo-100 text-gray-700 hover:text-indigo-700 px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-0.5 border border-gray-200 hover:border-indigo-300">
+        {gradoLabel(grado)} <span className="text-[9px]">▾</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden"
+          style={{ minWidth: '160px', animation: 'fadeIn 0.1s ease-out' }}>
+          <button onClick={() => { setOpen(false); onVerAlumnos(grado); }}
+            className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors">
+            👥 Ver alumnos
+          </button>
+          <button onClick={() => { setOpen(false); onVerCalificaciones(grado, materia); }}
+            className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2 transition-colors border-t border-gray-100">
+            📊 Ver calificaciones
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
@@ -3071,9 +3113,25 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         </td>
                         <td className="p-4 align-top text-center text-xs text-gray-600 max-w-xs">
                           {u.rol === 'docente_grado'
-                            ? (u.materiasAsignadas?.length > 0
-                              ? <div className="flex flex-col gap-1 items-center">{u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold inline-block">{m}</span>)}</div>
-                              : <span className="text-gray-400 italic">Sin materias</span>)
+                            ? (() => {
+                                const gs = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
+                                return (
+                                  <div className="flex flex-col gap-1.5 items-center">
+                                    <div className="flex flex-wrap gap-1 justify-center">
+                                      {gs.map((g, j) => (
+                                        <ChipGradoAdmin key={j} grado={g} materia={u.materiasAsignadas?.[0] || ''}
+                                          onVerAlumnos={onVerAlumnos}
+                                          onVerCalificaciones={onVerCalificaciones} />
+                                      ))}
+                                    </div>
+                                    {u.materiasAsignadas?.length > 0 && (
+                                      <div className="flex flex-col gap-0.5 items-center mt-1">
+                                        {u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold inline-block text-[10px]">{m}</span>)}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()
                             : u.rol === 'area_especial'
                             ? (u.materiasAsignadas?.length > 0
                               ? <div className="flex flex-col gap-1.5 items-center">
@@ -3082,7 +3140,11 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                                       <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md font-bold inline-block">{ma.nombre}</span>
                                       {ma.grados?.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mt-0.5 justify-center">
-                                          {ma.grados.map((g, j) => <span key={j} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-bold">{gradoLabel(g)}</span>)}
+                                          {ma.grados.map((g, j) => (
+                                            <ChipGradoAdmin key={j} grado={g} materia={ma.nombre}
+                                              onVerAlumnos={onVerAlumnos}
+                                              onVerCalificaciones={onVerCalificaciones} />
+                                          ))}
                                         </div>
                                       )}
                                     </div>
