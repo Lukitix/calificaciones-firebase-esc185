@@ -1876,33 +1876,36 @@ export default function SistemaCalificaciones() {
       <div className="min-h-screen w-full p-4 md:p-6" style={{ background: `linear-gradient(135deg, ${materia.color1}, ${materia.color2})` }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
           <div className="flex flex-col gap-4 mb-6 pb-5 border-b-2 border-gray-100">
+            {/* Botón volver — mismo estilo que en gestión de alumnos, debajo del título */}
+            {volverAGestion && usuario?.rol === 'administrador' && (
+              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                className="self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
+                ← Volver a Gestión de Docentes
+              </button>
+            )}
             <div className="flex justify-between items-start">
               <h2 className="text-2xl md:text-3xl font-black text-gray-800 flex items-center gap-3">
                 <span className="text-4xl">{materia.icon}</span>{materia.nombre}
               </h2>
               <div className="flex flex-col gap-2">
                 <button onClick={() => setPantalla('inicio')} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
-                {volverAGestion && usuario?.rol === 'administrador' && (
-                  <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                    className="btn-primary flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200">
-                    ← Volver a Gestión de Docentes
+                <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
+                {usuario?.rol !== 'administrador' && (
+                  <button
+                    disabled={pdfGenerando || estActuales.length === 0}
+                    onClick={() => {
+                      setPdfGenerando(true);
+                      try {
+                        const ok = generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario });
+                        if (!ok) alert('No se pudo generar el PDF. Verificá la consola para más detalles.');
+                      } finally {
+                        setPdfGenerando(false);
+                      }
+                    }}
+                    className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
+                    <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
                   </button>
                 )}
-                <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
-                <button
-                  disabled={pdfGenerando || estActuales.length === 0}
-                  onClick={() => {
-                    setPdfGenerando(true);
-                    try {
-                      const ok = generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario });
-                      if (!ok) alert('No se pudo generar el PDF. Verificá la consola para más detalles.');
-                    } finally {
-                      setPdfGenerando(false);
-                    }
-                  }}
-                  className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
-                  <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
-                </button>
                 {usuario?.rol === 'docente_grado' && (
                   <div className="flex items-center gap-1">
                     <button
