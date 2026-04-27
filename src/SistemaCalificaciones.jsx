@@ -954,6 +954,7 @@ export default function SistemaCalificaciones() {
     setMateria(m);
     const gradosAsig = getGradosParaMateria(m.nombre);
     setGrado(gradoForzado || gradosAsig[0] || '1°A');
+    if (!gradoForzado) setVolverAGestion(false); // solo resetea si es navegación normal
     setPantalla('materia');
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
@@ -1462,14 +1463,14 @@ export default function SistemaCalificaciones() {
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
           <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
-            <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)} />
-            <div className="mb-6 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
+            <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => { setVolverAGestion(false); setPantalla('inicio'); }} onCerrarSesion={() => setModalCerrarSesion(true)} />
+            <div className="mb-4 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
               <span className="text-xl mt-0.5">⚠️</span>
               <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
             </div>
             {volverAGestion && usuario?.rol === 'administrador' && (
               <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                className="mb-4 flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
+                className="mb-4 self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
                 ← Volver a Gestión de Docentes
               </button>
             )}
@@ -1746,7 +1747,7 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="flex flex-wrap justify-center gap-4 mb-10">
               {puedeGestionarAlumnos && (
-                <button onClick={() => setPantalla('administracion')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>👥 Gestión de Alumnos</button>
+                <button onClick={() => { setVolverAGestion(false); setPantalla('administracion'); }} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>👥 Gestión de Alumnos</button>
               )}
               {puedeGestionarUsuarios && (
                 <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
@@ -1876,19 +1877,12 @@ export default function SistemaCalificaciones() {
       <div className="min-h-screen w-full p-4 md:p-6" style={{ background: `linear-gradient(135deg, ${materia.color1}, ${materia.color2})` }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
           <div className="flex flex-col gap-4 mb-6 pb-5 border-b-2 border-gray-100">
-            {/* Botón volver — mismo estilo que en gestión de alumnos, debajo del título */}
-            {volverAGestion && usuario?.rol === 'administrador' && (
-              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                className="self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
-                ← Volver a Gestión de Docentes
-              </button>
-            )}
             <div className="flex justify-between items-start">
               <h2 className="text-2xl md:text-3xl font-black text-gray-800 flex items-center gap-3">
                 <span className="text-4xl">{materia.icon}</span>{materia.nombre}
               </h2>
               <div className="flex flex-col gap-2">
-                <button onClick={() => setPantalla('inicio')} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
+                <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
                 {usuario?.rol !== 'administrador' && (
                   <button
@@ -1936,6 +1930,13 @@ export default function SistemaCalificaciones() {
               </div>
             )}
           </div>
+          {/* Botón volver — debajo del título, arriba del selector de grados */}
+          {volverAGestion && usuario?.rol === 'administrador' && (
+            <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+              className="mb-4 self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
+              ← Volver a Gestión de Docentes
+            </button>
+          )}
           <div className="mb-6 bg-indigo-50 border-2 border-indigo-100 rounded-2xl p-5">
             {gradosDisp.length > 1 && <p className="text-indigo-700 font-bold text-sm mb-3 text-center">📋 Seleccioná el grado correspondiente a tu asignatura</p>}
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Grado y división</p>
@@ -2740,17 +2741,17 @@ const ESTRUCTURA_ENTREGAS = {
   planificaciones: {
     label: 'Planificaciones',
     color: '#3b82f6',
-    cols: ['Diagnóstico', 'Inf. Diagnóstico', 'Anual', '1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
+    cols: ['Diagnóstico', 'Inf. diagnóstico', 'Anual', '1° bimestre', '2° bimestre', '3° bimestre', '4° bimestre']
   },
   seguimiento: {
     label: 'Seguimiento Pedagógico',
     color: '#8b5cf6',
-    cols: ['1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
+    cols: ['1° bimestre', '2° bimestre', '3° bimestre', '4° bimestre']
   },
   libretas: {
     label: 'Presentación de Libretas',
     color: '#f59e0b',
-    cols: ['1° BIM.', '2° BIM.', '3° BIM.', '4° BIM.']
+    cols: ['1° bim.', '2° bim.', '3° bim.', '4° bim.']
   },
   registros: {
     label: 'Registros',
