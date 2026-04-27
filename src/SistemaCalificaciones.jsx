@@ -530,6 +530,17 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       return row;
     });
 
+    const abreviarMateria = (nombre) => {
+      const abrevs = {
+        'Ciencias Sociales': 'Cs. Sociales',
+        'Ciencias Naturales': 'Cs. Naturales',
+        'Formación Ética y Ciudadana': 'Form. Ética',
+        'Lengua y Literatura': 'Lengua y Lit.',
+      };
+      if (abrevs[nombre]) return abrevs[nombre];
+      return nombre.length > 14 ? nombre.substring(0, 14) + '.' : nombre;
+    };
+
     // ── PÁGINA 1: Áreas Curriculares ──
     const curriculares = areas.curriculares;
     const snapsCurr = await Promise.all(
@@ -544,7 +555,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
     }));
 
     encabezado('Áreas Curriculares — Promedios Finales');
-    const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => m.nombre.length > 14 ? m.nombre.substring(0, 14) + '.' : m.nombre)]];
+    const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre))]];
     autoTable(pdfDoc, {
       startY: 32, head: headCurr, body: buildBody(datosCurr),
       styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
@@ -577,7 +588,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       pdfDoc.setFontSize(10); pdfDoc.setTextColor(150,150,150);
       pdfDoc.text('Sin calificaciones de áreas especiales cargadas.', pageW / 2, 50, { align: 'center' });
     } else {
-      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => d.nombre.length > 14 ? d.nombre.substring(0, 14) + '.' : d.nombre)]];
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
         styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
@@ -1835,7 +1846,7 @@ export default function SistemaCalificaciones() {
                   <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
                 </button>
                 {usuario?.rol === 'docente_grado' && (
-                  <div className="relative flex items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <button
                       disabled={pdfUnificadoGenerando}
                       onClick={async () => {
@@ -2255,24 +2266,27 @@ function InfoPDFUnificado() {
   return (
     <div className="relative">
       <button onClick={() => setOpen(v => !v)}
-        className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 font-black text-sm flex items-center justify-center transition-all"
+        className="w-7 h-7 rounded-full bg-indigo-100 hover:bg-indigo-200 text-indigo-600 font-black text-base flex items-center justify-center transition-all border-2 border-indigo-200"
         title="¿Qué es el PDF Unificado?">
-        i
+        ℹ️
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-4 w-72"
-            style={{ animation: 'fadeIn 0.15s ease-out' }}>
-            <p className="font-black text-gray-800 text-sm mb-2">📄 PDF Unificado</p>
-            <p className="text-xs text-gray-600 font-semibold leading-relaxed">
-              Genera un PDF con <strong>todas las materias</strong> de tu grado en un solo archivo:
-            </p>
-            <ul className="mt-2 space-y-1">
-              <li className="text-xs text-gray-600 flex items-start gap-1.5"><span className="text-purple-500 font-bold">•</span> Página 1: promedios finales de <strong>áreas curriculares</strong></li>
-              <li className="text-xs text-gray-600 flex items-start gap-1.5"><span className="text-amber-500 font-bold">•</span> Página 2: promedios finales de <strong>áreas especiales y talleres</strong></li>
-            </ul>
-            <p className="text-xs text-gray-400 mt-2 italic">Ideal para el boletín — menos hojas para imprimir.</p>
+          <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-indigo-100 rounded-2xl shadow-xl p-4 w-68"
+            style={{ animation: 'fadeIn 0.15s ease-out', minWidth: '260px' }}>
+            <p className="font-black text-gray-800 text-sm mb-3">📄 ¿Qué incluye el PDF Unificado?</p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 bg-purple-50 rounded-xl p-2">
+                <span className="text-purple-600 font-black text-xs mt-0.5">Pág. 1</span>
+                <p className="text-xs text-gray-700 font-semibold">Promedios finales de todas las <strong>áreas curriculares</strong> (Lengua, Matemática, Cs. Sociales, etc.)</p>
+              </div>
+              <div className="flex items-start gap-2 bg-amber-50 rounded-xl p-2">
+                <span className="text-amber-600 font-black text-xs mt-0.5">Pág. 2</span>
+                <p className="text-xs text-gray-700 font-semibold">Promedios finales de <strong>áreas especiales y talleres</strong> (Ed. Física, Inglés, Informática, etc.)</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3 italic text-center">💡 Ideal para el boletín — menos hojas para imprimir.</p>
             <button onClick={() => setOpen(false)}
               className="mt-3 w-full py-1.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-all">
               Cerrar
