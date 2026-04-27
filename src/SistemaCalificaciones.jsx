@@ -475,6 +475,128 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   }
 }
 
+// ─── PDF UNIFICADO (docente de grado) ───────────────────────────────────────
+async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
+  const doc_ref = doc; // alias para no confundir con jsPDF doc
+  try {
+    const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = pdfDoc.internal.pageSize.getWidth();
+    const hoy = new Date().toLocaleDateString('es-AR');
+    const nombreDocente = usuario?.nombre || '—';
+    const gradosDocente = usuario?.gradosAsignados?.length > 0
+      ? usuario.gradosAsignados
+      : [usuario?.gradoAsignado].filter(Boolean);
+    const firmaX = pageW - 75;
+
+    const encabezado = (titulo) => {
+      pdfDoc.setFillColor(124, 58, 237);
+      pdfDoc.rect(0, 0, pageW, 28, 'F');
+      pdfDoc.setTextColor(255, 255, 255);
+      pdfDoc.setFontSize(12); pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
+      pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(`${titulo}   |   Grado: ${gradosDocente.map(gradoLabel).join(', ')}   |   Docente: ${nombreDocente}`, pageW / 2, 17, { align: 'center' });
+      pdfDoc.text(`Fecha: ${hoy}`, pageW / 2, 23, { align: 'center' });
+    };
+
+    const agregarFirma = (finalY) => {
+      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.line(firmaX, finalY + 4, firmaX + 65, finalY + 4);
+      pdfDoc.text(nombreDocente, firmaX + 32, finalY + 9, { align: 'center' });
+      pdfDoc.text(`Docente de Grado ${gradosDocente.map(gradoLabel).join(', ')}`, firmaX + 32, finalY + 14, { align: 'center' });
+      pdfDoc.text(hoy, firmaX + 32, finalY + 19, { align: 'center' });
+    };
+
+    // Reunir todos los alumnos de todos los grados del docente
+    const todosAlumnos = gradosDocente.flatMap(g => (alumnosGlobales[g] || []).map(a => ({ ...a, grado: g })));
+    const alumnosUnicos = todosAlumnos.filter((a, i, arr) => arr.findIndex(x => x.dni === a.dni) === i);
+    const alumnosOrdenados = [...alumnosUnicos].sort((a, b) => {
+      if ((a.sexo||'V') !== (b.sexo||'V')) return (a.sexo||'V') === 'V' ? -1 : 1;
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
+
+    const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
+      const row = [String(idx + 1), al.nombre];
+      datos.forEach(({ estudiantes }) => {
+        const est = estudiantes.find(e => e.dni === al.dni);
+        const b1 = est?.bimestres?.[1]?.nota || '';
+        const b2 = est?.bimestres?.[2]?.nota || '';
+        const b3 = est?.bimestres?.[3]?.nota || '';
+        const b4 = est?.bimestres?.[4]?.nota || '';
+        const pf = calcularPromedioFinal(b1, b2, b3, b4);
+        const primerCiclo = esPrimerCiclo(al.grado);
+        row.push(pf ? (primerCiclo ? textoConceptual(pf) : pf) : '—');
+      });
+      return row;
+    });
+
+    // ── PÁGINA 1: Áreas Curriculares ──
+    const curriculares = areas.curriculares;
+    const snapsCurr = await Promise.all(
+      curriculares.flatMap(m => gradosDocente.map(g => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${g}`)))))
+    );
+    const datosCurr = curriculares.map((m, mi) => ({
+      nombre: m.nombre,
+      estudiantes: gradosDocente.flatMap((g, gi) => {
+        const snap = snapsCurr[mi * gradosDocente.length + gi];
+        return snap.exists() ? (snap.data().estudiantes || []) : [];
+      })
+    }));
+
+    encabezado('Áreas Curriculares — Promedios Finales');
+    const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => m.nombre.length > 14 ? m.nombre.substring(0, 14) + '.' : m.nombre)]];
+    autoTable(pdfDoc, {
+      startY: 32, head: headCurr, body: buildBody(datosCurr),
+      styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+      headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+    });
+    agregarFirma(pdfDoc.lastAutoTable.finalY + 10);
+
+    // ── PÁGINA 2: Áreas Especiales ──
+    pdfDoc.addPage();
+    const especiales = [...areas.especiales, ...areas.talleres];
+    const snapsEsp = await Promise.all(
+      especiales.flatMap(m => gradosDocente.map(g => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${g}`)))))
+    );
+    const datosEsp = especiales.map((m, mi) => ({
+      nombre: m.nombre,
+      estudiantes: gradosDocente.flatMap((g, gi) => {
+        const snap = snapsEsp[mi * gradosDocente.length + gi];
+        return snap.exists() ? (snap.data().estudiantes || []) : [];
+      })
+    })).filter(d => d.estudiantes.some(e => {
+      const pf = calcularPromedioFinal(e.bimestres?.[1]?.nota||'', e.bimestres?.[2]?.nota||'', e.bimestres?.[3]?.nota||'', e.bimestres?.[4]?.nota||'');
+      return !!pf;
+    }));
+
+    encabezado('Áreas Especiales y Talleres — Promedios Finales');
+    if (datosEsp.length === 0) {
+      pdfDoc.setFontSize(10); pdfDoc.setTextColor(150,150,150);
+      pdfDoc.text('Sin calificaciones de áreas especiales cargadas.', pageW / 2, 50, { align: 'center' });
+    } else {
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => d.nombre.length > 14 ? d.nombre.substring(0, 14) + '.' : d.nombre)]];
+      autoTable(pdfDoc, {
+        startY: 32, head: headEsp, body: buildBody(datosEsp),
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+        alternateRowStyles: { fillColor: [255, 251, 235] },
+        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+      });
+      agregarFirma(pdfDoc.lastAutoTable.finalY + 10);
+    }
+
+    pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`);
+    return true;
+  } catch(err) {
+    console.error('Error PDF unificado:', err);
+    return false;
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
@@ -494,6 +616,7 @@ export default function SistemaCalificaciones() {
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
+  const [pdfUnificadoGenerando, setPdfUnificadoGenerando] = useState(false);
   const [showEscala, setShowEscala] = useState(false);
 
   // Login con email real
@@ -1573,6 +1696,19 @@ export default function SistemaCalificaciones() {
               {usuario?.rol === 'docente_grado' && (
                 <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
               )}
+              {usuario?.rol === 'docente_grado' && (
+                <button
+                  onClick={async () => {
+                    setPdfUnificadoGenerando(true);
+                    try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                    finally { setPdfUnificadoGenerando(false); }
+                  }}
+                  disabled={pdfUnificadoGenerando}
+                  className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
+                  <FileDown size={22} /> {pdfUnificadoGenerando ? 'Generando PDF...' : '📄 Descargar PDF Unificado'}
+                </button>
+              )}
             </div>
             {curricularesFilt.length > 0 && (
               <div className="mb-8">
@@ -1730,14 +1866,6 @@ export default function SistemaCalificaciones() {
             {gradosDisp.length > 1 && <p className="text-indigo-700 font-bold text-sm mb-3 text-center">📋 Seleccioná el grado correspondiente a tu asignatura</p>}
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Grado y división</p>
             <ChipsGrado lista={gradosDisp} seleccionado={grado} onChange={setGrado} />
-            {usuario?.rol === 'area_especial' && grado && (
-              <div className="mt-3 pt-3 border-t border-indigo-100">
-                <button onClick={() => setPantalla('administracion')}
-                  className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
-                  👥 Ver alumnos de {gradoLabel(grado)}
-                </button>
-              </div>
-            )}
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
@@ -2463,7 +2591,6 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
   const [entregas, setEntregas] = useState({});
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const fsKey = `entregas_${docente.uid}`;
 
   useEffect(() => {
     getDoc(doc(db, 'entregas', docente.uid)).then(snap => {
@@ -2472,19 +2599,16 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
     });
   }, [db, docente.uid]);
 
-  const toggleEntrega = async (seccion, col) => {
-    const key = `${seccion}__${col}`;
-    const actual = entregas[key];
-    const nuevo = actual ? null : new Date().toLocaleDateString('es-AR');
-    const nuevasEntregas = { ...entregas, [key]: nuevo };
-    if (nuevo === null) delete nuevasEntregas[key];
-    setEntregas(nuevasEntregas);
+  const actualizarCelda = async (key, valor) => {
+    const nuevas = { ...entregas };
+    if (!valor.trim()) { delete nuevas[key]; } else { nuevas[key] = valor; }
+    setEntregas(nuevas);
     setGuardando(true);
-    await setDoc(doc(db, 'entregas', docente.uid), nuevasEntregas);
+    await setDoc(doc(db, 'entregas', docente.uid), nuevas);
     setGuardando(false);
   };
 
-  const grados = docente.rol === 'docente_grado'
+  const gradosDocente = docente.rol === 'docente_grado'
     ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
     : [];
 
@@ -2494,32 +2618,50 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
     </div>
   );
 
+  const CeldaEditable = ({ keyStr }) => {
+    const [local, setLocal] = useState(entregas[keyStr] || '');
+    useEffect(() => { setLocal(entregas[keyStr] || ''); }, [keyStr]);
+    return (
+      <td className="border border-gray-300 p-0">
+        <input
+          type="text"
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={() => actualizarCelda(keyStr, local)}
+          placeholder="—"
+          className={`w-full text-center text-[10px] font-bold py-1 px-0.5 outline-none transition-all ${local ? 'bg-green-50 text-green-700' : 'bg-white text-gray-300'}`}
+          style={{ minWidth: '52px', lineHeight: '1.3' }}
+        />
+      </td>
+    );
+  };
+
   return (
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
-        <div className="max-w-full mx-auto bg-white rounded-3xl shadow-2xl p-6 fade-in">
-          <TopBar titulo="📋 Registro de Entregas" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
+      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+        <div className="max-w-full mx-auto bg-white rounded-3xl shadow-2xl p-4 fade-in">
+          <TopBar titulo="📋 Documentaciones presentadas por Grados/Áreas - 2026" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
 
-          <div className="mt-4 mb-6 flex flex-wrap items-center gap-4">
+          <div className="mt-4 mb-4 flex flex-wrap items-center gap-4">
             <div>
-              <p className="text-xl font-black text-gray-800">{docente.nombre}</p>
+              <p className="text-lg font-black text-gray-800">{docente.nombre}</p>
               <p className="text-sm text-purple-600 font-semibold">
                 {docente.rol === 'docente_grado'
-                  ? `Docente de Grado • ${grados.map(g => gradoLabel(g)).join(', ')}`
-                  : 'Docente Área Especial'}
+                  ? `Docente de Grado • ${gradosDocente.map(g => gradoLabel(g)).join(', ')}`
+                  : `Área Especial • ${docente.materiasAsignadas?.map(ma => ma.nombre || ma).join(', ')}`}
               </p>
             </div>
             {guardando && <span className="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1 rounded-lg">Guardando ☁️</span>}
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ minWidth: '900px' }}>
+            <table className="border-collapse text-sm" style={{ minWidth: '1100px', width: '100%' }}>
               <thead>
                 <tr>
-                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700 min-w-32">Grado</th>
-                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700 min-w-40">Docente</th>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700" style={{ minWidth: '90px' }}>Grado</th>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700" style={{ minWidth: '140px' }}>Docente</th>
                   {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { label, cols, color }]) => (
                     <th key={sec} colSpan={cols.length}
                       className="border border-gray-300 p-2 text-center font-bold text-white text-xs"
@@ -2534,8 +2676,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                   {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols, color }]) =>
                     cols.map(col => (
                       <th key={`${sec}-${col}`}
-                        className="border border-gray-300 p-1 text-center text-[10px] font-bold"
-                        style={{ color, background: `${color}15`, minWidth: '60px', writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '80px', verticalAlign: 'bottom' }}>
+                        className="border border-gray-300 p-1 text-center font-bold"
+                        style={{ color, background: `${color}18`, minWidth: '52px', fontSize: '9px', maxWidth: '60px' }}>
                         {col}
                       </th>
                     ))
@@ -2544,59 +2686,23 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
               </thead>
               <tbody>
                 {docente.rol === 'docente_grado' ? (
-                  grados.map((g, gi) => (
+                  gradosDocente.map((g, gi) => (
                     <tr key={g} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-300 p-2 font-bold text-gray-700">{gradoLabel(g)}</td>
+                      <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm">{gradoLabel(g)}</td>
                       <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
                       {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                        cols.map(col => {
-                          const key = `${g}__${sec}__${col}`;
-                          const fecha = entregas[key];
-                          return (
-                            <td key={key} className="border border-gray-300 p-0 text-center">
-                              <button onClick={() => {
-                                const nuevas = { ...entregas };
-                                if (fecha) { delete nuevas[key]; } else { nuevas[key] = new Date().toLocaleDateString('es-AR'); }
-                                setEntregas(nuevas);
-                                setGuardando(true);
-                                setDoc(doc(db, 'entregas', docente.uid), nuevas).then(() => setGuardando(false));
-                              }}
-                                className={`w-full h-full min-h-10 px-1 py-1 text-[10px] font-bold transition-all ${fecha ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100 text-gray-300'}`}
-                                title={fecha ? `Entregado: ${fecha}` : 'Marcar como entregado'}>
-                                {fecha ? <span>{fecha}</span> : <span className="text-gray-200">—</span>}
-                              </button>
-                            </td>
-                          );
-                        })
+                        cols.map(col => <CeldaEditable key={`${g}__${sec}__${col}`} keyStr={`${g}__${sec}__${col}`} />)
                       )}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td className="border border-gray-300 p-2 font-bold text-gray-700">
+                    <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm">
                       {docente.materiasAsignadas?.map(ma => ma.nombre || ma).join(', ')}
                     </td>
                     <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
                     {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                      cols.map(col => {
-                        const key = `especial__${sec}__${col}`;
-                        const fecha = entregas[key];
-                        return (
-                          <td key={key} className="border border-gray-300 p-0 text-center">
-                            <button onClick={() => {
-                              const nuevas = { ...entregas };
-                              if (fecha) { delete nuevas[key]; } else { nuevas[key] = new Date().toLocaleDateString('es-AR'); }
-                              setEntregas(nuevas);
-                              setGuardando(true);
-                              setDoc(doc(db, 'entregas', docente.uid), nuevas).then(() => setGuardando(false));
-                            }}
-                              className={`w-full h-full min-h-10 px-1 py-1 text-[10px] font-bold transition-all ${fecha ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'hover:bg-gray-100 text-gray-300'}`}
-                              title={fecha ? `Entregado: ${fecha}` : 'Marcar como entregado'}>
-                              {fecha ? <span>{fecha}</span> : <span className="text-gray-200">—</span>}
-                            </button>
-                          </td>
-                        );
-                      })
+                      cols.map(col => <CeldaEditable key={`especial__${sec}__${col}`} keyStr={`especial__${sec}__${col}`} />)
                     )}
                   </tr>
                 )}
@@ -2604,8 +2710,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
             </table>
           </div>
 
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-xs text-gray-400 font-semibold">💡 Tocá una celda para marcar/desmarcar la fecha de entrega</p>
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-gray-400 font-semibold">💡 Escribí la fecha en cada celda y se guarda automáticamente al salir del campo</p>
             <button onClick={onVolver}
               className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">
               ← Volver
@@ -2818,8 +2924,10 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
         return (a.gradoAsignado || '').localeCompare(b.gradoAsignado || '', 'es', { numeric: true });
       }
       // Dentro de especiales: por nombre de primera materia asignada
-      // Dentro de especiales: alfabéticamente por nombre del docente
-      return a.nombre?.localeCompare(b.nombre || '', 'es') || 0;
+      // Dentro de especiales: alfabéticamente por nombre de la primera materia asignada
+      const mA = a.materiasAsignadas?.[0]?.nombre || a.materiasAsignadas?.[0] || '';
+      const mB = b.materiasAsignadas?.[0]?.nombre || b.materiasAsignadas?.[0] || '';
+      return mA.localeCompare(mB, 'es');
     });
   };
 
@@ -2936,20 +3044,17 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                           <div className="flex flex-col gap-2 items-center">
                             <button
                               onClick={() => onEditarDocente({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
-                              title="Editar asignaciones">
+                              className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
                               <Save size={14} /> Editar
                             </button>
                             <button
                               onClick={() => onVerEntregas({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
-                              title="Registro de entregas">
+                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
                               📋 Entregas
                             </button>
                             <button
                               onClick={() => eliminarUsuario(u)}
-                              className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center"
-                              title="Eliminar docente">
+                              className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
                               <Trash2 size={14} /> Eliminar
                             </button>
                           </div>
