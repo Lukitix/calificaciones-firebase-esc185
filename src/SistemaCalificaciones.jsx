@@ -1696,19 +1696,6 @@ export default function SistemaCalificaciones() {
               {usuario?.rol === 'docente_grado' && (
                 <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
               )}
-              {usuario?.rol === 'docente_grado' && (
-                <button
-                  onClick={async () => {
-                    setPdfUnificadoGenerando(true);
-                    try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
-                    finally { setPdfUnificadoGenerando(false); }
-                  }}
-                  disabled={pdfUnificadoGenerando}
-                  className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
-                  <FileDown size={22} /> {pdfUnificadoGenerando ? 'Generando PDF...' : '📄 Descargar PDF Unificado'}
-                </button>
-              )}
             </div>
             {curricularesFilt.length > 0 && (
               <div className="mb-8">
@@ -1848,16 +1835,19 @@ export default function SistemaCalificaciones() {
                   <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
                 </button>
                 {usuario?.rol === 'docente_grado' && (
-                  <button
-                    disabled={pdfUnificadoGenerando}
-                    onClick={async () => {
-                      setPdfUnificadoGenerando(true);
-                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
-                      finally { setPdfUnificadoGenerando(false); }
-                    }}
-                    className="btn-primary flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
-                    <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
-                  </button>
+                  <div className="relative flex items-center gap-1">
+                    <button
+                      disabled={pdfUnificadoGenerando}
+                      onClick={async () => {
+                        setPdfUnificadoGenerando(true);
+                        try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                        finally { setPdfUnificadoGenerando(false); }
+                      }}
+                      className="btn-primary flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50 flex-1">
+                      <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
+                    </button>
+                    <InfoPDFUnificado />
+                  </div>
                 )}
                 {esPrimerCiclo(grado) && (
                   <button onClick={() => setShowEscala(true)}
@@ -2258,6 +2248,43 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Info PDF Unificado
+// ════════════════════════════════════════════════════════
+function InfoPDFUnificado() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-600 font-black text-sm flex items-center justify-center transition-all"
+        title="¿Qué es el PDF Unificado?">
+        i
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-gray-200 rounded-2xl shadow-xl p-4 w-72"
+            style={{ animation: 'fadeIn 0.15s ease-out' }}>
+            <p className="font-black text-gray-800 text-sm mb-2">📄 PDF Unificado</p>
+            <p className="text-xs text-gray-600 font-semibold leading-relaxed">
+              Genera un PDF con <strong>todas las materias</strong> de tu grado en un solo archivo:
+            </p>
+            <ul className="mt-2 space-y-1">
+              <li className="text-xs text-gray-600 flex items-start gap-1.5"><span className="text-purple-500 font-bold">•</span> Página 1: promedios finales de <strong>áreas curriculares</strong></li>
+              <li className="text-xs text-gray-600 flex items-start gap-1.5"><span className="text-amber-500 font-bold">•</span> Página 2: promedios finales de <strong>áreas especiales y talleres</strong></li>
+            </ul>
+            <p className="text-xs text-gray-400 mt-2 italic">Ideal para el boletín — menos hojas para imprimir.</p>
+            <button onClick={() => setOpen(false)}
+              className="mt-3 w-full py-1.5 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-all">
+              Cerrar
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE: Popup "Visto por"
 // ════════════════════════════════════════════════════════
 function VistoPopup({ uids, getNombre }) {
@@ -2641,8 +2668,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
           onChange={e => setLocal(e.target.value)}
           onBlur={() => actualizarCelda(keyStr, local)}
           placeholder="—"
-          className={`w-full text-center text-[10px] font-bold py-1 px-0.5 outline-none transition-all ${local ? 'bg-green-50 text-green-700' : 'bg-white text-gray-300'}`}
-          style={{ minWidth: '52px', lineHeight: '1.3' }}
+          className={`w-full text-center font-bold py-1.5 px-1 outline-none transition-all ${local ? 'bg-green-50 text-green-700' : 'bg-white text-gray-300'}`}
+          style={{ minWidth: '64px', fontSize: '12px', lineHeight: '1.3' }}
         />
       </td>
     );
@@ -2676,8 +2703,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                   <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700" style={{ minWidth: '140px' }}>Docente</th>
                   {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { label, cols, color }]) => (
                     <th key={sec} colSpan={cols.length}
-                      className="border border-gray-300 p-2 text-center font-bold text-white text-xs"
-                      style={{ background: color }}>
+                      className="border border-gray-300 p-2 text-center font-bold text-white"
+                      style={{ background: color, fontSize: '12px' }}>
                       {label}
                     </th>
                   ))}
@@ -2689,7 +2716,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                     cols.map(col => (
                       <th key={`${sec}-${col}`}
                         className="border border-gray-300 p-1 text-center font-bold"
-                        style={{ color, background: `${color}18`, minWidth: '52px', fontSize: '9px', maxWidth: '60px' }}>
+                        style={{ color, background: `${color}18`, minWidth: '64px', fontSize: '11px' }}>
                         {col}
                       </th>
                     ))
