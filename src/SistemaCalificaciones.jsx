@@ -406,7 +406,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     startY: 32,
     head,
     body,
-    styles: { font: 'helvetica', fontSize: primerCiclo ? 8 : 11, cellPadding: 3, halign: 'center' },
+    styles: { font: 'helvetica', fontSize: primerCiclo ? 8 : 11, cellPadding: 3, halign: 'center', lineColor: [200, 200, 200], lineWidth: 0.2 },
     headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', halign: 'center' },
     columnStyles: {
       0: { halign: 'left', cellWidth: 55 },
@@ -415,6 +415,8 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
       7: { fillColor: [199, 210, 254], fontStyle: 'bold' },
     },
     alternateRowStyles: { fillColor: [249, 250, 251] },
+    tableLineColor: [180, 180, 180],
+    tableLineWidth: 0.3,
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 7 && !primerCiclo) {
         const val = parseFloat(data.cell.raw);
@@ -1697,10 +1699,10 @@ export default function SistemaCalificaciones() {
                 )}
               </div>
             </div>
-            {docenteNombre.guardado && (
+            {(nombreMostrado(usuario) || docenteNombre.guardado) && (
               <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
                 <span className="text-purple-600">👤</span>
-                <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{usuario?.nombre || docenteNombre.guardado}</span></span>
+                <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
               </div>
             )}
           </div>
