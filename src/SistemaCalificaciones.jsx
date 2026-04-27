@@ -1464,16 +1464,16 @@ export default function SistemaCalificaciones() {
         <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
           <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => { setVolverAGestion(false); setPantalla('inicio'); }} onCerrarSesion={() => setModalCerrarSesion(true)} />
-            <div className="mb-4 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
-              <span className="text-xl mt-0.5">⚠️</span>
-              <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
-            </div>
             {volverAGestion && usuario?.rol === 'administrador' && (
               <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
                 className="mb-4 self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
                 ← Volver a Gestión de Docentes
               </button>
             )}
+            <div className="mb-4 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
+              <span className="text-xl mt-0.5">⚠️</span>
+              <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
+            </div>
             {usuario?.rol !== 'docente_grado' && (
               <div className="mb-6">
                 <p className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Seleccioná el grado:</p>
@@ -2741,17 +2741,17 @@ const ESTRUCTURA_ENTREGAS = {
   planificaciones: {
     label: 'Planificaciones',
     color: '#3b82f6',
-    cols: ['Diagnóstico', 'Inf. diagnóstico', 'Anual', '1° bimestre', '2° bimestre', '3° bimestre', '4° bimestre']
+    cols: ['Diagnóstico', 'Inf. diagnóstico', 'Anual', '1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
   },
   seguimiento: {
     label: 'Seguimiento Pedagógico',
     color: '#8b5cf6',
-    cols: ['1° bimestre', '2° bimestre', '3° bimestre', '4° bimestre']
+    cols: ['1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
   },
   libretas: {
     label: 'Presentación de Libretas',
     color: '#f59e0b',
-    cols: ['1° bim.', '2° bim.', '3° bim.', '4° bim.']
+    cols: ['1° Bim.', '2° Bim.', '3° Bim.', '4° Bim.']
   },
   registros: {
     label: 'Registros',
