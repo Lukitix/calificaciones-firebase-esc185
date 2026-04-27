@@ -659,6 +659,8 @@ export default function SistemaCalificaciones() {
   const [showPerfil, setShowPerfil] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
+  const [notifsBimestre, setNotifsBimestre] = useState([]);
+  const [showNotifsBimestre, setShowNotifsBimestre] = useState(false);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
@@ -737,7 +739,15 @@ export default function SistemaCalificaciones() {
     return () => unsub();
   }, [authUser]);
 
-  // ── Mensajes ──
+  // ── Notificaciones de bimestres completados (solo admin) ──
+  useEffect(() => {
+    if (!authUser || !usuario || usuario.rol !== 'administrador') return;
+    const unsub = onSnapshot(collection(db, 'notificacionesBimestre'), snap => {
+      const todas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setNotifsBimestre(todas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+    });
+    return () => unsub();
+  }, [authUser, usuario]);
   useEffect(() => {
     if (!authUser || !usuario) return;
     const unsub = onSnapshot(collection(db, 'mensajes'), (snap) => {
@@ -938,6 +948,7 @@ export default function SistemaCalificaciones() {
   };
 
   const [volverAGestion, setVolverAGestion] = useState(false);
+  const [origenGestion, setOrigenGestion] = useState({ tab: 'grado' });
 
   const abrirMateria = (m, gradoForzado = null) => {
     setMateria(m);
@@ -1071,9 +1082,24 @@ export default function SistemaCalificaciones() {
   };
 
   const toggleBloquearBimestre = async (bim) => {
-    const nuevo = { ...bimestresBlockeados, [bim]: !bimestresBlockeados[bim] };
+    const bloqueando = !bimestresBlockeados[bim];
+    const nuevo = { ...bimestresBlockeados, [bim]: bloqueando };
     setBimestresBlockeados(nuevo);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevo }, { merge: true });
+    // Si está completando (bloqueando), disparar notificación a la directora
+    if (bloqueando) {
+      const nombreDoc = usuario?.nombre || '—';
+      await setDoc(doc(collection(db, 'notificacionesBimestre')), {
+        mensaje: `✅ ${nombreDoc} marcó como completo el ${bim}° Bimestre de ${materia.nombre} · ${gradoLabel(grado)}`,
+        docente: nombreDoc,
+        materia: materia.nombre,
+        grado: gradoLabel(grado),
+        bimestre: bim,
+        fecha: new Date().toISOString(),
+        fechaCorta: new Date().toLocaleDateString('es-AR'),
+        leida: false,
+      });
+    }
   };
 
   const agregarCriterio = async (bimestre) => {
@@ -1611,12 +1637,12 @@ export default function SistemaCalificaciones() {
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
         onVerEntregas={(u) => { setDocenteEntregas(u); setPantalla('entregas_docente'); }}
-        onVerAlumnos={(g) => { setGrado(g); setVolverAGestion(true); setPantalla('administracion'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+        onVerAlumnos={(g) => { setGrado(g); setVolverAGestion(true); setOrigenGestion({ tab: tabActiva }); setPantalla('administracion'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
         onVerCalificaciones={(g, m) => {
           const materiaObj = [...areas.curriculares, ...areas.especiales, ...areas.talleres].find(a => a.nombre === m);
-          if (materiaObj) { setVolverAGestion(true); abrirMateria(materiaObj, g); }
+          if (materiaObj) { setVolverAGestion(true); setOrigenGestion({ tab: tabActiva }); abrirMateria(materiaObj, g); }
         }}
-        rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion}
+        rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
     );
   }
@@ -1670,6 +1696,13 @@ export default function SistemaCalificaciones() {
                     className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
                     <span className="text-xl">✉️</span>
                     <span className="text-xs font-bold text-blue-600">Mensajes</span>
+                  </button>
+                  <button onClick={() => setShowNotifsBimestre(true)}
+                    className="flex items-center gap-2 bg-green-50 border-2 border-green-200 hover:bg-green-100 transition-all px-4 py-2 rounded-2xl" title="Bimestres completados">
+                    <span className="text-xl">✅</span>
+                    {notifsBimestre.filter(n => !n.leida).length > 0
+                      ? <span className="bg-green-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{notifsBimestre.filter(n => !n.leida).length}</span>
+                      : <span className="text-xs font-bold text-green-600">Bimestres</span>}
                   </button>
                   <button onClick={() => setShowModalSolicitudes(true)}
                     className="flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl" title="Solicitudes pendientes">
@@ -1807,6 +1840,11 @@ export default function SistemaCalificaciones() {
             onActualizar={(nuevosDatos) => setUsuario(prev => ({ ...prev, ...nuevosDatos }))}
           />
         )}
+        {showNotifsBimestre && (
+          <ModalNotifsBimestre
+            db={db} notifs={notifsBimestre}
+            onClose={() => setShowNotifsBimestre(false)} />
+        )}
       </>
     );
   }
@@ -1846,8 +1884,8 @@ export default function SistemaCalificaciones() {
                 <button onClick={() => setPantalla('inicio')} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
                 {volverAGestion && usuario?.rol === 'administrador' && (
                   <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                    className="btn-primary flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
-                    ← Docentes
+                    className="btn-primary flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200">
+                    ← Volver a Gestión de Docentes
                   </button>
                 )}
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
@@ -1909,7 +1947,7 @@ export default function SistemaCalificaciones() {
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
                       <h4 className="font-extrabold text-gray-700">{bim}° Bimestre</h4>
-                      {bimestresBlockeados[bim] && <span className="text-xs font-bold text-red-500 bg-red-100 px-2 py-0.5 rounded-full">🔒 Cerrado</span>}
+                      {bimestresBlockeados[bim] && <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">✅ Completo</span>}
                     </div>
                     <div className="flex gap-2">
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
@@ -1918,10 +1956,10 @@ export default function SistemaCalificaciones() {
                       {usuario?.rol !== 'administrador' && (
                         <button
                           onClick={() => toggleBloquearBimestre(bim)}
-                          title={bimestresBlockeados[bim] ? 'Desbloquear bimestre' : 'Cerrar bimestre (bloquear edición)'}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-colors ${bimestresBlockeados[bim] ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
+                          title={bimestresBlockeados[bim] ? 'Reabrir bimestre' : 'Marcar bimestre como completo'}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-colors ${bimestresBlockeados[bim] ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
                           {bimestresBlockeados[bim] ? <LockIcon size={13} /> : <Unlock size={13} />}
-                          {bimestresBlockeados[bim] ? 'Cerrado' : 'Cerrar'}
+                          {bimestresBlockeados[bim] ? 'Completo' : '✓ Completo'}
                         </button>
                       )}
                     </div>
@@ -2128,6 +2166,64 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Notificaciones Bimestres Completados
+// ════════════════════════════════════════════════════════
+function ModalNotifsBimestre({ db, notifs, onClose }) {
+  const noLeidas = notifs.filter(n => !n.leida).length;
+
+  const marcarTodasLeidas = async () => {
+    const batch = notifs.filter(n => !n.leida);
+    await Promise.all(batch.map(n => updateDoc(doc(db, 'notificacionesBimestre', n.id), { leida: true })));
+  };
+
+  const eliminarNotif = async (id) => {
+    await deleteDoc(doc(db, 'notificacionesBimestre', id));
+  };
+
+  // Marcar como leídas al abrir
+  useEffect(() => { if (noLeidas > 0) marcarTodasLeidas(); }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
+          <h3 className="text-lg font-bold text-green-800">✅ Bimestres Completados</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+        </div>
+        <div className="max-h-[65vh] overflow-y-auto">
+          {notifs.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <p className="text-4xl mb-2">📭</p>
+              <p className="font-bold">Sin notificaciones aún</p>
+            </div>
+          ) : (
+            <div className="p-4 space-y-2">
+              {notifs.map(n => (
+                <div key={n.id} className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border ${n.leida ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-200'}`}>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">{n.mensaje}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{n.fechaCorta}</p>
+                  </div>
+                  <button onClick={() => eliminarNotif(n.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -2998,7 +3094,7 @@ function ChipGradoAdmin({ grado, materia, onVerAlumnos, onVerCalificaciones }) {
 // ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
@@ -3041,7 +3137,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     });
   };
 
-  const [tabActiva, setTabActiva] = useState('grado');
+  const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
 
   const usuariosFiltrados = ordenarUsuarios(
     busqueda.trim() === ''
