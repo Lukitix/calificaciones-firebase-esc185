@@ -1847,6 +1847,18 @@ export default function SistemaCalificaciones() {
                   className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
                   <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
                 </button>
+                {usuario?.rol === 'docente_grado' && (
+                  <button
+                    disabled={pdfUnificadoGenerando}
+                    onClick={async () => {
+                      setPdfUnificadoGenerando(true);
+                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                      finally { setPdfUnificadoGenerando(false); }
+                    }}
+                    className="btn-primary flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
+                    <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
+                  </button>
+                )}
                 {esPrimerCiclo(grado) && (
                   <button onClick={() => setShowEscala(true)}
                     className="btn-primary flex items-center gap-2 bg-violet-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
@@ -3048,14 +3060,14 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                               <Save size={14} /> Editar
                             </button>
                             <button
-                              onClick={() => onVerEntregas({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
-                              📋 Entregas
-                            </button>
-                            <button
                               onClick={() => eliminarUsuario(u)}
                               className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
                               <Trash2 size={14} /> Eliminar
+                            </button>
+                            <button
+                              onClick={() => onVerEntregas({ ...u })}
+                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
+                              📋 Entregas
                             </button>
                           </div>
                         </td>
