@@ -937,11 +937,14 @@ export default function SistemaCalificaciones() {
     } catch (error) { console.error('Error al aprobar:', error); }
   };
 
-  const abrirMateria = (m) => {
+  const [volverAGestion, setVolverAGestion] = useState(false);
+
+  const abrirMateria = (m, gradoForzado = null) => {
     setMateria(m);
     const gradosAsig = getGradosParaMateria(m.nombre);
-    setGrado(gradosAsig[0] || '1°A');
+    setGrado(gradoForzado || gradosAsig[0] || '1°A');
     setPantalla('materia');
+    window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const agregarAlumno = async () => {
@@ -1434,6 +1437,12 @@ export default function SistemaCalificaciones() {
         <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
           <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)} />
+            {volverAGestion && usuario?.rol === 'administrador' && (
+              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                className="mb-4 flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm transition-all">
+                ← Volver a Gestión de Docentes
+              </button>
+            )}
             <div className="mb-6 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
               <span className="text-xl mt-0.5">⚠️</span>
               <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
@@ -1602,10 +1611,10 @@ export default function SistemaCalificaciones() {
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
         onVerEntregas={(u) => { setDocenteEntregas(u); setPantalla('entregas_docente'); }}
-        onVerAlumnos={(g) => { setGrado(g); setPantalla('administracion'); }}
+        onVerAlumnos={(g) => { setGrado(g); setVolverAGestion(true); setPantalla('administracion'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
         onVerCalificaciones={(g, m) => {
           const materiaObj = [...areas.curriculares, ...areas.especiales, ...areas.talleres].find(a => a.nombre === m);
-          if (materiaObj) { setGrado(g); abrirMateria(materiaObj); }
+          if (materiaObj) { setVolverAGestion(true); abrirMateria(materiaObj, g); }
         }}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
@@ -1835,6 +1844,12 @@ export default function SistemaCalificaciones() {
               </h2>
               <div className="flex flex-col gap-2">
                 <button onClick={() => setPantalla('inicio')} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
+                {volverAGestion && usuario?.rol === 'administrador' && (
+                  <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                    className="btn-primary flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
+                    ← Docentes
+                  </button>
+                )}
                 <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
                 <button
                   disabled={pdfGenerando || estActuales.length === 0}
