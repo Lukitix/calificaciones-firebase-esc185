@@ -1637,10 +1637,10 @@ export default function SistemaCalificaciones() {
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         onEditarDocente={(u) => { setDocenteEditando(u); setPantalla('editar_docente'); }}
         onVerEntregas={(u) => { setDocenteEntregas(u); setPantalla('entregas_docente'); }}
-        onVerAlumnos={(g) => { setGrado(g); setVolverAGestion(true); setOrigenGestion({ tab: tabActiva }); setPantalla('administracion'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-        onVerCalificaciones={(g, m) => {
+        onVerAlumnos={(g, tab) => { setGrado(g); setVolverAGestion(true); setOrigenGestion({ tab: tab || 'grado' }); setPantalla('administracion'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+        onVerCalificaciones={(g, m, tab) => {
           const materiaObj = [...areas.curriculares, ...areas.especiales, ...areas.talleres].find(a => a.nombre === m);
-          if (materiaObj) { setVolverAGestion(true); setOrigenGestion({ tab: tabActiva }); abrirMateria(materiaObj, g); }
+          if (materiaObj) { setVolverAGestion(true); setOrigenGestion({ tab: tab || 'grado' }); abrirMateria(materiaObj, g); }
         }}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
@@ -1691,7 +1691,7 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="relative text-center mb-8">
               {usuario?.rol === 'administrador' && (
-                <div className="absolute top-0 right-0 flex gap-2">
+                <div className="absolute top-0 right-0 flex flex-col gap-2 items-end">
                   <button onClick={() => setShowModalMensajes(true)}
                     className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
                     <span className="text-xl">✉️</span>
@@ -3057,7 +3057,7 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Chip de grado con dropdown para admin
 // ════════════════════════════════════════════════════════
-function ChipGradoAdmin({ grado, materia, onVerAlumnos, onVerCalificaciones }) {
+function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalificaciones }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -3077,11 +3077,11 @@ function ChipGradoAdmin({ grado, materia, onVerAlumnos, onVerCalificaciones }) {
       {open && (
         <div className="absolute left-0 top-full mt-1 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden"
           style={{ minWidth: '160px', animation: 'fadeIn 0.1s ease-out' }}>
-          <button onClick={() => { setOpen(false); onVerAlumnos(grado); }}
+          <button onClick={() => { setOpen(false); onVerAlumnos(grado, tabActiva); }}
             className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors">
             👥 Ver alumnos
           </button>
-          <button onClick={() => { setOpen(false); onVerCalificaciones(grado, materia); }}
+          <button onClick={() => { setOpen(false); onVerCalificaciones(grado, materia, tabActiva); }}
             className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2 transition-colors border-t border-gray-100">
             📊 Ver calificaciones
           </button>
@@ -3231,6 +3231,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                                     <div className="flex flex-wrap gap-1 justify-center">
                                       {gs.map((g, j) => (
                                         <ChipGradoAdmin key={j} grado={g} materia={u.materiasAsignadas?.[0] || ''}
+                                          tabActiva={tabActiva}
                                           onVerAlumnos={onVerAlumnos}
                                           onVerCalificaciones={onVerCalificaciones} />
                                       ))}
@@ -3253,6 +3254,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                                         <div className="flex flex-wrap gap-1 mt-0.5 justify-center">
                                           {ma.grados.map((g, j) => (
                                             <ChipGradoAdmin key={j} grado={g} materia={ma.nombre}
+                                              tabActiva={tabActiva}
                                               onVerAlumnos={onVerAlumnos}
                                               onVerCalificaciones={onVerCalificaciones} />
                                           ))}
