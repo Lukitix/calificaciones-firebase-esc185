@@ -2299,8 +2299,8 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
       await updateDoc(doc(db, 'usuarios', authUser.uid), datos);
       onActualizar(datos);
       setGuardando(false);
-      await showAlert('Tu perfil fue actualizado correctamente.', 'success', '✅ Guardado');
       onClose();
+      await showAlert('Tu perfil fue actualizado correctamente.', 'success', '✅ Guardado');
     } catch (e) {
       setGuardando(false);
       await showAlert('Error al guardar. Intentá de nuevo.', 'error');
@@ -3463,19 +3463,14 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                         const c2 = calcCuat(b3, b4);
                         const pf = calcFinal(b1, b2, b3, b4);
                         const pfNum = parseFloat(pf);
-                        const pfColor = isNaN(pfNum) ? 'bg-purple-600' : pfNum >= 7 ? 'bg-green-600' : pfNum >= 4 ? 'bg-amber-500' : 'bg-red-600';
 
                         const CeldaLectura = ({ bim }) => {
                           const notaBim = e.bimestres?.[bim]?.nota || '';
-                          const num = parseFloat(notaBim);
-                          const color = isNaN(num) || notaBim === ''
-                            ? 'bg-gray-100 text-gray-400 border-gray-200'
-                            : num >= 7 ? 'bg-green-100 text-green-800 border-green-300'
-                            : num >= 4 ? 'bg-amber-100 text-amber-800 border-amber-300'
-                            : 'bg-red-100 text-red-800 border-red-300';
+                          const col = colorNota(notaBim);
                           return (
                             <td className="p-3 border-r border-gray-100 text-center">
-                              <div className={`inline-flex items-center justify-center w-16 h-10 rounded-xl font-black text-base border-2 ${color}`}>
+                              <div className="inline-flex items-center justify-center w-16 h-10 rounded-xl font-black text-base border-2"
+                                style={{ backgroundColor: col?.bg || '#f3f4f6', color: col?.text || '#9ca3af', borderColor: col?.bg || '#e5e7eb' }}>
                                 {notaBim || '—'}
                               </div>
                             </td>
@@ -3489,15 +3484,18 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                             <CeldaLectura bim={1} />
                             <CeldaLectura bim={2} />
                             <td className="p-3 text-center bg-purple-50">
-                              <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c1}</span>
+                              <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
+                                style={{ backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>{c1 || '—'}</span>
                             </td>
                             <CeldaLectura bim={3} />
                             <CeldaLectura bim={4} />
                             <td className="p-3 text-center bg-purple-50">
-                              <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">{c2}</span>
+                              <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
+                                style={{ backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>{c2 || '—'}</span>
                             </td>
                             <td className="p-3 text-center">
-                              <span className={`inline-block text-white px-4 py-2 rounded-xl font-black text-base shadow ${pfColor}`}>{pf}</span>
+                              <span className="inline-block px-4 py-2 rounded-xl font-black text-base shadow"
+                                style={{ backgroundColor: colorNota(pf)?.text || '#7c3aed', color: 'white' }}>{pf || '—'}</span>
                             </td>
                           </tr>
                         );
