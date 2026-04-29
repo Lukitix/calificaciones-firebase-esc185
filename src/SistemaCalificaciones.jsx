@@ -51,6 +51,26 @@ const areas = {
 
 const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','2°E','3°A','3°B','3°C','3°D','3°E','4°A','4°B','4°C','4°D','4°E','5°A','5°B','5°C','5°D','5°E','6°A','6°B','6°C','6°D','6°E','7°A','7°B','7°C','7°D','7°E'];
 
+// ─── FECHAS DE CIERRE DE BIMESTRES ──────────────────────────────────────────
+const CIERRES_BIMESTRE = [
+  { bim: 1, inicio: new Date('2026-03-02'), cierre: new Date('2026-05-08') },
+  { bim: 2, inicio: new Date('2026-05-11'), cierre: new Date('2026-07-31') },
+  { bim: 3, inicio: new Date('2026-08-03'), cierre: new Date('2026-10-09') },
+  { bim: 4, inicio: new Date('2026-10-12'), cierre: new Date('2026-12-04') },
+];
+
+const getRecordatorioBimestre = () => {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  for (const b of CIERRES_BIMESTRE) {
+    const diff = Math.floor((b.cierre - hoy) / (1000 * 60 * 60 * 24));
+    if (diff >= 0 && diff <= 2) {
+      return { bim: b.bim, diff, cierre: b.cierre.toLocaleDateString('es-AR') };
+    }
+  }
+  return null;
+};
+
 // Formato visual del grado: 7°A → 7° "A"  (solo para mostrar, la clave interna sigue siendo 7°A)
 const gradoLabel = (g) => g ? g.replace(/°([A-Z])/, '° "$1"') : g;
 
@@ -483,7 +503,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
 
 // ─── PDF UNIFICADO (docente de grado) ───────────────────────────────────────
 async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
-  const doc_ref = doc; // alias para no confundir con jsPDF doc
+  const doc_ref = doc;
   try {
     const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = pdfDoc.internal.pageSize.getWidth();
@@ -492,118 +512,151 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
     const gradosDocente = usuario?.gradosAsignados?.length > 0
       ? usuario.gradosAsignados
       : [usuario?.gradoAsignado].filter(Boolean);
-    const firmaX = pageW - 75;
-
-    const encabezado = (titulo) => {
-      pdfDoc.setFillColor(124, 58, 237);
-      pdfDoc.rect(0, 0, pageW, 28, 'F');
-      pdfDoc.setTextColor(255, 255, 255);
-      pdfDoc.setFontSize(12); pdfDoc.setFont('helvetica', 'bold');
-      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
-      pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
-      pdfDoc.text(`${titulo}   |   Grado: ${gradosDocente.map(gradoLabel).join(', ')}   |   Docente: ${nombreDocente}`, pageW / 2, 17, { align: 'center' });
-      pdfDoc.text(`Fecha: ${hoy}`, pageW / 2, 23, { align: 'center' });
-    };
-
-    const agregarFirma = (finalY) => {
-      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
-      pdfDoc.line(firmaX, finalY + 4, firmaX + 65, finalY + 4);
-      pdfDoc.text(nombreDocente, firmaX + 32, finalY + 9, { align: 'center' });
-      pdfDoc.text(`Docente de Grado ${gradosDocente.map(gradoLabel).join(', ')}`, firmaX + 32, finalY + 14, { align: 'center' });
-      pdfDoc.text(hoy, firmaX + 32, finalY + 19, { align: 'center' });
-    };
-
-    // Reunir todos los alumnos de todos los grados del docente
-    const todosAlumnos = gradosDocente.flatMap(g => (alumnosGlobales[g] || []).map(a => ({ ...a, grado: g })));
-    const alumnosUnicos = todosAlumnos.filter((a, i, arr) => arr.findIndex(x => x.dni === a.dni) === i);
-    const alumnosOrdenados = [...alumnosUnicos].sort((a, b) => {
-      if ((a.sexo||'V') !== (b.sexo||'V')) return (a.sexo||'V') === 'V' ? -1 : 1;
-      return a.nombre.localeCompare(b.nombre, 'es');
-    });
-
-    const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
-      const row = [String(idx + 1), al.nombre];
-      datos.forEach(({ estudiantes }) => {
-        const est = estudiantes.find(e => e.dni === al.dni);
-        const b1 = est?.bimestres?.[1]?.nota || '';
-        const b2 = est?.bimestres?.[2]?.nota || '';
-        const b3 = est?.bimestres?.[3]?.nota || '';
-        const b4 = est?.bimestres?.[4]?.nota || '';
-        const pf = calcularPromedioFinal(b1, b2, b3, b4);
-        const primerCiclo = esPrimerCiclo(al.grado);
-        row.push(pf ? (primerCiclo ? textoConceptual(pf) : pf) : '—');
-      });
-      return row;
-    });
 
     const abreviarMateria = (nombre) => {
       const abrevs = {
+        'Lengua y Literatura': 'Lengua y Lit.',
         'Ciencias Sociales': 'Cs. Sociales',
         'Ciencias Naturales': 'Cs. Naturales',
         'Formación Ética y Ciudadana': 'Form. Ética',
-        'Lengua y Literatura': 'Lengua y Lit.',
+        'Educación Artística: Plástica': 'Ed. Artíst.: Plástica',
+        'Educación Artística: Música': 'Ed. Artíst.: Música',
+        'Educación Física': 'Ed. Física',
+        'Lengua Extranjera: Inglés': 'L. Ext.: Inglés',
+        'Lengua Extranjera: Portugués': 'L. Ext.: Portugués',
       };
-      if (abrevs[nombre]) return abrevs[nombre];
-      return nombre.length > 14 ? nombre.substring(0, 14) + '.' : nombre;
+      return abrevs[nombre] || nombre;
     };
 
-    // ── PÁGINA 1: Áreas Curriculares ──
-    const curriculares = areas.curriculares;
-    const snapsCurr = await Promise.all(
-      curriculares.flatMap(m => gradosDocente.map(g => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${g}`)))))
-    );
-    const datosCurr = curriculares.map((m, mi) => ({
-      nombre: m.nombre,
-      estudiantes: gradosDocente.flatMap((g, gi) => {
-        const snap = snapsCurr[mi * gradosDocente.length + gi];
-        return snap.exists() ? (snap.data().estudiantes || []) : [];
-      })
-    }));
+    for (const grado of gradosDocente) {
+      const alumnosDelGrado = alumnosGlobales[grado] || [];
+      if (alumnosDelGrado.length === 0) continue;
 
-    encabezado('Áreas Curriculares — Promedios Finales');
-    const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre))]];
-    autoTable(pdfDoc, {
-      startY: 32, head: headCurr, body: buildBody(datosCurr),
-      styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-      headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
-      alternateRowStyles: { fillColor: [249, 250, 251] },
-      tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
-    });
-    agregarFirma(pdfDoc.lastAutoTable.finalY + 10);
+      // Encabezado
+      pdfDoc.setFillColor(124, 58, 237);
+      pdfDoc.rect(0, 0, pageW, 24, 'F');
+      pdfDoc.setTextColor(255, 255, 255);
+      pdfDoc.setFontSize(11); pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
+      pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(`Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}   |   Fecha: ${hoy}`, pageW / 2, 17, { align: 'center' });
 
-    // ── PÁGINA 2: Áreas Especiales ──
-    pdfDoc.addPage();
-    const especiales = [...areas.especiales, ...areas.talleres];
-    const snapsEsp = await Promise.all(
-      especiales.flatMap(m => gradosDocente.map(g => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${g}`)))))
-    );
-    const datosEsp = especiales.map((m, mi) => ({
-      nombre: m.nombre,
-      estudiantes: gradosDocente.flatMap((g, gi) => {
-        const snap = snapsEsp[mi * gradosDocente.length + gi];
-        return snap.exists() ? (snap.data().estudiantes || []) : [];
-      })
-    })).filter(d => d.estudiantes.some(e => {
-      const pf = calcularPromedioFinal(e.bimestres?.[1]?.nota||'', e.bimestres?.[2]?.nota||'', e.bimestres?.[3]?.nota||'', e.bimestres?.[4]?.nota||'');
-      return !!pf;
-    }));
+      // Todas las materias juntas
+      const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres];
 
-    encabezado('Áreas Especiales y Talleres — Promedios Finales');
-    if (datosEsp.length === 0) {
-      pdfDoc.setFontSize(10); pdfDoc.setTextColor(150,150,150);
-      pdfDoc.text('Sin calificaciones de áreas especiales cargadas.', pageW / 2, 50, { align: 'center' });
-    } else {
-      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
-      autoTable(pdfDoc, {
-        startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
-        alternateRowStyles: { fillColor: [255, 251, 235] },
-        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+      // Cargar datos de Firestore para cada materia
+      const snaps = await Promise.all(
+        todasMaterias.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
+      );
+      const datosMaterias = todasMaterias.map((m, i) => ({
+        nombre: m.nombre,
+        abrev: abreviarMateria(m.nombre),
+        estudiantes: snaps[i].exists() ? (snaps[i].data().estudiantes || []) : []
+      })).filter(d => d.estudiantes.length > 0);
+
+      if (datosMaterias.length === 0) {
+        if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
+        continue;
+      }
+
+      // Ordenar alumnos V primero luego M, alfabético
+      const alumnosOrdenados = [...alumnosDelGrado].sort((a, b) => {
+        if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
+        return a.nombre.localeCompare(b.nombre, 'es');
       });
-      agregarFirma(pdfDoc.lastAutoTable.finalY + 10);
+
+      // Construir tabla: filas = alumnos, columnas = # | Alumno | materia_bim1 | materia_bim2 | ...
+      // Para cada materia, 4 columnas (un bimestre cada una) + promedio
+      const head1 = [['', '', ...datosMaterias.flatMap(m => [m.abrev, '', '', '', ''])]];
+      const head2 = [['#', 'Apellido y Nombres', ...datosMaterias.flatMap(() => ['1°B', '2°B', '3°B', '4°B', 'Prom.'])]];
+
+      const body = alumnosOrdenados.map((al, idx) => {
+        const row = [String(idx + 1), al.nombre];
+        datosMaterias.forEach(({ estudiantes }) => {
+          const est = estudiantes.find(e => e.dni === al.dni);
+          const b1 = est?.bimestres?.[1]?.nota || '';
+          const b2 = est?.bimestres?.[2]?.nota || '';
+          const b3 = est?.bimestres?.[3]?.nota || '';
+          const b4 = est?.bimestres?.[4]?.nota || '';
+          const pf = calcularPromedioFinal(b1, b2, b3, b4);
+          const primerCiclo = esPrimerCiclo(grado);
+          const fmt = (v) => v ? (primerCiclo ? abrevConceptual(v) : v) : '—';
+          row.push(fmt(b1), fmt(b2), fmt(b3), fmt(b4), pf || '—');
+        });
+        return row;
+      });
+
+      // Columnas con texto rotado — ancho fijo pequeño para notas
+      const colWidths = {};
+      colWidths[0] = 6; // #
+      colWidths[1] = 48; // nombre
+      datosMaterias.forEach((_, mi) => {
+        const base = 2 + mi * 5;
+        colWidths[base] = 8;
+        colWidths[base + 1] = 8;
+        colWidths[base + 2] = 8;
+        colWidths[base + 3] = 8;
+        colWidths[base + 4] = 10;
+      });
+
+      autoTable(pdfDoc, {
+        startY: 27,
+        head: head2,
+        body,
+        styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.5, halign: 'center', lineColor: [180,180,180], lineWidth: 0.15 },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: 6.5 },
+        columnStyles: {
+          0: { cellWidth: 6 },
+          1: { halign: 'left', cellWidth: 48 },
+          ...Object.fromEntries(datosMaterias.flatMap((_, mi) =>
+            [0,1,2,3].map(j => [2 + mi * 5 + j, { cellWidth: 8 }]).concat([[2 + mi * 5 + 4, { cellWidth: 10, fontStyle: 'bold' }]])
+          ))
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        tableLineColor: [180,180,180], tableLineWidth: 0.2,
+        didDrawPage: (data) => {
+          // Redibujar encabezado en cada página nueva
+          if (data.pageNumber > 1) {
+            pdfDoc.setFillColor(124, 58, 237);
+            pdfDoc.rect(0, 0, pageW, 24, 'F');
+            pdfDoc.setTextColor(255,255,255);
+            pdfDoc.setFontSize(11); pdfDoc.setFont('helvetica','bold');
+            pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW/2, 9, { align: 'center' });
+            pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica','normal');
+            pdfDoc.text(`Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}   |   Fecha: ${hoy}`, pageW/2, 17, { align: 'center' });
+          }
+        },
+        // Dibujar nombres de materias rotados encima de los grupos de columnas
+        didDrawCell: (data) => {
+          if (data.section === 'head' && data.row.index === 0) {
+            const colIdx = data.column.index;
+            if (colIdx >= 2 && (colIdx - 2) % 5 === 0) {
+              const mIdx = Math.floor((colIdx - 2) / 5);
+              if (mIdx < datosMaterias.length) {
+                const m = datosMaterias[mIdx];
+                const x = data.cell.x + data.cell.width * 2.5;
+                const y = data.cell.y;
+                pdfDoc.setFontSize(6);
+                pdfDoc.setFont('helvetica', 'bold');
+                pdfDoc.setTextColor(80, 0, 180);
+                // Texto rotado vertical
+                pdfDoc.text(m.abrev, x, y - 1, { angle: 90, align: 'left' });
+              }
+            }
+          }
+        }
+      });
+
+      // Firma
+      const firmaY = pdfDoc.lastAutoTable.finalY + 8;
+      const firmaX = pageW - 75;
+      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(8); pdfDoc.setFont('helvetica','normal');
+      pdfDoc.line(firmaX, firmaY + 4, firmaX + 65, firmaY + 4);
+      pdfDoc.text(nombreDocente, firmaX + 32, firmaY + 9, { align: 'center' });
+      pdfDoc.text(`Docente de Grado ${gradoLabel(grado)}`, firmaX + 32, firmaY + 14, { align: 'center' });
+      pdfDoc.text(hoy, firmaX + 32, firmaY + 19, { align: 'center' });
+
+      if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
     }
 
     pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`);
@@ -1734,6 +1787,23 @@ export default function SistemaCalificaciones() {
                 );
               })()}
               <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenidos Colegas! 👋</h1>
+              {(() => {
+                const rec = getRecordatorioBimestre();
+                if (!rec) return null;
+                return (
+                  <div className="mb-4 mx-auto max-w-lg bg-amber-50 border-2 border-amber-400 rounded-2xl px-5 py-3 flex items-center gap-3">
+                    <span className="text-2xl">⏰</span>
+                    <div className="text-left">
+                      <p className="font-black text-amber-800 text-sm">
+                        {rec.diff === 0
+                          ? `⚠️ ¡Hoy cierra el ${rec.bim}° Bimestre!`
+                          : `⚠️ El ${rec.bim}° Bimestre cierra en ${rec.diff} día${rec.diff > 1 ? 's' : ''}`}
+                      </p>
+                      <p className="text-xs text-amber-700 font-semibold">Fecha de cierre: {rec.cierre} — Completá las notas a tiempo.</p>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl mb-4">
                 <div className="text-left">
                   <p className="font-extrabold text-gray-800 text-lg">{nombreMostrado(usuario)}</p>
