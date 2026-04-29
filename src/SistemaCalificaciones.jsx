@@ -112,6 +112,12 @@ const textoConceptual = (nota) => {
   return c ? `${c.texto} (${Math.round(parseFloat(nota))})` : (nota || '');
 };
 
+const colorNota = (nota) => {
+  const n = parseFloat(nota);
+  if (isNaN(n) || nota === '' || nota === null || nota === undefined) return null;
+  return n >= 6 ? { bg: '#dcfce7', text: '#15803d' } : { bg: '#fee2e2', text: '#dc2626' };
+};
+
 // ─── SISTEMA DE MODALES ──────────────────────────────────────────────────────
 function useModal() {
   const [modal, setModal] = useState(null);
@@ -335,7 +341,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
         <div
           onClick={() => setFocused(true)}
           className="nota-input flex items-center justify-center font-black cursor-text"
-          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: '#6d28d9', background: '#f5f3ff' }}
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: colorNota(local)?.text || '#6d28d9', backgroundColor: colorNota(local)?.bg || '#f5f3ff' }}
         >
           {abrevConceptual(local)}
         </div>
@@ -343,7 +349,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
         <input
           ref={inputRef}
           type="text" inputMode="decimal" className="nota-input"
-          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe' }}
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', backgroundColor: local ? (colorNota(local)?.bg || '') : '', color: local ? (colorNota(local)?.text || '#374151') : '#374151' }}
           value={local} onChange={handleChange} onBlur={handleBlur} onFocus={() => setFocused(true)} />
       )}
       <button type="button"
@@ -1189,6 +1195,7 @@ export default function SistemaCalificaciones() {
     ...e,
     sexo: e.sexo || alumnosDelGradoActual.find(a => a.dni === e.dni)?.sexo || 'V'
   }));
+  const [busquedaAlumno, setBusquedaAlumno] = useState('');
   const gradoActivoDocente = usuario?.rol === 'docente_grado'
     ? (usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados[0] : usuario.gradoAsignado)
     : grado;
@@ -1989,6 +1996,16 @@ export default function SistemaCalificaciones() {
           {estActuales.length === 0 ? (
             <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay estudiantes registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
+            <>
+              <div className="mb-3 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-xl px-4 py-2 max-w-sm">
+                <Search size={16} className="text-gray-400 flex-shrink-0" />
+                <input
+                  type="text" value={busquedaAlumno}
+                  onChange={e => setBusquedaAlumno(e.target.value)}
+                  placeholder="Buscar alumno por nombre o DNI..."
+                  className="flex-1 text-sm font-semibold text-gray-700 outline-none bg-transparent" />
+                {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>}
+              </div>
             <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
               <table className="w-full border-collapse">
                 <thead>
@@ -2022,7 +2039,9 @@ export default function SistemaCalificaciones() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...estActuales].sort((a, b) => {
+                  {[...estActuales]
+                    .filter(e => !busquedaAlumno || e.nombre.toLowerCase().includes(busquedaAlumno.toLowerCase()) || e.dni?.includes(busquedaAlumno))
+                    .sort((a, b) => {
                     if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
                     return a.nombre.localeCompare(b.nombre, 'es');
                   }).map((e, i) => {
@@ -2058,7 +2077,10 @@ export default function SistemaCalificaciones() {
                                       {crit}
                                     </span>
                                     {bloqueado || soloLectura ? (
-                                      <div className="nota-input flex items-center justify-center font-black text-gray-600" style={{ fontSize: primerCiclo ? '9px' : '12px' }}>{mostrar || '—'}</div>
+                                      <div className="nota-input flex items-center justify-center font-black"
+                                        style={{ fontSize: primerCiclo ? '9px' : '12px', backgroundColor: colorNota(val)?.bg || '', color: colorNota(val)?.text || '#374151' }}>
+                                        {mostrar || '—'}
+                                      </div>
                                     ) : (
                                       <NotaInput value={val} onCommit={v => actualizarCampo(e.id, bim, campo, v)} title={crit} primerCiclo={primerCiclo} />
                                     )}
@@ -2069,8 +2091,8 @@ export default function SistemaCalificaciones() {
                             {crits.length > 0 && (
                               <div className="flex flex-col items-center gap-0.5 ml-1">
                                 <span className="text-[11px] font-bold text-purple-500">Prom.</span>
-                                <div className="flex items-center justify-center bg-purple-100 text-purple-800 font-black rounded-lg border-2 border-purple-200"
-                                  style={{ minWidth: '40px', height: '32px', fontSize: primerCiclo && notaBim ? '9px' : '12px', padding: '2px 4px', textAlign: 'center' }}>
+                                <div className="flex items-center justify-center font-black rounded-lg border-2"
+                                  style={{ minWidth: '44px', height: '36px', fontSize: primerCiclo && notaBim ? '9px' : '13px', padding: '2px 4px', textAlign: 'center', backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8', borderColor: colorNota(notaBim)?.bg || '#e9d5ff' }}>
                                   {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '-'}
                                 </div>
                               </div>
@@ -2087,20 +2109,22 @@ export default function SistemaCalificaciones() {
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
                         <td className="p-3 text-center bg-purple-50">
-                          <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">
+                          <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
+                            style={{ backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>
                             {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '-'}
                           </span>
                         </td>
                         <CeldaBimestre bim={3} />
                         <CeldaBimestre bim={4} />
                         <td className="p-3 text-center bg-purple-50">
-                          <span className="inline-block bg-purple-200 text-purple-900 px-3 py-1.5 rounded-lg font-black text-sm">
+                          <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
+                            style={{ backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>
                             {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '-'}
                           </span>
                         </td>
                         <td className="p-3 text-center">
-                          <span className={`inline-block text-white px-4 py-2 rounded-xl font-black shadow ${pfColor}`}
-                            style={{ fontSize: primerCiclo && promFinal ? '11px' : '16px' }}>
+                          <span className="inline-block text-white px-4 py-2 rounded-xl font-black shadow"
+                            style={{ fontSize: primerCiclo && promFinal ? '11px' : '16px', backgroundColor: colorNota(promFinal)?.text || '#7c3aed', color: 'white' }}>
                             {promFinal ? (primerCiclo ? textoConceptual(promFinal) : promFinal) : '-'}
                           </span>
                         </td>
@@ -2110,6 +2134,7 @@ export default function SistemaCalificaciones() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
           <div className="mt-5 text-center text-xs text-gray-400 font-semibold">
             ☁️ Los datos se sincronizan automáticamente con Firebase · {estActuales.length} estudiante(s) en {gradoLabel(grado)}
@@ -2273,12 +2298,12 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
       };
       await updateDoc(doc(db, 'usuarios', authUser.uid), datos);
       onActualizar(datos);
+      setGuardando(false);
       await showAlert('Tu perfil fue actualizado correctamente.', 'success', '✅ Guardado');
       onClose();
     } catch (e) {
-      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
-    } finally {
       setGuardando(false);
+      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
     }
   };
 
