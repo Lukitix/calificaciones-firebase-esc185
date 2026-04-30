@@ -507,7 +507,6 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
   try {
     const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = pdfDoc.internal.pageSize.getWidth();
-    const pageH = pdfDoc.internal.pageSize.getHeight();
     const hoy = new Date().toLocaleDateString('es-AR');
     const nombreDocente = usuario?.nombre || '—';
     const gradosDocente = usuario?.gradosAsignados?.length > 0
@@ -518,12 +517,12 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
         'Lengua y Literatura': 'Lengua y Lit.',
         'Ciencias Sociales': 'Cs. Sociales',
         'Ciencias Naturales': 'Cs. Naturales',
-        'Formación Ética y Ciudadana': 'Form. Ética y Ciud.',
-        'Educación Artística: Plástica': 'Ed. Art.: Plástica',
-        'Educación Artística: Música': 'Ed. Art.: Música',
+        'Formación Ética y Ciudadana': 'Form. Ética',
+        'Educación Artística: Plástica': 'Art.: Plástica',
+        'Educación Artística: Música': 'Art.: Música',
         'Educación Física': 'Ed. Física',
-        'Lengua Extranjera: Inglés': 'L. Ext.: Inglés',
-        'Lengua Extranjera: Portugués': 'L. Ext.: Portugués',
+        'Lengua Extranjera: Inglés': 'Inglés',
+        'Lengua Extranjera: Portugués': 'Portugués',
         'Taller de Ajedrez': 'T. Ajedrez',
         'Taller de Música': 'T. Música',
         'Taller de Plástica': 'T. Plástica',
@@ -537,10 +536,8 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
     for (const grado of gradosDocente) {
       const alumnosDelGrado = alumnosGlobales[grado] || [];
       if (alumnosDelGrado.length === 0) continue;
-
       const primerCiclo = esPrimerCiclo(grado);
 
-      // Ordenar alumnos V→M alfabético
       const alumnosOrdenados = [...alumnosDelGrado].sort((a, b) => {
         if ((a.sexo||'V') !== (b.sexo||'V')) return (a.sexo||'V') === 'V' ? -1 : 1;
         return a.nombre.localeCompare(b.nombre, 'es');
@@ -552,114 +549,99 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
         todasMaterias.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
 
-      // Filtrar materias que tengan al menos alguna nota
+      // Solo materias con al menos un promedio final cargado
       const materiasConDatos = todasMaterias.map((m, i) => ({
         nombre: m.nombre,
         abrev: abreviarMateria(m.nombre),
         estudiantes: snaps[i].exists() ? (snaps[i].data().estudiantes || []) : []
-      })).filter(m => m.estudiantes.some(e => [1,2,3,4].some(b => e.bimestres?.[b]?.nota)));
+      })).filter(m => m.estudiantes.some(e => {
+        const b1 = e.bimestres?.[1]?.nota || '';
+        const b2 = e.bimestres?.[2]?.nota || '';
+        const b3 = e.bimestres?.[3]?.nota || '';
+        const b4 = e.bimestres?.[4]?.nota || '';
+        return !!calcularPromedioFinal(b1, b2, b3, b4);
+      }));
 
       if (materiasConDatos.length === 0) continue;
 
-      // Generar 1 hoja por bimestre
-      for (const bim of [1, 2, 3, 4]) {
-        if (!primerPagina) pdfDoc.addPage();
-        primerPagina = false;
+      if (!primerPagina) pdfDoc.addPage();
+      primerPagina = false;
 
-        // ── Encabezado ──
-        pdfDoc.setFillColor(124, 58, 237);
-        pdfDoc.rect(0, 0, pageW, 24, 'F');
-        pdfDoc.setTextColor(255, 255, 255);
-        pdfDoc.setFontSize(12); pdfDoc.setFont('helvetica', 'bold');
-        pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
-        pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica', 'normal');
-        pdfDoc.text(
-          `${bim}° Bimestre   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}   |   ${hoy}`,
-          pageW / 2, 17, { align: 'center' }
-        );
+      // ── Encabezado ──
+      pdfDoc.setFillColor(124, 58, 237);
+      pdfDoc.rect(0, 0, pageW, 24, 'F');
+      pdfDoc.setTextColor(255, 255, 255);
+      pdfDoc.setFontSize(12); pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
+      pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(
+        `Promedios Finales — Todas las Áreas   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}   |   ${hoy}`,
+        pageW / 2, 17, { align: 'center' }
+      );
 
-        // ── Altura reservada para nombres de materias rotados ──
-        const headerRotY = 65; // donde termina el área de nombres rotados
-        const startY = headerRotY;
+      // ── Nombres de materias rotados verticalmente ──
+      const margenIzq = 14;
+      const colNumW = 7;
+      const colNombreW = 50;
+      const colMateriaW = 13;
+      const headerRotH = 42; // altura del área de nombres rotados
+      const startY = 24 + headerRotH;
 
-        // Ancho de columnas
-        const colNumW = 7;
-        const colNombreW = 50;
-        const colMateriaW = 14;
-        const margenIzq = 14;
+      pdfDoc.setFontSize(6.5); pdfDoc.setFont('helvetica', 'bold');
+      materiasConDatos.forEach((m, mi) => {
+        const x = margenIzq + colNumW + colNombreW + mi * colMateriaW + colMateriaW / 2 + 2;
+        pdfDoc.setTextColor(60, 0, 160);
+        pdfDoc.text(m.abrev, x, startY - 2, { angle: 90, align: 'left' });
+      });
 
-        // Dibujar nombres de materias rotados verticalmente
-        pdfDoc.setFontSize(7); pdfDoc.setFont('helvetica', 'bold');
-        pdfDoc.setTextColor(80, 0, 180);
-        materiasConDatos.forEach((m, mi) => {
-          const x = margenIzq + colNumW + colNombreW + mi * colMateriaW + colMateriaW / 2 + 1;
-          pdfDoc.text(m.abrev, x, headerRotY - 2, { angle: 90, align: 'left' });
+      // Línea separadora
+      pdfDoc.setDrawColor(200, 200, 200);
+      pdfDoc.line(margenIzq, startY, margenIzq + colNumW + colNombreW + materiasConDatos.length * colMateriaW, startY);
+
+      // ── Tabla ──
+      const body = alumnosOrdenados.map((al, idx) => {
+        const row = [String(idx + 1), al.nombre];
+        materiasConDatos.forEach(({ estudiantes }) => {
+          const est = estudiantes.find(e => e.dni === al.dni);
+          const b1 = est?.bimestres?.[1]?.nota || '';
+          const b2 = est?.bimestres?.[2]?.nota || '';
+          const b3 = est?.bimestres?.[3]?.nota || '';
+          const b4 = est?.bimestres?.[4]?.nota || '';
+          const pf = calcularPromedioFinal(b1, b2, b3, b4);
+          row.push(pf ? (primerCiclo ? abrevConceptual(pf) : pf) : '—');
         });
+        return row;
+      });
 
-        // Línea separadora bajo los nombres
-        pdfDoc.setDrawColor(180, 180, 180);
-        pdfDoc.line(margenIzq, startY, margenIzq + colNumW + colNombreW + materiasConDatos.length * colMateriaW, startY);
+      autoTable(pdfDoc, {
+        startY,
+        head: [['#', 'Apellido y Nombres', ...materiasConDatos.map(() => '')]],
+        body,
+        margin: { left: margenIzq },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 7 : 9, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.15 },
+        headStyles: { fillColor: [237,233,254], textColor: [80,0,180], fontStyle: 'bold', fontSize: 6, cellPadding: 1, minCellHeight: 4 },
+        columnStyles: {
+          0: { cellWidth: colNumW },
+          1: { halign: 'left', cellWidth: colNombreW },
+          ...Object.fromEntries(materiasConDatos.map((_, i) => [i + 2, { cellWidth: colMateriaW }]))
+        },
+        alternateRowStyles: { fillColor: [249,250,251] },
+        tableLineColor: [180,180,180], tableLineWidth: 0.2,
+      });
 
-        // ── Tabla de alumnos ──
-        const head = [['#', 'Apellido y Nombres', ...materiasConDatos.map(() => '')]];
-        const body = alumnosOrdenados.map((al, idx) => {
-          const row = [String(idx + 1), al.nombre];
-          materiasConDatos.forEach(({ estudiantes }) => {
-            const est = estudiantes.find(e => e.dni === al.dni);
-            const nota = est?.bimestres?.[bim]?.nota || '';
-            row.push(nota ? (primerCiclo ? abrevConceptual(nota) : nota) : '—');
-          });
-          return row;
-        });
-
-        autoTable(pdfDoc, {
-          startY,
-          head,
-          body,
-          margin: { left: margenIzq },
-          styles: {
-            font: 'helvetica',
-            fontSize: primerCiclo ? 7 : 9,
-            cellPadding: 2,
-            halign: 'center',
-            lineColor: [200, 200, 200],
-            lineWidth: 0.15,
-          },
-          headStyles: {
-            fillColor: [237, 233, 254],
-            textColor: [80, 0, 180],
-            fontStyle: 'bold',
-            fontSize: 6,
-            cellPadding: 1,
-          },
-          columnStyles: {
-            0: { cellWidth: colNumW },
-            1: { halign: 'left', cellWidth: colNombreW },
-            ...Object.fromEntries(materiasConDatos.map((_, i) => [i + 2, { cellWidth: colMateriaW }]))
-          },
-          alternateRowStyles: { fillColor: [249, 250, 251] },
-          tableLineColor: [180, 180, 180],
-          tableLineWidth: 0.2,
-        });
-
-        // ── Firma ──
-        const firmaY = pdfDoc.lastAutoTable.finalY + 8;
-        const firmaX = pageW - 75;
-        pdfDoc.setTextColor(60, 60, 60);
-        pdfDoc.setFontSize(8.5);
-        pdfDoc.setFont('helvetica', 'normal');
-        pdfDoc.line(firmaX, firmaY + 4, firmaX + 65, firmaY + 4);
-        pdfDoc.text(nombreDocente, firmaX + 32, firmaY + 9, { align: 'center' });
-        pdfDoc.text(`Docente de Grado ${gradoLabel(grado)}`, firmaX + 32, firmaY + 14, { align: 'center' });
-        pdfDoc.text(hoy, firmaX + 32, firmaY + 19, { align: 'center' });
-      }
-
-      if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
+      // ── Firma ──
+      const firmaY = pdfDoc.lastAutoTable.finalY + 8;
+      const firmaX = pageW - 75;
+      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica','normal');
+      pdfDoc.line(firmaX, firmaY + 4, firmaX + 65, firmaY + 4);
+      pdfDoc.text(nombreDocente, firmaX + 32, firmaY + 9, { align: 'center' });
+      pdfDoc.text(`Docente de Grado ${gradoLabel(grado)}`, firmaX + 32, firmaY + 14, { align: 'center' });
+      pdfDoc.text(hoy, firmaX + 32, firmaY + 19, { align: 'center' });
     }
 
-    pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g, '_')}_${hoy.replace(/\//g, '-')}.pdf`);
+    pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`);
     return true;
-  } catch (err) {
+  } catch(err) {
     console.error('Error PDF unificado:', err);
     return false;
   }
