@@ -678,6 +678,7 @@ export default function SistemaCalificaciones() {
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
   const [showFechasBimestre, setShowFechasBimestre] = useState(false);
+  const [menuAcciones, setMenuAcciones] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
   const [notifsBimestre, setNotifsBimestre] = useState([]);
@@ -1714,42 +1715,41 @@ export default function SistemaCalificaciones() {
             </div>
             <div className="relative text-center mb-8">
               {usuario?.rol === 'administrador' && (() => {
-                const [menuAbierto, setMenuAbierto] = useState(false);
                 const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
                 const solicitudesCount = solicitudes.length;
                 const badge = notifsNoLeidas + solicitudesCount;
                 return (
                   <div className="absolute top-0 right-0">
                     <div className="relative">
-                      <button onClick={() => setMenuAbierto(v => !v)}
+                      <button onClick={() => setMenuAcciones(v => !v)}
                         className="flex items-center gap-2 bg-white border-2 border-purple-200 hover:bg-purple-50 transition-all px-4 py-2.5 rounded-2xl shadow-sm">
                         <span className="text-lg">⚙️</span>
                         <span className="text-sm font-bold text-purple-700">Acciones</span>
                         {badge > 0 && <span className="bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{badge}</span>}
-                        <span className="text-purple-400 text-xs">{menuAbierto ? '▲' : '▼'}</span>
+                        <span className="text-purple-400 text-xs">{menuAcciones ? '▲' : '▼'}</span>
                       </button>
-                      {menuAbierto && (
+                      {menuAcciones && (
                         <>
-                          <div className="fixed inset-0 z-40" onClick={() => setMenuAbierto(false)} />
+                          <div className="fixed inset-0 z-40" onClick={() => setMenuAcciones(false)} />
                           <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-gray-100 rounded-2xl shadow-xl overflow-hidden w-56"
                             style={{ animation: 'fadeIn 0.15s ease-out' }}>
-                            <button onClick={() => { setMenuAbierto(false); setShowModalMensajes(true); }}
+                            <button onClick={() => { setMenuAcciones(false); setShowModalMensajes(true); }}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left">
                               <span className="text-lg">✉️</span>
                               <span className="text-sm font-bold text-gray-700">Mensajes</span>
                             </button>
-                            <button onClick={() => { setMenuAbierto(false); setShowNotifsBimestre(true); }}
+                            <button onClick={() => { setMenuAcciones(false); setShowNotifsBimestre(true); }}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left border-t border-gray-50">
                               <span className="text-lg">✅</span>
                               <span className="text-sm font-bold text-gray-700">Bimestres completados</span>
                               {notifsNoLeidas > 0 && <span className="ml-auto bg-green-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{notifsNoLeidas}</span>}
                             </button>
-                            <button onClick={() => { setMenuAbierto(false); setShowFechasBimestre(true); }}
+                            <button onClick={() => { setMenuAcciones(false); setShowFechasBimestre(true); }}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left border-t border-gray-50">
                               <span className="text-lg">📢</span>
                               <span className="text-sm font-bold text-gray-700">Enviar recordatorio</span>
                             </button>
-                            <button onClick={() => { setMenuAbierto(false); setShowModalSolicitudes(true); }}
+                            <button onClick={() => { setMenuAcciones(false); setShowModalSolicitudes(true); }}
                               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors text-left border-t border-gray-50">
                               <span className="text-lg">🔔</span>
                               <span className="text-sm font-bold text-gray-700">Solicitudes</span>
