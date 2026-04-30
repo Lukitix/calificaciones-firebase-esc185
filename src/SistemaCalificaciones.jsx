@@ -53,10 +53,10 @@ const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','
 
 // ─── FECHAS DE CIERRE DE BIMESTRES ──────────────────────────────────────────
 const CIERRES_BIMESTRE = [
-  { bim: 1, inicio: new Date('2026-03-02'), cierre: new Date('2026-05-08'), dias: 47 },
-  { bim: 2, inicio: new Date('2026-05-11'), cierre: new Date('2026-07-31'), dias: 50 },
-  { bim: 3, inicio: new Date('2026-08-03'), cierre: new Date('2026-10-09'), dias: 47 },
-  { bim: 4, inicio: new Date('2026-10-12'), cierre: new Date('2026-12-04'), dias: 38 },
+  { bim: 1, inicio: new Date('2026-03-02T12:00:00'), cierre: new Date('2026-05-08T12:00:00'), inicioStr: '02/03/2026', cierreStr: '08/05/2026', dias: 47 },
+  { bim: 2, inicio: new Date('2026-05-11T12:00:00'), cierre: new Date('2026-07-31T12:00:00'), inicioStr: '11/05/2026', cierreStr: '31/07/2026', dias: 50 },
+  { bim: 3, inicio: new Date('2026-08-03T12:00:00'), cierre: new Date('2026-10-09T12:00:00'), inicioStr: '03/08/2026', cierreStr: '09/10/2026', dias: 47 },
+  { bim: 4, inicio: new Date('2026-10-12T12:00:00'), cierre: new Date('2026-12-04T12:00:00'), inicioStr: '12/10/2026', cierreStr: '04/12/2026', dias: 38 },
 ];
 
 const getRecordatorioBimestre = () => {
@@ -65,7 +65,7 @@ const getRecordatorioBimestre = () => {
   for (const b of CIERRES_BIMESTRE) {
     const diff = Math.floor((b.cierre - hoy) / (1000 * 60 * 60 * 24));
     if (diff >= 0 && diff <= 2) {
-      return { bim: b.bim, diff, cierre: b.cierre.toLocaleDateString('es-AR') };
+      return { bim: b.bim, diff, cierre: b.cierreStr };
     }
   }
   return null;
@@ -2295,7 +2295,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
   const enviarRecordatorio = async () => {
     const bim = getBimestreActivo();
     const mensaje = bim
-      ? `📅 Estimados colegas: les recordamos que el ${bim.bim}° Bimestre finaliza el ${bim.cierre.toLocaleDateString('es-AR')}. Les solicitamos cumplimentar en tiempo y forma con la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`
+      ? `📅 Estimados colegas: les recordamos que el ${bim.bim}° Bimestre finaliza el ${bim.cierreStr}. Les solicitamos cumplimentar en tiempo y forma con la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`
       : `📅 Estimados colegas: les recordamos que deben mantener al día la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`;
     setEnviando(true);
     try {
@@ -2322,7 +2322,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
@@ -2354,10 +2354,10 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                       </div>
                     </td>
                     <td className="py-4 px-3 text-center font-semibold text-gray-600" style={{ borderRight: '1px solid #e5e7eb' }}>
-                      {b.inicio.toLocaleDateString('es-AR')}
+                      {b.inicioStr}
                     </td>
                     <td className="py-4 px-3 text-center font-bold" style={{ color: colores[i], borderRight: '1px solid #e5e7eb' }}>
-                      {b.cierre.toLocaleDateString('es-AR')}
+                      {b.cierreStr}
                     </td>
                     <td className="py-4 px-3 text-center font-black text-gray-700 text-base">
                       {b.dias}
