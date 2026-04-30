@@ -53,10 +53,10 @@ const grados = ['1°A','1°B','1°C','1°D','1°E','2°A','2°B','2°C','2°D','
 
 // ─── FECHAS DE CIERRE DE BIMESTRES ──────────────────────────────────────────
 const CIERRES_BIMESTRE = [
-  { bim: 1, inicio: new Date('2026-03-02'), cierre: new Date('2026-05-08') },
-  { bim: 2, inicio: new Date('2026-05-11'), cierre: new Date('2026-07-31') },
-  { bim: 3, inicio: new Date('2026-08-03'), cierre: new Date('2026-10-09') },
-  { bim: 4, inicio: new Date('2026-10-12'), cierre: new Date('2026-12-04') },
+  { bim: 1, inicio: new Date('2026-03-02'), cierre: new Date('2026-05-08'), dias: 47 },
+  { bim: 2, inicio: new Date('2026-05-11'), cierre: new Date('2026-07-31'), dias: 50 },
+  { bim: 3, inicio: new Date('2026-08-03'), cierre: new Date('2026-10-09'), dias: 47 },
+  { bim: 4, inicio: new Date('2026-10-12'), cierre: new Date('2026-12-04'), dias: 38 },
 ];
 
 const getRecordatorioBimestre = () => {
@@ -603,27 +603,19 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       const datosEsp = especiales.map((m, i) => ({
         nombre: m.nombre,
         estudiantes: snapsEsp[i].exists() ? (snapsEsp[i].data().estudiantes || []) : []
-      })).filter(d => d.estudiantes.some(e => {
-        const pf = calcularPromedioFinal(e.bimestres?.[1]?.nota||'', e.bimestres?.[2]?.nota||'', e.bimestres?.[3]?.nota||'', e.bimestres?.[4]?.nota||'');
-        return !!pf;
       }));
 
       encabezado('Áreas Especiales y Talleres — Promedios Finales', grado);
-      if (datosEsp.length === 0) {
-        pdfDoc.setFontSize(10); pdfDoc.setTextColor(150,150,150);
-        pdfDoc.text('Sin calificaciones de áreas especiales cargadas.', pageW / 2, 50, { align: 'center' });
-      } else {
-        const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
-        autoTable(pdfDoc, {
-          startY: 32, head: headEsp, body: buildBody(datosEsp),
-          styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-          headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
-          columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
-          alternateRowStyles: { fillColor: [255, 251, 235] },
-          tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
-        });
-        agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
-      }
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+      autoTable(pdfDoc, {
+        startY: 32, head: headEsp, body: buildBody(datosEsp),
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+        alternateRowStyles: { fillColor: [255, 251, 235] },
+        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+      });
+      agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
 
       if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
     }
@@ -1721,34 +1713,55 @@ export default function SistemaCalificaciones() {
               </div>
             </div>
             <div className="relative text-center mb-8">
-              {usuario?.rol === 'administrador' && (
-                <div className="absolute top-0 right-0 flex flex-col gap-2 items-end">
-                  <button onClick={() => setShowModalMensajes(true)}
-                    className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
-                    <span className="text-xl">✉️</span>
-                    <span className="text-xs font-bold text-blue-600">Mensajes</span>
-                  </button>
-                  <button onClick={() => setShowNotifsBimestre(true)}
-                    className="flex items-center gap-2 bg-green-50 border-2 border-green-200 hover:bg-green-100 transition-all px-4 py-2 rounded-2xl" title="Bimestres completados">
-                    <span className="text-xl">✅</span>
-                    {notifsBimestre.filter(n => !n.leida).length > 0
-                      ? <span className="bg-green-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{notifsBimestre.filter(n => !n.leida).length}</span>
-                      : <span className="text-xs font-bold text-green-600">Bimestres</span>}
-                  </button>
-                  <button onClick={() => setShowFechasBimestre(true)}
-                    className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100 transition-all px-4 py-2 rounded-2xl">
-                    <span className="text-xl">📢</span>
-                    <span className="text-xs font-bold text-indigo-600">Enviar Recordatorio</span>
-                  </button>
-                  <button onClick={() => setShowModalSolicitudes(true)}
-                    className="flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl" title="Solicitudes pendientes">
-                    <span className="text-xl">🔔</span>
-                    {solicitudes.length > 0
-                      ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{solicitudes.length}</span>
-                      : <span className="text-xs font-bold text-purple-600">Solicitudes</span>}
-                  </button>
-                </div>
-              )}
+              {usuario?.rol === 'administrador' && (() => {
+                const [menuAbierto, setMenuAbierto] = useState(false);
+                const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
+                const solicitudesCount = solicitudes.length;
+                const badge = notifsNoLeidas + solicitudesCount;
+                return (
+                  <div className="absolute top-0 right-0">
+                    <div className="relative">
+                      <button onClick={() => setMenuAbierto(v => !v)}
+                        className="flex items-center gap-2 bg-white border-2 border-purple-200 hover:bg-purple-50 transition-all px-4 py-2.5 rounded-2xl shadow-sm">
+                        <span className="text-lg">⚙️</span>
+                        <span className="text-sm font-bold text-purple-700">Acciones</span>
+                        {badge > 0 && <span className="bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{badge}</span>}
+                        <span className="text-purple-400 text-xs">{menuAbierto ? '▲' : '▼'}</span>
+                      </button>
+                      {menuAbierto && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setMenuAbierto(false)} />
+                          <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-gray-100 rounded-2xl shadow-xl overflow-hidden w-56"
+                            style={{ animation: 'fadeIn 0.15s ease-out' }}>
+                            <button onClick={() => { setMenuAbierto(false); setShowModalMensajes(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left">
+                              <span className="text-lg">✉️</span>
+                              <span className="text-sm font-bold text-gray-700">Mensajes</span>
+                            </button>
+                            <button onClick={() => { setMenuAbierto(false); setShowNotifsBimestre(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left border-t border-gray-50">
+                              <span className="text-lg">✅</span>
+                              <span className="text-sm font-bold text-gray-700">Bimestres completados</span>
+                              {notifsNoLeidas > 0 && <span className="ml-auto bg-green-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{notifsNoLeidas}</span>}
+                            </button>
+                            <button onClick={() => { setMenuAbierto(false); setShowFechasBimestre(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left border-t border-gray-50">
+                              <span className="text-lg">📢</span>
+                              <span className="text-sm font-bold text-gray-700">Enviar recordatorio</span>
+                            </button>
+                            <button onClick={() => { setMenuAbierto(false); setShowModalSolicitudes(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors text-left border-t border-gray-50">
+                              <span className="text-lg">🔔</span>
+                              <span className="text-sm font-bold text-gray-700">Solicitudes</span>
+                              {solicitudesCount > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{solicitudesCount}</span>}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               {usuario?.rol !== 'administrador' && (() => {
                 const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
                 return (
@@ -2308,30 +2321,29 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
         <div className="px-6 py-5">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                <th className="pb-2 text-left">Bimestre</th>
-                <th className="pb-2 text-center">Inicio</th>
-                <th className="pb-2 text-center">Cierre</th>
-                <th className="pb-2 text-center">Días</th>
+              <tr className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b border-gray-100">
+                <th className="pb-3 text-left">Bimestre</th>
+                <th className="pb-3 text-center">Inicio</th>
+                <th className="pb-3 text-center">Cierre</th>
+                <th className="pb-3 text-center">Días</th>
               </tr>
             </thead>
             <tbody>
               {CIERRES_BIMESTRE.map((b, i) => {
                 const hoy = new Date(); hoy.setHours(0,0,0,0);
                 const activo = hoy >= b.inicio && hoy <= b.cierre;
-                const dias = Math.round((b.cierre - b.inicio) / (1000*60*60*24)) + 1;
                 return (
-                  <tr key={b.bim} className={`border-t border-gray-100 ${activo ? 'bg-indigo-50' : ''}`}>
-                    <td className="py-2.5">
+                  <tr key={b.bim} className={`border-b border-gray-100 ${activo ? 'bg-indigo-50' : ''}`}>
+                    <td className="py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colores[i] }} />
                         <span className="font-bold text-gray-800">{b.bim}° Bimestre</span>
                         {activo && <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-full">En curso</span>}
                       </div>
                     </td>
-                    <td className="py-2.5 text-center text-gray-600 font-semibold">{b.inicio.toLocaleDateString('es-AR')}</td>
-                    <td className="py-2.5 text-center font-bold" style={{ color: colores[i] }}>{b.cierre.toLocaleDateString('es-AR')}</td>
-                    <td className="py-2.5 text-center text-gray-500 font-semibold">{dias}</td>
+                    <td className="py-3 text-center text-gray-600 font-semibold text-sm">{b.inicio.toLocaleDateString('es-AR')}</td>
+                    <td className="py-3 text-center font-bold text-sm" style={{ color: colores[i] }}>{b.cierre.toLocaleDateString('es-AR')}</td>
+                    <td className="py-3 text-center text-gray-700 font-bold text-sm">{b.dias}</td>
                   </tr>
                 );
               })}
