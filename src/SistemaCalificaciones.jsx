@@ -516,13 +516,24 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
 
     const abreviarMateria = (nombre) => {
       const abrevs = {
+        'Lengua y Literatura': 'Lengua y Lit.',
         'Ciencias Sociales': 'Cs. Sociales',
         'Ciencias Naturales': 'Cs. Naturales',
         'Formación Ética y Ciudadana': 'Form. Ética',
-        'Lengua y Literatura': 'Lengua y Lit.',
+        'Educación Artística: Plástica': 'Educ. Art: Plástica',
+        'Educación Artística: Música': 'Educ. Art: Música',
+        'Educación Física': 'Educ. Física',
+        'Lengua Extranjera: Inglés': 'Leng. Ext: Inglés',
+        'Lengua Extranjera: Portugués': 'Leng. Ext: Portugués',
+        'Tecnología': 'Tecnología',
+        'Laboratorio': 'Laboratorio',
+        'Informática': 'Informática',
+        'Taller de Ajedrez': 'T. de Ajedrez',
+        'Taller de Música': 'T. de Música',
+        'Taller de Plástica': 'T. de Plástica',
+        'Taller de Danza': 'T. de Danza',
       };
-      if (abrevs[nombre]) return abrevs[nombre];
-      return nombre.length > 14 ? nombre.substring(0, 14) + '.' : nombre;
+      return abrevs[nombre] || nombre;
     };
 
     const encabezado = (titulo, grado) => {
@@ -609,8 +620,8 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+        styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: 7 },
         columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
         alternateRowStyles: { fillColor: [255, 251, 235] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
@@ -2319,13 +2330,13 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
           <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
         </div>
         <div className="px-6 py-5">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                <th className="pb-3 text-left">Bimestre</th>
-                <th className="pb-3 text-center">Inicio</th>
-                <th className="pb-3 text-center">Cierre</th>
-                <th className="pb-3 text-center">Días</th>
+              <tr style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
+                <th className="py-3 px-4 text-left text-xs font-bold text-white">Bimestre</th>
+                <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Inicio</th>
+                <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Cierre</th>
+                <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Días</th>
               </tr>
             </thead>
             <tbody>
@@ -2333,17 +2344,24 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                 const hoy = new Date(); hoy.setHours(0,0,0,0);
                 const activo = hoy >= b.inicio && hoy <= b.cierre;
                 return (
-                  <tr key={b.bim} className={`border-b border-gray-100 ${activo ? 'bg-indigo-50' : ''}`}>
-                    <td className="py-3">
+                  <tr key={b.bim} className={activo ? 'bg-indigo-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb' }}>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colores[i] }} />
                         <span className="font-bold text-gray-800">{b.bim}° Bimestre</span>
                         {activo && <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-full">En curso</span>}
                       </div>
                     </td>
-                    <td className="py-3 text-center text-gray-600 font-semibold text-sm">{b.inicio.toLocaleDateString('es-AR')}</td>
-                    <td className="py-3 text-center font-bold text-sm" style={{ color: colores[i] }}>{b.cierre.toLocaleDateString('es-AR')}</td>
-                    <td className="py-3 text-center text-gray-700 font-bold text-sm">{b.dias}</td>
+                    <td className="py-4 px-3 text-center font-semibold text-gray-600" style={{ borderRight: '1px solid #e5e7eb' }}>
+                      {b.inicio.toLocaleDateString('es-AR')}
+                    </td>
+                    <td className="py-4 px-3 text-center font-bold" style={{ color: colores[i], borderRight: '1px solid #e5e7eb' }}>
+                      {b.cierre.toLocaleDateString('es-AR')}
+                    </td>
+                    <td className="py-4 px-3 text-center font-black text-gray-700 text-base">
+                      {b.dias}
+                    </td>
                   </tr>
                 );
               })}
