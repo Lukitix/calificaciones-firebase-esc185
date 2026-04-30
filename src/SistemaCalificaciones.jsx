@@ -510,25 +510,38 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
     const hoy = new Date().toLocaleDateString('es-AR');
     const nombreDocente = usuario?.nombre || '—';
     const gradosDocente = usuario?.gradosAsignados?.length > 0
-      ? usuario.gradosAsignados : [usuario?.gradoAsignado].filter(Boolean);
+      ? usuario.gradosAsignados
+      : [usuario?.gradoAsignado].filter(Boolean);
+    const firmaX = pageW - 75;
 
     const abreviarMateria = (nombre) => {
       const abrevs = {
-        'Lengua y Literatura': 'Lengua y Lit.',
         'Ciencias Sociales': 'Cs. Sociales',
         'Ciencias Naturales': 'Cs. Naturales',
         'Formación Ética y Ciudadana': 'Form. Ética',
-        'Educación Artística: Plástica': 'Art.: Plástica',
-        'Educación Artística: Música': 'Art.: Música',
-        'Educación Física': 'Ed. Física',
-        'Lengua Extranjera: Inglés': 'Inglés',
-        'Lengua Extranjera: Portugués': 'Portugués',
-        'Taller de Ajedrez': 'T. Ajedrez',
-        'Taller de Música': 'T. Música',
-        'Taller de Plástica': 'T. Plástica',
-        'Taller de Danza': 'T. Danza',
+        'Lengua y Literatura': 'Lengua y Lit.',
       };
-      return abrevs[nombre] || nombre;
+      if (abrevs[nombre]) return abrevs[nombre];
+      return nombre.length > 14 ? nombre.substring(0, 14) + '.' : nombre;
+    };
+
+    const encabezado = (titulo, grado) => {
+      pdfDoc.setFillColor(124, 58, 237);
+      pdfDoc.rect(0, 0, pageW, 28, 'F');
+      pdfDoc.setTextColor(255, 255, 255);
+      pdfDoc.setFontSize(13); pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 10, { align: 'center' });
+      pdfDoc.setFontSize(9.5); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(`${titulo}   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}`, pageW / 2, 18, { align: 'center' });
+      pdfDoc.text(`Fecha de emisión: ${hoy}`, pageW / 2, 24, { align: 'center' });
+    };
+
+    const agregarFirma = (finalY, grado) => {
+      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.line(firmaX, finalY + 4, firmaX + 65, finalY + 4);
+      pdfDoc.text(nombreDocente, firmaX + 32, finalY + 9, { align: 'center' });
+      pdfDoc.text(`Docente de Grado ${gradoLabel(grado)}`, firmaX + 32, finalY + 14, { align: 'center' });
+      pdfDoc.text(hoy, firmaX + 32, finalY + 19, { align: 'center' });
     };
 
     let primerPagina = true;
@@ -543,100 +556,76 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
         return a.nombre.localeCompare(b.nombre, 'es');
       });
 
-      // Cargar todas las materias
-      const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres];
-      const snaps = await Promise.all(
-        todasMaterias.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
-      );
-
-      // Solo materias con al menos un promedio final cargado
-      const materiasConDatos = todasMaterias.map((m, i) => ({
-        nombre: m.nombre,
-        abrev: abreviarMateria(m.nombre),
-        estudiantes: snaps[i].exists() ? (snaps[i].data().estudiantes || []) : []
-      })).filter(m => m.estudiantes.some(e => {
-        const b1 = e.bimestres?.[1]?.nota || '';
-        const b2 = e.bimestres?.[2]?.nota || '';
-        const b3 = e.bimestres?.[3]?.nota || '';
-        const b4 = e.bimestres?.[4]?.nota || '';
-        return !!calcularPromedioFinal(b1, b2, b3, b4);
-      }));
-
-      if (materiasConDatos.length === 0) continue;
-
-      if (!primerPagina) pdfDoc.addPage();
-      primerPagina = false;
-
-      // ── Encabezado ──
-      pdfDoc.setFillColor(124, 58, 237);
-      pdfDoc.rect(0, 0, pageW, 24, 'F');
-      pdfDoc.setTextColor(255, 255, 255);
-      pdfDoc.setFontSize(12); pdfDoc.setFont('helvetica', 'bold');
-      pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 9, { align: 'center' });
-      pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica', 'normal');
-      pdfDoc.text(
-        `Promedios Finales — Todas las Áreas   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}   |   ${hoy}`,
-        pageW / 2, 17, { align: 'center' }
-      );
-
-      // ── Nombres de materias rotados verticalmente ──
-      const margenIzq = 14;
-      const colNumW = 7;
-      const colNombreW = 50;
-      const colMateriaW = 13;
-      const headerRotH = 42; // altura del área de nombres rotados
-      const startY = 24 + headerRotH;
-
-      pdfDoc.setFontSize(6.5); pdfDoc.setFont('helvetica', 'bold');
-      materiasConDatos.forEach((m, mi) => {
-        const x = margenIzq + colNumW + colNombreW + mi * colMateriaW + colMateriaW / 2 + 2;
-        pdfDoc.setTextColor(60, 0, 160);
-        pdfDoc.text(m.abrev, x, startY - 2, { angle: 90, align: 'left' });
-      });
-
-      // Línea separadora
-      pdfDoc.setDrawColor(200, 200, 200);
-      pdfDoc.line(margenIzq, startY, margenIzq + colNumW + colNombreW + materiasConDatos.length * colMateriaW, startY);
-
-      // ── Tabla ──
-      const body = alumnosOrdenados.map((al, idx) => {
+      const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
-        materiasConDatos.forEach(({ estudiantes }) => {
+        datos.forEach(({ estudiantes }) => {
           const est = estudiantes.find(e => e.dni === al.dni);
           const b1 = est?.bimestres?.[1]?.nota || '';
           const b2 = est?.bimestres?.[2]?.nota || '';
           const b3 = est?.bimestres?.[3]?.nota || '';
           const b4 = est?.bimestres?.[4]?.nota || '';
           const pf = calcularPromedioFinal(b1, b2, b3, b4);
-          row.push(pf ? (primerCiclo ? abrevConceptual(pf) : pf) : '—');
+          row.push(pf ? (primerCiclo ? textoConceptual(pf) : pf) : '—');
         });
         return row;
       });
 
-      autoTable(pdfDoc, {
-        startY,
-        head: [['#', 'Apellido y Nombres', ...materiasConDatos.map(() => '')]],
-        body,
-        margin: { left: margenIzq },
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 7 : 9, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.15 },
-        headStyles: { fillColor: [237,233,254], textColor: [80,0,180], fontStyle: 'bold', fontSize: 6, cellPadding: 1, minCellHeight: 4 },
-        columnStyles: {
-          0: { cellWidth: colNumW },
-          1: { halign: 'left', cellWidth: colNombreW },
-          ...Object.fromEntries(materiasConDatos.map((_, i) => [i + 2, { cellWidth: colMateriaW }]))
-        },
-        alternateRowStyles: { fillColor: [249,250,251] },
-        tableLineColor: [180,180,180], tableLineWidth: 0.2,
-      });
+      // ── Página 1: Áreas Curriculares ──
+      const curriculares = areas.curriculares;
+      const snapsCurr = await Promise.all(
+        curriculares.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
+      );
+      const datosCurr = curriculares.map((m, i) => ({
+        nombre: m.nombre,
+        estudiantes: snapsCurr[i].exists() ? (snapsCurr[i].data().estudiantes || []) : []
+      }));
 
-      // ── Firma ──
-      const firmaY = pdfDoc.lastAutoTable.finalY + 8;
-      const firmaX = pageW - 75;
-      pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(8.5); pdfDoc.setFont('helvetica','normal');
-      pdfDoc.line(firmaX, firmaY + 4, firmaX + 65, firmaY + 4);
-      pdfDoc.text(nombreDocente, firmaX + 32, firmaY + 9, { align: 'center' });
-      pdfDoc.text(`Docente de Grado ${gradoLabel(grado)}`, firmaX + 32, firmaY + 14, { align: 'center' });
-      pdfDoc.text(hoy, firmaX + 32, firmaY + 19, { align: 'center' });
+      if (!primerPagina) pdfDoc.addPage();
+      primerPagina = false;
+      encabezado('Áreas Curriculares — Promedios Finales', grado);
+      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre))]];
+      autoTable(pdfDoc, {
+        startY: 32, head: headCurr, body: buildBody(datosCurr),
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold' },
+        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+      });
+      agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+
+      // ── Página 2: Áreas Especiales ──
+      pdfDoc.addPage();
+      const especiales = [...areas.especiales, ...areas.talleres];
+      const snapsEsp = await Promise.all(
+        especiales.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
+      );
+      const datosEsp = especiales.map((m, i) => ({
+        nombre: m.nombre,
+        estudiantes: snapsEsp[i].exists() ? (snapsEsp[i].data().estudiantes || []) : []
+      })).filter(d => d.estudiantes.some(e => {
+        const pf = calcularPromedioFinal(e.bimestres?.[1]?.nota||'', e.bimestres?.[2]?.nota||'', e.bimestres?.[3]?.nota||'', e.bimestres?.[4]?.nota||'');
+        return !!pf;
+      }));
+
+      encabezado('Áreas Especiales y Talleres — Promedios Finales', grado);
+      if (datosEsp.length === 0) {
+        pdfDoc.setFontSize(10); pdfDoc.setTextColor(150,150,150);
+        pdfDoc.text('Sin calificaciones de áreas especiales cargadas.', pageW / 2, 50, { align: 'center' });
+      } else {
+        const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+        autoTable(pdfDoc, {
+          startY: 32, head: headEsp, body: buildBody(datosEsp),
+          styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+          headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+          columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+          alternateRowStyles: { fillColor: [255, 251, 235] },
+          tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+        });
+        agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+      }
+
+      if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
     }
 
     pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`);
@@ -696,6 +685,7 @@ export default function SistemaCalificaciones() {
   const [mensajes, setMensajes] = useState([]);
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
+  const [showFechasBimestre, setShowFechasBimestre] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
   const [notifsBimestre, setNotifsBimestre] = useState([]);
@@ -1745,6 +1735,11 @@ export default function SistemaCalificaciones() {
                       ? <span className="bg-green-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{notifsBimestre.filter(n => !n.leida).length}</span>
                       : <span className="text-xs font-bold text-green-600">Bimestres</span>}
                   </button>
+                  <button onClick={() => setShowFechasBimestre(true)}
+                    className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100 transition-all px-4 py-2 rounded-2xl">
+                    <span className="text-xl">📢</span>
+                    <span className="text-xs font-bold text-indigo-600">Enviar Recordatorio</span>
+                  </button>
                   <button onClick={() => setShowModalSolicitudes(true)}
                     className="flex items-center gap-2 bg-purple-50 border-2 border-purple-200 hover:bg-purple-100 transition-all px-4 py-2 rounded-2xl" title="Solicitudes pendientes">
                     <span className="text-xl">🔔</span>
@@ -1757,13 +1752,20 @@ export default function SistemaCalificaciones() {
               {usuario?.rol !== 'administrador' && (() => {
                 const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
                 return (
-                  <button onClick={() => setShowModalMensajes(true)}
-                    className="absolute top-0 right-0 flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
-                    <span className="text-xl">✉️</span>
-                    {noLeidos > 0
-                      ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{noLeidos}</span>
-                      : <span className="text-xs font-bold text-blue-600">Mensajes</span>}
-                  </button>
+                  <div className="absolute top-0 right-0 flex flex-col gap-2 items-end">
+                    <button onClick={() => setShowModalMensajes(true)}
+                      className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
+                      <span className="text-xl">✉️</span>
+                      {noLeidos > 0
+                        ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{noLeidos}</span>
+                        : <span className="text-xs font-bold text-blue-600">Mensajes</span>}
+                    </button>
+                    <button onClick={() => setShowFechasBimestre(true)}
+                      className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100 transition-all px-4 py-2 rounded-2xl">
+                      <span className="text-xl">📅</span>
+                      <span className="text-xs font-bold text-indigo-600">Bimestres Ciclo Lectivo 2026</span>
+                    </button>
+                  </div>
                 );
               })()}
               <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenidos Colegas! 👋</h1>
@@ -1902,6 +1904,11 @@ export default function SistemaCalificaciones() {
           <ModalNotifsBimestre
             db={db} notifs={notifsBimestre}
             onClose={() => setShowNotifsBimestre(false)} />
+        )}
+        {showFechasBimestre && (
+          <ModalFechasBimestre
+            db={db} usuario={usuario} mensajes={mensajes}
+            onClose={() => setShowFechasBimestre(false)} />
         )}
       </>
     );
@@ -2245,6 +2252,108 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Fechas Bimestres / Enviar Recordatorio
+// ════════════════════════════════════════════════════════
+function ModalFechasBimestre({ db, usuario, onClose }) {
+  const esAdmin = usuario?.rol === 'administrador';
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
+
+  const getBimestreActivo = () => {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    return CIERRES_BIMESTRE.find(b => hoy >= b.inicio && hoy <= b.cierre) || null;
+  };
+
+  const enviarRecordatorio = async () => {
+    const bim = getBimestreActivo();
+    const mensaje = bim
+      ? `📅 Estimados colegas: les recordamos que el ${bim.bim}° Bimestre finaliza el ${bim.cierre.toLocaleDateString('es-AR')}. Les solicitamos cumplimentar en tiempo y forma con la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`
+      : `📅 Estimados colegas: les recordamos que deben mantener al día la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`;
+    setEnviando(true);
+    try {
+      await setDoc(doc(collection(db, 'mensajes')), {
+        texto: mensaje,
+        remitenteUid: 'admin',
+        remitenteNombre: 'Raquel Noemí Maciszonek',
+        destinatarioUid: 'todos',
+        destinatarioNombre: 'Todos los docentes',
+        fecha: new Date().toISOString(),
+        fechaCorta: new Date().toLocaleDateString('es-AR'),
+        leidoPor: {},
+        confirmadoPor: {},
+      });
+      setEnviado(true);
+      setTimeout(() => { setEnviado(false); onClose(); }, 1800);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const colores = ['#6d28d9','#2563eb','#059669','#d97706'];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
+          <h3 className="text-lg font-bold text-white">📅 Bimestres Ciclo Lectivo 2026</h3>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+        </div>
+        <div className="px-6 py-5">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                <th className="pb-2 text-left">Bimestre</th>
+                <th className="pb-2 text-center">Inicio</th>
+                <th className="pb-2 text-center">Cierre</th>
+                <th className="pb-2 text-center">Días</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CIERRES_BIMESTRE.map((b, i) => {
+                const hoy = new Date(); hoy.setHours(0,0,0,0);
+                const activo = hoy >= b.inicio && hoy <= b.cierre;
+                const dias = Math.round((b.cierre - b.inicio) / (1000*60*60*24)) + 1;
+                return (
+                  <tr key={b.bim} className={`border-t border-gray-100 ${activo ? 'bg-indigo-50' : ''}`}>
+                    <td className="py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colores[i] }} />
+                        <span className="font-bold text-gray-800">{b.bim}° Bimestre</span>
+                        {activo && <span className="text-[10px] font-black text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-full">En curso</span>}
+                      </div>
+                    </td>
+                    <td className="py-2.5 text-center text-gray-600 font-semibold">{b.inicio.toLocaleDateString('es-AR')}</td>
+                    <td className="py-2.5 text-center font-bold" style={{ color: colores[i] }}>{b.cierre.toLocaleDateString('es-AR')}</td>
+                    <td className="py-2.5 text-center text-gray-500 font-semibold">{dias}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="text-xs text-gray-400 text-center mt-3 font-semibold">Total: 190 días lectivos</p>
+        </div>
+        <div className="px-6 pb-5 flex flex-col gap-2">
+          {esAdmin && (
+            <button onClick={enviarRecordatorio} disabled={enviando || enviado}
+              className="w-full py-2.5 rounded-xl font-bold text-white transition-all disabled:opacity-60"
+              style={{ background: enviado ? '#059669' : 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
+              {enviado ? '✅ ¡Recordatorio enviado!' : enviando ? 'Enviando...' : '📢 Enviar recordatorio a todos los docentes'}
+            </button>
+          )}
+          <button onClick={onClose}
+            className="w-full py-2 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
