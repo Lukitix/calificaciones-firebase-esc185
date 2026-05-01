@@ -639,6 +639,20 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
   }
 }
 
+function DocenteACargo({ materia, grado, todosUsuarios }) {
+  const docente = todosUsuarios.find(u =>
+    (u.rol === 'docente_grado' && (u.gradosAsignados?.includes(grado) || u.gradoAsignado === grado)) ||
+    (u.rol === 'area_especial' && u.materiasAsignadas?.some(ma => ma.nombre === materia?.nombre && ma.grados?.includes(grado)))
+  );
+  if (!docente) return null;
+  return (
+    <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
+      <span className="text-purple-600">👤</span>
+      <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{docente.nombre}</span></span>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
@@ -698,7 +712,7 @@ export default function SistemaCalificaciones() {
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
     });
     return () => unsub();
-  }, [authUser, usuario]);
+  }, [authUser?.uid, usuario?.rol]);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
   const [notifsBimestre, setNotifsBimestre] = useState([]);
@@ -757,14 +771,14 @@ export default function SistemaCalificaciones() {
   const [todosUsuarios, setTodosUsuarios] = useState([]);
 
   useEffect(() => {
-    if (!authUser || usuario?.rol !== 'administrador') return;
+    if (!authUser || !usuario || usuario.rol !== 'administrador') return;
     const unsub = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
       const lista = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
       setSolicitudes(lista.filter(u => u.activo === false));
-      setTodosUsuarios(lista.filter(u => u.activo !== false));
+      setTodosUsuarios(lista.filter(u => u.activo !== false && u.rol !== 'administrador'));
     });
     return () => unsub();
-  }, [authUser, usuario]);
+  }, [authUser?.uid, usuario?.rol]);
 
   // ── Alumnos globales ──
   useEffect(() => {
@@ -792,7 +806,7 @@ export default function SistemaCalificaciones() {
       setNotifsBimestre(todas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
     });
     return () => unsub();
-  }, [authUser, usuario]);
+  }, [authUser?.uid, usuario?.rol]);
   useEffect(() => {
     if (!authUser || !usuario) return;
     const unsub = onSnapshot(collection(db, 'mensajes'), (snap) => {
@@ -804,7 +818,7 @@ export default function SistemaCalificaciones() {
       }
     });
     return () => unsub();
-  }, [authUser, usuario]);
+  }, [authUser?.uid, usuario?.rol]);
 
   // ── Calificaciones ──
   useEffect(() => {
@@ -2060,24 +2074,9 @@ export default function SistemaCalificaciones() {
                 <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
               </div>
             )}
-            {usuario?.rol === 'administrador' && (() => {
-              const docenteGrado = todosUsuarios.find(u =>
-                u.rol === 'docente_grado' &&
-                (u.gradosAsignados?.includes(grado) || u.gradoAsignado === grado)
-              );
-              const docenteEspecial = todosUsuarios.find(u =>
-                u.rol === 'area_especial' &&
-                u.materiasAsignadas?.some(ma => ma.nombre === materia?.nombre && ma.grados?.includes(grado))
-              );
-              const docente = docenteGrado || docenteEspecial;
-              if (!docente) return null;
-              return (
-                <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
-                  <span className="text-purple-600">👤</span>
-                  <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{docente.nombre}</span></span>
-                </div>
-              );
-            })()}
+            {usuario?.rol === 'administrador' && materia && grado && todosUsuarios.length > 0 && (
+              <DocenteACargo materia={materia} grado={grado} todosUsuarios={todosUsuarios} />
+            )}
           </div>
           {/* Botón volver — debajo del título, arriba del selector de grados */}
           {volverAGestion && usuario?.rol === 'administrador' && (
