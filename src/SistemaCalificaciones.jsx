@@ -688,8 +688,17 @@ export default function SistemaCalificaciones() {
   const [mensajes, setMensajes] = useState([]);
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
-  const [showFechasBimestre, setShowFechasBimestre] = useState(false);
-  const [menuAcciones, setMenuAcciones] = useState(false);
+  const [avisos, setAvisos] = useState([]);
+  const [showAvisos, setShowAvisos] = useState(false);
+
+  useEffect(() => {
+    if (!authUser || !usuario || usuario.rol === 'administrador') return;
+    const unsub = onSnapshot(collection(db, 'avisos'), snap => {
+      setAvisos(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
+    });
+    return () => unsub();
+  }, [authUser, usuario]);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
   const [notifsBimestre, setNotifsBimestre] = useState([]);
@@ -745,11 +754,14 @@ export default function SistemaCalificaciones() {
   }, [resetInactividad]);
 
   // ── Solicitudes pendientes ──
+  const [todosUsuarios, setTodosUsuarios] = useState([]);
+
   useEffect(() => {
     if (!authUser || usuario?.rol !== 'administrador') return;
     const unsub = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
-      const lista = snapshot.docs.map(d => ({ uid: d.id, ...d.data() })).filter(u => u.activo === false);
-      setSolicitudes(lista);
+      const lista = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+      setSolicitudes(lista.filter(u => u.activo === false));
+      setTodosUsuarios(lista.filter(u => u.activo !== false));
     });
     return () => unsub();
   }, [authUser, usuario]);
@@ -898,6 +910,25 @@ export default function SistemaCalificaciones() {
     }
     if (d.password.length < 6) {
       await showAlert('La contraseña debe tener al menos 6 caracteres.', 'warning'); return;
+    }
+    // ── Validación de grado/materia obligatoria ──
+    if (d.rol === 'docente_grado') {
+      const gradosElegidos = d.gradosAsignados?.length > 0 ? d.gradosAsignados : [d.gradoAsignado].filter(Boolean);
+      if (gradosElegidos.length === 0) {
+        await showAlert('Debés seleccionar al menos un grado antes de registrarte.', 'warning', '⚠️ Grado requerido'); return;
+      }
+      if (!d.materiasAsignadas || d.materiasAsignadas.length === 0) {
+        await showAlert('Debés seleccionar al menos una materia antes de registrarte.', 'warning', '⚠️ Materia requerida'); return;
+      }
+    }
+    if (d.rol === 'area_especial') {
+      if (!d.materiasAsignadas || d.materiasAsignadas.length === 0) {
+        await showAlert('Debés seleccionar al menos una materia antes de registrarte.', 'warning', '⚠️ Materia requerida'); return;
+      }
+      const tieneGrados = d.materiasAsignadas.some(ma => ma.grados && ma.grados.length > 0);
+      if (!tieneGrados) {
+        await showAlert('Debés asignar al menos un grado a alguna de tus materias antes de registrarte.', 'warning', '⚠️ Grado requerido'); return;
+      }
     }
     // ── Validación de duplicados (solo si hay sesión activa) ──
     if (auth.currentUser) {
@@ -1784,6 +1815,13 @@ export default function SistemaCalificaciones() {
                         ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{noLeidos}</span>
                         : <span className="text-xs font-bold text-blue-600">Mensajes</span>}
                     </button>
+                    <button onClick={() => { setShowAvisos(true); }}
+                      className="flex items-center gap-2 bg-amber-50 border-2 border-amber-200 hover:bg-amber-100 transition-all px-4 py-2 rounded-2xl">
+                      <span className="text-xl">🔔</span>
+                      {avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length > 0
+                        ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length}</span>
+                        : <span className="text-xs font-bold text-amber-600">Avisos</span>}
+                    </button>
                     <button onClick={() => setShowFechasBimestre(true)}
                       className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100 transition-all px-4 py-2 rounded-2xl">
                       <span className="text-xl">📅</span>
@@ -1934,6 +1972,11 @@ export default function SistemaCalificaciones() {
             db={db} usuario={usuario} mensajes={mensajes}
             onClose={() => setShowFechasBimestre(false)} />
         )}
+        {showAvisos && (
+          <ModalAvisos
+            db={db} avisos={avisos} authUser={authUser}
+            onClose={() => setShowAvisos(false)} />
+        )}
       </>
     );
   }
@@ -2017,6 +2060,24 @@ export default function SistemaCalificaciones() {
                 <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
               </div>
             )}
+            {usuario?.rol === 'administrador' && (() => {
+              const docenteGrado = todosUsuarios.find(u =>
+                u.rol === 'docente_grado' &&
+                (u.gradosAsignados?.includes(grado) || u.gradoAsignado === grado)
+              );
+              const docenteEspecial = todosUsuarios.find(u =>
+                u.rol === 'area_especial' &&
+                u.materiasAsignadas?.some(ma => ma.nombre === materia?.nombre && ma.grados?.includes(grado))
+              );
+              const docente = docenteGrado || docenteEspecial;
+              if (!docente) return null;
+              return (
+                <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
+                  <span className="text-purple-600">👤</span>
+                  <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{docente.nombre}</span></span>
+                </div>
+              );
+            })()}
           </div>
           {/* Botón volver — debajo del título, arriba del selector de grados */}
           {volverAGestion && usuario?.rol === 'administrador' && (
@@ -2092,30 +2153,30 @@ export default function SistemaCalificaciones() {
                 <thead>
                   <tr className="tabla-header">
                     <th className="p-3 text-center text-sm font-bold w-10">#</th>
-                    <th className="p-3 text-left text-sm font-bold min-w-40 pl-4">Estudiante</th>
-                    <th className="p-3 text-center text-sm font-bold">D.N.I</th>
+                    <th className="p-3 text-left text-sm font-bold min-w-40 pl-4" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>Estudiante</th>
+                    <th className="p-3 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>D.N.I</th>
                     {[1, 2].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       return (
-                        <th key={b} className="p-2 text-center text-sm font-bold">
+                        <th key={b} className="p-2 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>
                           <div className="flex items-center justify-center gap-1">
                             {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                           </div>
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">1° Cuat.</th>
+                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>1° Cuat.</th>
                     {[3, 4].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       return (
-                        <th key={b} className="p-2 text-center text-sm font-bold">
+                        <th key={b} className="p-2 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>
                           <div className="flex items-center justify-center gap-1">
                             {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                           </div>
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16">2° Cuat.</th>
+                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>2° Cuat.</th>
                     <th className="p-3 text-center text-sm font-bold bg-indigo-900 min-w-20">Prom. Final</th>
                   </tr>
                 </thead>
@@ -2141,7 +2202,7 @@ export default function SistemaCalificaciones() {
                       const bloqueado = bimestresBlockeados[bim];
                       const notaBim = e.bimestres?.[bim]?.nota || '';
                       return (
-                        <td className={`p-2 border-r border-gray-100 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px' }}>
+                        <td className={`p-2 border-r-2 border-gray-200 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px' }}>
                           {bloqueado && <div className="text-center text-xs text-red-400 font-bold mb-1">🔒</div>}
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
@@ -2222,6 +2283,43 @@ export default function SistemaCalificaciones() {
           </div>
 
           {/* ── Observaciones generales ── */}
+          {estActuales.length > 0 && (() => {
+            const datos = [1,2,3,4].map(bim => {
+              const conNota = estActuales.filter(e => e.bimestres?.[bim]?.nota);
+              const aprobados = conNota.filter(e => parseFloat(e.bimestres[bim].nota) >= 6).length;
+              const desaprobados = conNota.filter(e => parseFloat(e.bimestres[bim].nota) < 6).length;
+              return { bim, aprobados, desaprobados, total: conNota.length };
+            }).filter(d => d.total > 0);
+            if (datos.length === 0) return null;
+            const maxVal = Math.max(...datos.flatMap(d => [d.aprobados, d.desaprobados]), 1);
+            const barH = 80;
+            return (
+              <div className="mb-6 bg-white border-2 border-gray-100 rounded-2xl p-5">
+                <h3 className="text-base font-extrabold text-gray-800 mb-4">📊 Aprobados / Desaprobados por Bimestre</h3>
+                <div className="flex items-end gap-6 justify-center">
+                  {datos.map(d => (
+                    <div key={d.bim} className="flex flex-col items-center gap-1">
+                      <div className="flex items-end gap-1" style={{ height: `${barH + 20}px` }}>
+                        <div className="flex flex-col items-center justify-end">
+                          <span className="text-xs font-black text-green-700 mb-0.5">{d.aprobados}</span>
+                          <div className="w-8 rounded-t-lg bg-green-400" style={{ height: `${Math.max(4, (d.aprobados / maxVal) * barH)}px`, transition: 'height 0.3s' }} />
+                        </div>
+                        <div className="flex flex-col items-center justify-end">
+                          <span className="text-xs font-black text-red-600 mb-0.5">{d.desaprobados}</span>
+                          <div className="w-8 rounded-t-lg bg-red-400" style={{ height: `${Math.max(4, (d.desaprobados / maxVal) * barH)}px`, transition: 'height 0.3s' }} />
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-gray-500">{d.bim}° Bim.</span>
+                    </div>
+                  ))}
+                  <div className="flex flex-col gap-2 ml-4 self-center">
+                    <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-400" /><span className="text-xs font-semibold text-gray-600">Aprobados (≥6)</span></div>
+                    <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-400" /><span className="text-xs font-semibold text-gray-600">Desaprobados (&lt;6)</span></div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {estActuales.length > 0 && (
             <ObservacionesGenerales
               materia={materia}
@@ -2280,6 +2378,52 @@ export default function SistemaCalificaciones() {
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Avisos de Dirección (docentes)
+// ════════════════════════════════════════════════════════
+function ModalAvisos({ db, avisos, authUser, onClose }) {
+  useEffect(() => {
+    // Marcar todos como leídos al abrir
+    avisos.filter(a => !a.leidoPor?.[authUser?.uid]).forEach(async a => {
+      await updateDoc(doc(db, 'avisos', a.id), { [`leidoPor.${authUser.uid}`]: true });
+    });
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>
+          <h3 className="text-lg font-bold text-white">🔔 Avisos de Dirección</h3>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+        </div>
+        <div className="max-h-[65vh] overflow-y-auto">
+          {avisos.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <p className="text-4xl mb-2">📭</p>
+              <p className="font-bold">Sin avisos por ahora</p>
+            </div>
+          ) : (
+            <div className="p-4 space-y-3">
+              {avisos.map(a => (
+                <div key={a.id} className={`rounded-xl p-4 border-2 ${a.leidoPor?.[authUser?.uid] ? 'bg-gray-50 border-gray-100' : 'bg-amber-50 border-amber-200'}`}>
+                  <p className="text-xs font-bold text-amber-700 mb-1">📅 {a.fechaCorta} · Dirección</p>
+                  <p className="text-sm font-semibold text-gray-800 leading-relaxed">{a.texto}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-4 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Fechas Bimestres / Enviar Recordatorio
 // ════════════════════════════════════════════════════════
 function ModalFechasBimestre({ db, usuario, onClose }) {
@@ -2299,16 +2443,11 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
       : `📅 Estimados colegas: les recordamos que deben mantener al día la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`;
     setEnviando(true);
     try {
-      await setDoc(doc(collection(db, 'mensajes')), {
+      await setDoc(doc(collection(db, 'avisos')), {
         texto: mensaje,
-        remitenteUid: 'admin',
-        remitenteNombre: 'Raquel Noemí Maciszonek',
-        destinatarioUid: 'todos',
-        destinatarioNombre: 'Todos los docentes',
         fecha: new Date().toISOString(),
         fechaCorta: new Date().toLocaleDateString('es-AR'),
         leidoPor: {},
-        confirmadoPor: {},
       });
       setEnviado(true);
       setTimeout(() => { setEnviado(false); onClose(); }, 1800);
@@ -2367,7 +2506,9 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
               })}
             </tbody>
           </table>
-          <p className="text-xs text-gray-400 text-center mt-3 font-semibold">Total: 190 días lectivos</p>
+          <p className="text-xs text-gray-400 text-center mt-3 font-semibold">
+            + Fortalecimiento, evaluación y promoción: 07/12 al 17/12 (8 días) · Total: 190 días lectivos
+          </p>
         </div>
         <div className="px-6 pb-5 flex flex-col gap-2">
           {esAdmin && (
@@ -3047,8 +3188,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
             <table className="border-collapse text-sm" style={{ minWidth: '1100px', width: '100%' }}>
               <thead>
                 <tr>
-                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700" style={{ minWidth: '90px' }}>Grado</th>
-                  <th className="border border-gray-300 bg-gray-100 p-2 text-left font-bold text-gray-700" style={{ minWidth: '140px' }}>Docente</th>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-center font-bold text-gray-700" style={{ minWidth: '90px' }}>Grado</th>
+                  <th className="border border-gray-300 bg-gray-100 p-2 text-center font-bold text-gray-700" style={{ minWidth: '140px' }}>Docente</th>
                   {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { label, cols, color }]) => (
                     <th key={sec} colSpan={cols.length}
                       className="border border-gray-300 p-2 text-center font-bold text-white"
@@ -3074,24 +3215,41 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
               <tbody>
                 {docente.rol === 'docente_grado' ? (
                   gradosDocente.map((g, gi) => (
-                    <tr key={g} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm">{gradoLabel(g)}</td>
-                      <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
-                      {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                        cols.map(col => <CeldaEditable key={`${g}__${sec}__${col}`} keyStr={`${g}__${sec}__${col}`} />)
-                      )}
-                    </tr>
+                    [0,1,2].map(fila => (
+                      <tr key={`${g}-${fila}`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        {fila === 0 ? (
+                          <>
+                            <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={3}>{gradoLabel(g)}</td>
+                            <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={3}>{docente.nombre}</td>
+                          </>
+                        ) : null}
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                          cols.map(col => <CeldaEditable key={`${g}_f${fila}__${sec}__${col}`} keyStr={`${g}_f${fila}__${sec}__${col}`} />)
+                        )}
+                      </tr>
+                    ))
                   ))
                 ) : (
-                  <tr>
-                    <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm">
-                      {docente.materiasAsignadas?.map(ma => ma.nombre || ma).join(', ')}
-                    </td>
-                    <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold">{docente.nombre}</td>
-                    {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                      cols.map(col => <CeldaEditable key={`especial__${sec}__${col}`} keyStr={`especial__${sec}__${col}`} />)
-                    )}
-                  </tr>
+                  docente.materiasAsignadas?.map((ma, mai) => (
+                    [0,1,2].map(fila => (
+                      <tr key={`${mai}-${fila}`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        {fila === 0 ? (
+                          <>
+                            <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={3}>
+                              <div>{ma.nombre || ma}</div>
+                              {ma.grados?.length > 0 && (
+                                <div className="text-xs text-purple-600 font-semibold mt-1">{ma.grados.map(g => gradoLabel(g)).join(', ')}</div>
+                              )}
+                            </td>
+                            <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={3}>{docente.nombre}</td>
+                          </>
+                        ) : null}
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                          cols.map(col => <CeldaEditable key={`esp${mai}_f${fila}__${sec}__${col}`} keyStr={`esp${mai}_f${fila}__${sec}__${col}`} />)
+                        )}
+                      </tr>
+                    ))
+                  ))
                 )}
               </tbody>
             </table>
