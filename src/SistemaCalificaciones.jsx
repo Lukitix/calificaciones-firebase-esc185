@@ -704,6 +704,10 @@ export default function SistemaCalificaciones() {
   const [showPerfil, setShowPerfil] = useState(false);
   const [avisos, setAvisos] = useState([]);
   const [showAvisos, setShowAvisos] = useState(false);
+  const [docenteEditando, setDocenteEditando] = useState(null);
+  const [docenteEntregas, setDocenteEntregas] = useState(null);
+  const [notifsBimestre, setNotifsBimestre] = useState([]);
+  const [showNotifsBimestre, setShowNotifsBimestre] = useState(false);
 
   useEffect(() => {
     if (!authUser || !usuario || usuario.rol === 'administrador') return;
@@ -713,10 +717,6 @@ export default function SistemaCalificaciones() {
     });
     return () => unsub();
   }, [authUser?.uid, usuario?.rol]);
-  const [docenteEditando, setDocenteEditando] = useState(null);
-  const [docenteEntregas, setDocenteEntregas] = useState(null);
-  const [notifsBimestre, setNotifsBimestre] = useState([]);
-  const [showNotifsBimestre, setShowNotifsBimestre] = useState(false);
 
   // Limpiar búsqueda al cambiar de grado
   useEffect(() => {
