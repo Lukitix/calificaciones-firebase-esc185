@@ -2283,7 +2283,8 @@ export default function SistemaCalificaciones() {
           </div>
 
           {/* ── Observaciones generales ── */}
-          {estActuales.length > 0 && (() => {
+          {(() => {
+            if (estActuales.length === 0) return null;
             const datos = [1,2,3,4].map(bim => {
               const conNota = estActuales.filter(e => e.bimestres?.[bim]?.nota);
               const aprobados = conNota.filter(e => parseFloat(e.bimestres[bim].nota) >= 6).length;
@@ -2302,11 +2303,11 @@ export default function SistemaCalificaciones() {
                       <div className="flex items-end gap-1" style={{ height: `${barH + 20}px` }}>
                         <div className="flex flex-col items-center justify-end">
                           <span className="text-xs font-black text-green-700 mb-0.5">{d.aprobados}</span>
-                          <div className="w-8 rounded-t-lg bg-green-400" style={{ height: `${Math.max(4, (d.aprobados / maxVal) * barH)}px`, transition: 'height 0.3s' }} />
+                          <div className="w-8 rounded-t-lg bg-green-400" style={{ height: `${Math.max(4, (d.aprobados / maxVal) * barH)}px` }} />
                         </div>
                         <div className="flex flex-col items-center justify-end">
                           <span className="text-xs font-black text-red-600 mb-0.5">{d.desaprobados}</span>
-                          <div className="w-8 rounded-t-lg bg-red-400" style={{ height: `${Math.max(4, (d.desaprobados / maxVal) * barH)}px`, transition: 'height 0.3s' }} />
+                          <div className="w-8 rounded-t-lg bg-red-400" style={{ height: `${Math.max(4, (d.desaprobados / maxVal) * barH)}px` }} />
                         </div>
                       </div>
                       <span className="text-xs font-bold text-gray-500">{d.bim}° Bim.</span>
@@ -3214,7 +3215,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
               </thead>
               <tbody>
                 {docente.rol === 'docente_grado' ? (
-                  gradosDocente.map((g, gi) => (
+                  gradosDocente.flatMap((g, gi) =>
                     [0,1,2].map(fila => (
                       <tr key={`${g}-${fila}`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         {fila === 0 ? (
@@ -3228,9 +3229,9 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                         )}
                       </tr>
                     ))
-                  ))
+                  )
                 ) : (
-                  docente.materiasAsignadas?.map((ma, mai) => (
+                  (docente.materiasAsignadas || []).flatMap((ma, mai) =>
                     [0,1,2].map(fila => (
                       <tr key={`${mai}-${fila}`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         {fila === 0 ? (
@@ -3249,7 +3250,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                         )}
                       </tr>
                     ))
-                  ))
+                  )
                 )}
               </tbody>
             </table>
