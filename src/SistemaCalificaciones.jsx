@@ -702,6 +702,8 @@ export default function SistemaCalificaciones() {
   const [mensajes, setMensajes] = useState([]);
   const [showModalMensajes, setShowModalMensajes] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
+  const [showFechasBimestre, setShowFechasBimestre] = useState(false);
+  const [menuAcciones, setMenuAcciones] = useState(false);
   const [avisos, setAvisos] = useState([]);
   const [showAvisos, setShowAvisos] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
