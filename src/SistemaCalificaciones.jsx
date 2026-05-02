@@ -2076,9 +2076,6 @@ export default function SistemaCalificaciones() {
                 <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
               </div>
             )}
-            {usuario?.rol === 'administrador' && materia && grado && todosUsuarios.length > 0 && (
-              <DocenteACargo materia={materia} grado={grado} todosUsuarios={todosUsuarios} />
-            )}
           </div>
           {/* Botón volver — debajo del título, arriba del selector de grados */}
           {volverAGestion && usuario?.rol === 'administrador' && (
@@ -2506,11 +2503,20 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                   </tr>
                 );
               })}
+              <tr className="bg-gray-50" style={{ borderTop: '2px solid #e5e7eb' }}>
+                <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-400" />
+                    <span className="font-semibold text-gray-600 text-sm">Fortalecimiento de trayectorias, evaluación y promoción</span>
+                  </div>
+                </td>
+                <td className="py-4 px-3 text-center font-semibold text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>07/12/2026</td>
+                <td className="py-4 px-3 text-center font-bold text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>17/12/2026</td>
+                <td className="py-4 px-3 text-center font-black text-gray-600 text-base">8</td>
+              </tr>
             </tbody>
           </table>
-          <p className="text-xs text-gray-400 text-center mt-3 font-semibold">
-            + Fortalecimiento, evaluación y promoción: 07/12 al 17/12 (8 días) · Total: 190 días lectivos
-          </p>
+          <p className="text-xs text-gray-400 text-center mt-3 font-semibold">Total: 190 días lectivos</p>
         </div>
         <div className="px-6 pb-5 flex flex-col gap-2">
           {esAdmin && (
@@ -3150,7 +3156,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
 
   const CeldaEditable = ({ keyStr }) => {
     const [local, setLocal] = useState(entregas[keyStr] || '');
-    useEffect(() => { setLocal(entregas[keyStr] || ''); }, [keyStr]);
+    useEffect(() => { setLocal(entregas[keyStr] || ''); }, [keyStr, entregas[keyStr]]);
     return (
       <td className="border border-gray-300 p-0">
         <input
@@ -3226,7 +3232,11 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                           </>
                         ) : null}
                         {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                          cols.map(col => <CeldaEditable key={`${g}_f${fila}__${sec}__${col}`} keyStr={`${g}_f${fila}__${sec}__${col}`} />)
+                          cols.map(col => {
+                            // fila 0 usa key original para preservar datos existentes
+                            const keyStr = fila === 0 ? `${g}__${sec}__${col}` : `${g}_f${fila}__${sec}__${col}`;
+                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                          })
                         )}
                       </tr>
                     ))
@@ -3247,7 +3257,10 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                           </>
                         ) : null}
                         {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                          cols.map(col => <CeldaEditable key={`esp${mai}_f${fila}__${sec}__${col}`} keyStr={`esp${mai}_f${fila}__${sec}__${col}`} />)
+                          cols.map(col => {
+                            const keyStr = fila === 0 ? `especial__${sec}__${col}` : `esp${mai}_f${fila}__${sec}__${col}`;
+                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                          })
                         )}
                       </tr>
                     ))
