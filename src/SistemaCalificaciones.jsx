@@ -320,7 +320,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
 
   const handleChange = (ev) => {
     const v = ev.target.value;
-    if (/^(\d{0,2}([.,]\d{0,1})?)?$/.test(v)) {
+    if (/^(\d{0,2}([.,]\d{0,2})?)?$/.test(v)) {
       setLocal(v.replace(',', '.'));
     }
   };
@@ -329,8 +329,10 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
     setFocused(false);
     const n = parseFloat(local);
     if (!isNaN(n) && local !== '') {
-      const clamped = Math.min(10, Math.max(1, Math.round(n * 2) / 2));
-      const final = clamped % 1 === 0 ? String(clamped) : clamped.toFixed(1);
+      const clamped = Math.min(10, Math.max(1, n));
+      // Mantener hasta 2 decimales, sin redondear
+      const rounded = Math.round(clamped * 100) / 100;
+      const final = rounded % 1 === 0 ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '').replace(/(\.\d)$/, '$10');
       setLocal(final);
       onCommit(final);
     } else {
@@ -708,6 +710,7 @@ export default function SistemaCalificaciones() {
   const [showAvisos, setShowAvisos] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
+  const [docenteActividad, setDocenteActividad] = useState(null);
   const [notifsBimestre, setNotifsBimestre] = useState([]);
   const [showNotifsBimestre, setShowNotifsBimestre] = useState(false);
 
@@ -1738,6 +1741,7 @@ export default function SistemaCalificaciones() {
 
   if (pantalla === 'gestion_usuarios') {
     return (
+      <>
       <GestionUsuarios db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
         showConfirm={showConfirm} showAlert={showAlert}
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
@@ -1748,8 +1752,15 @@ export default function SistemaCalificaciones() {
           const materiaObj = [...areas.curriculares, ...areas.especiales, ...areas.talleres].find(a => a.nombre === m);
           if (materiaObj) { setVolverAGestion(true); setOrigenGestion({ tab: tab || 'grado' }); abrirMateria(materiaObj, g); }
         }}
+        onVerActividad={(u) => setDocenteActividad(u)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
+      {docenteActividad && (
+        <ModalActividadDocente
+          db={db} docente={docenteActividad} alumnosGlobales={alumnosGlobales}
+          onClose={() => setDocenteActividad(null)} />
+      )}
+    </>
     );
   }
 
@@ -2462,7 +2473,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
   const enviarRecordatorio = async () => {
     const bim = getBimestreActivo();
     const mensaje = bim
-      ? `📅 Estimados colegas: les recordamos que el ${bim.bim}° Bimestre finaliza el ${bim.cierreStr}. Les solicitamos cumplimentar en tiempo y forma con la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`
+      ? `📅 Estimados colegas: les recordamos que el ${bim.bim}° Bimestre finaliza el ${bim.cierreStr}. Les solicitamos cumplimentar en tiempo y forma con la carga de calificaciones y documentación correspondiente. Recuerden que cada alumno debe contar con un MÍNIMO de 3 (tres) notas registradas por bimestre. Saludos, Dirección — Escuela Provincial N° 185 "Juan Areco".`
       : `📅 Estimados colegas: les recordamos que deben mantener al día la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`;
     setEnviando(true);
     try {
@@ -3589,9 +3600,130 @@ function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalifica
 }
 
 // ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Actividad Docente (para admin)
+// ════════════════════════════════════════════════════════
+function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
+  const [cargando, setCargando] = useState(true);
+  const [resumen, setResumen] = useState([]);
+
+  useEffect(() => {
+    const cargar = async () => {
+      const gradosDocente = docente.rol === 'docente_grado'
+        ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
+        : [];
+      const materiasDocente = docente.rol === 'docente_grado'
+        ? areas.curriculares
+        : (docente.materiasAsignadas || []).map(ma => ({ nombre: ma.nombre || ma }));
+
+      const gradosMaterias = docente.rol === 'docente_grado'
+        ? gradosDocente.flatMap(g => materiasDocente.map(m => ({ grado: g, materia: m.nombre })))
+        : (docente.materiasAsignadas || []).flatMap(ma => (ma.grados || []).map(g => ({ grado: g, materia: ma.nombre || ma })));
+
+      const resultados = await Promise.all(
+        gradosMaterias.map(async ({ grado, materia }) => {
+          const snap = await getDoc(doc(db, 'calificaciones', safeKey(`${materia}_${grado}`)));
+          const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
+          const totalAlumnos = (alumnosGlobales[grado] || []).length;
+          let totalNotas = 0;
+          let alumnosConNota = 0;
+          estudiantes.forEach(e => {
+            let notasEst = 0;
+            [1,2,3,4].forEach(bim => {
+              const bimData = e.bimestres?.[bim];
+              if (bimData) {
+                Object.values(bimData).forEach(v => { if (v && v !== '') notasEst++; });
+              }
+            });
+            if (notasEst > 0) alumnosConNota++;
+            totalNotas += notasEst;
+          });
+          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas };
+        })
+      );
+
+      setResumen(resultados.filter(r => r.totalAlumnos > 0));
+      setCargando(false);
+    };
+    cargar();
+  }, [db, docente]);
+
+  const totalNotasGlobal = resumen.reduce((a, r) => a + r.totalNotas, 0);
+  const materiasActivas = resumen.filter(r => r.totalNotas > 0).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+          <div>
+            <h3 className="text-lg font-bold text-white">📊 Actividad de {docente.nombre}</h3>
+            <p className="text-xs text-amber-100 font-semibold">
+              {docente.rol === 'docente_grado' ? 'Docente de Grado' : 'Área Especial'}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+        </div>
+
+        {cargando ? (
+          <div className="p-8 text-center text-gray-400 font-bold">Cargando actividad...</div>
+        ) : (
+          <>
+            <div className="px-6 py-4 grid grid-cols-2 gap-3 border-b bg-amber-50">
+              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
+                <p className="text-2xl font-black text-amber-600">{totalNotasGlobal}</p>
+                <p className="text-xs font-bold text-gray-500">Notas cargadas</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
+                <p className="text-2xl font-black text-amber-600">{materiasActivas}</p>
+                <p className="text-xs font-bold text-gray-500">Materias/grados activos</p>
+              </div>
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b">
+                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-500">Materia</th>
+                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Grado</th>
+                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Alumnos c/nota</th>
+                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Total notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumen.map((r, i) => (
+                    <tr key={i} className={`border-b ${r.totalNotas === 0 ? 'bg-red-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <td className="px-4 py-2.5 font-semibold text-gray-700 text-xs">{r.materia}</td>
+                      <td className="px-3 py-2.5 text-center font-bold text-gray-600 text-xs">{gradoLabel(r.grado)}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={`text-xs font-black ${r.alumnosConNota === r.totalAlumnos ? 'text-green-600' : r.alumnosConNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
+                          {r.alumnosConNota}/{r.totalAlumnos}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={`text-xs font-black ${r.totalNotas === 0 ? 'text-red-400' : 'text-gray-700'}`}>
+                          {r.totalNotas === 0 ? 'Sin notas' : r.totalNotas}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        <div className="px-5 py-4 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
@@ -3781,6 +3913,11 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                               onClick={() => onVerEntregas({ ...u })}
                               className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
                               📋 Entregas
+                            </button>
+                            <button
+                              onClick={() => onVerActividad({ ...u })}
+                              className="btn-primary flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
+                              📊 Actividad
                             </button>
                           </div>
                         </td>
