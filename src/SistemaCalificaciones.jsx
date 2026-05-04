@@ -1164,10 +1164,34 @@ export default function SistemaCalificaciones() {
 
   const toggleBloquearBimestre = async (bim) => {
     const bloqueando = !bimestresBlockeados[bim];
+
+    // Si está bloqueando (marcando completo), validar notas
+    if (bloqueando) {
+      const crits = criteriosPorBimestre[bim] || [];
+      if (crits.length === 0) {
+        await showAlert(`No podés marcar este bimestre como completo porque no hay criterios de evaluación cargados.`, 'warning', '⚠️ Sin criterios');
+        return;
+      }
+      // Verificar que todos los alumnos tengan todos los criterios completados
+      const alumnosSinNota = estActuales.filter(est => {
+        return crits.some((_, ci) => {
+          const campo = `n${ci + 1}`;
+          const val = est.bimestres?.[bim]?.[campo];
+          return !val || val === '';
+        });
+      });
+      if (alumnosSinNota.length > 0) {
+        await showAlert(
+          `No podés marcar este bimestre como completo porque hay ${alumnosSinNota.length} alumno${alumnosSinNota.length > 1 ? 's' : ''} sin nota:\n\n${alumnosSinNota.slice(0, 5).map(a => `• ${a.nombre}`).join('\n')}${alumnosSinNota.length > 5 ? `\n• ...y ${alumnosSinNota.length - 5} más` : ''}`,
+          'warning', '⚠️ Notas incompletas'
+        );
+        return;
+      }
+    }
+
     const nuevo = { ...bimestresBlockeados, [bim]: bloqueando };
     setBimestresBlockeados(nuevo);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevo }, { merge: true });
-    // Si está completando (bloqueando), disparar notificación a la directora
     if (bloqueando) {
       const nombreDoc = usuario?.nombre || '—';
       await setDoc(doc(collection(db, 'notificacionesBimestre')), {
@@ -1400,7 +1424,7 @@ export default function SistemaCalificaciones() {
               src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
               alt="Escuela Provincial N° 185"
               className="mx-auto mb-3 rounded-2xl shadow-md"
-              style={{ width: 190, height: 150, objectFit: 'cover' }}
+              style={{ width: 240, height: 150, objectFit: 'cover' }}
               onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }}
             />
             <div className="text-6xl mb-3" style={{ display: 'none' }}>🏫</div>
