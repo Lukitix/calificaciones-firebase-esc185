@@ -2477,7 +2477,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
       : `📅 Estimados colegas: les recordamos que deben mantener al día la carga de calificaciones y documentación correspondiente. Saludos, Dirección.`;
     setEnviando(true);
     try {
-      await setDoc(doc(collection(db, 'avisos')), {
+      await setDoc(doc(db, 'avisos', 'recordatorio_bimestre'), {
         texto: mensaje,
         fecha: new Date().toISOString(),
         fechaCorta: new Date().toLocaleDateString('es-AR'),
