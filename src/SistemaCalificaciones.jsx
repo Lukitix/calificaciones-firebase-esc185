@@ -1397,7 +1397,7 @@ export default function SistemaCalificaciones() {
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md fade-in">
           <div className="text-center mb-8">
             <img
-              src="https://drive.google.com/uc?export=view&id=1eBzd5BQpYtZFklxe8v5JmE9Iv-bHpfOh"
+              src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
               alt="Escuela Provincial N° 185"
               className="mx-auto mb-3 rounded-2xl shadow-md"
               style={{ width: 190, height: 150, objectFit: 'cover' }}
@@ -3258,40 +3258,30 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                     const filasBase = [0, 1, 2];
                     const extras = filasExtra[grupoKey] || 0;
                     const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 3 + i)];
-                    return [
-                      ...todasFilas.map(fila => (
-                        <tr key={`${g}-${fila}`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          {fila === 0 ? (
-                            <>
-                              <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={todasFilas.length + 1}>{gradoLabel(g)}</td>
-                              <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length + 1}>{docente.nombre}</td>
-                            </>
-                          ) : null}
-                          {fila >= 3 && (
-                            <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
-                              <button onClick={() => eliminarFila(grupoKey, fila)}
-                                className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
-                            </td>
-                          )}
-                          {fila < 3 && <td className="border border-gray-300" style={{ width: '28px' }} />}
-                          {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                            cols.map(col => {
-                              const keyStr = fila === 0 ? `${g}__${sec}__${col}` : `${g}_f${fila}__${sec}__${col}`;
-                              return <CeldaEditable key={keyStr} keyStr={keyStr} />;
-                            })
-                          )}
-                        </tr>
-                      )),
-                      <tr key={`${g}-add`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td colSpan={2 + Object.values(ESTRUCTURA_ENTREGAS).reduce((a, s) => a + s.cols.length, 0)}
-                          className="border border-gray-300 p-1 text-center">
-                          <button onClick={() => agregarFila(grupoKey)}
-                            className="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto transition-colors">
-                            <span className="text-base leading-none">＋</span> Agregar fila
-                          </button>
-                        </td>
+                    return todasFilas.map(fila => (
+                      <tr key={`${g}-${fila}`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        {fila === 0 ? (
+                          <>
+                            <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={todasFilas.length}>{gradoLabel(g)}</td>
+                            <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
+                          </>
+                        ) : null}
+                        {fila >= 3 ? (
+                          <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                            <button onClick={() => eliminarFila(grupoKey, fila)}
+                              className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
+                          </td>
+                        ) : (
+                          <td className="border border-gray-300" style={{ width: '28px' }} />
+                        )}
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                          cols.map(col => {
+                            const keyStr = fila === 0 ? `${g}__${sec}__${col}` : `${g}_f${fila}__${sec}__${col}`;
+                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                          })
+                        )}
                       </tr>
-                    ];
+                    ));
                   })
                 ) : (
                   (docente.materiasAsignadas || []).flatMap((ma, mai) => {
@@ -3299,57 +3289,75 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                     const filasBase = [0, 1, 2];
                     const extras = filasExtra[grupoKey] || 0;
                     const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 3 + i)];
-                    return [
-                      ...todasFilas.map(fila => (
-                        <tr key={`${mai}-${fila}`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          {fila === 0 ? (
-                            <>
-                              <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={todasFilas.length + 1}>
-                                <div>{ma.nombre || ma}</div>
-                                {ma.grados?.length > 0 && (
-                                  <div className="text-xs text-purple-600 font-semibold mt-1">{ma.grados.map(g => gradoLabel(g)).join(', ')}</div>
-                                )}
-                              </td>
-                              <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length + 1}>{docente.nombre}</td>
-                            </>
-                          ) : null}
-                          {fila >= 3 && (
-                            <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
-                              <button onClick={() => eliminarFila(grupoKey, fila)}
-                                className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
+                    return todasFilas.map(fila => (
+                      <tr key={`${mai}-${fila}`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        {fila === 0 ? (
+                          <>
+                            <td className="border border-gray-300 p-2 font-bold text-gray-700 text-sm text-center" rowSpan={todasFilas.length}>
+                              <div>{ma.nombre || ma}</div>
+                              {ma.grados?.length > 0 && (
+                                <div className="text-xs text-purple-600 font-semibold mt-1">{ma.grados.map(g => gradoLabel(g)).join(', ')}</div>
+                              )}
                             </td>
-                          )}
-                          {fila < 3 && <td className="border border-gray-300" style={{ width: '28px' }} />}
-                          {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                            cols.map(col => {
-                              const keyStr = fila === 0 ? `especial__${sec}__${col}` : `${grupoKey}_f${fila}__${sec}__${col}`;
-                              return <CeldaEditable key={keyStr} keyStr={keyStr} />;
-                            })
-                          )}
-                        </tr>
-                      )),
-                      <tr key={`${mai}-add`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td colSpan={2 + Object.values(ESTRUCTURA_ENTREGAS).reduce((a, s) => a + s.cols.length, 0)}
-                          className="border border-gray-300 p-1 text-center">
-                          <button onClick={() => agregarFila(grupoKey)}
-                            className="text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1 mx-auto transition-colors">
-                            <span className="text-base leading-none">＋</span> Agregar fila
-                          </button>
-                        </td>
+                            <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
+                          </>
+                        ) : null}
+                        {fila >= 3 ? (
+                          <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                            <button onClick={() => eliminarFila(grupoKey, fila)}
+                              className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
+                          </td>
+                        ) : (
+                          <td className="border border-gray-300" style={{ width: '28px' }} />
+                        )}
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
+                          cols.map(col => {
+                            const keyStr = fila === 0 ? `especial__${sec}__${col}` : `${grupoKey}_f${fila}__${sec}__${col}`;
+                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                          })
+                        )}
                       </tr>
-                    ];
+                    ));
                   })
                 )}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex items-center justify-between flex-wrap gap-3">
             <p className="text-xs text-gray-400 font-semibold">💡 Escribí la fecha en cada celda y se guarda automáticamente al salir del campo</p>
-            <button onClick={onVolver}
-              className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">
-              ← Volver
-            </button>
+            <div className="flex items-center gap-2">
+              {docente.rol === 'docente_grado' && gradosDocente.length === 1 && (
+                <button onClick={() => agregarFila(gradosDocente[0])}
+                  className="px-4 py-2 rounded-xl bg-green-100 text-green-800 font-bold text-sm hover:bg-green-200 transition-all flex items-center gap-1 border-2 border-green-200">
+                  ＋ Agregar fila
+                </button>
+              )}
+              {docente.rol === 'docente_grado' && gradosDocente.length > 1 && (
+                <select defaultValue="" onChange={e => { if (e.target.value) { agregarFila(e.target.value); e.target.value = ''; }}}
+                  className="px-3 py-2 rounded-xl bg-green-100 text-green-800 font-bold text-sm border-2 border-green-200 cursor-pointer">
+                  <option value="">＋ Agregar fila a...</option>
+                  {gradosDocente.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
+                </select>
+              )}
+              {docente.rol === 'area_especial' && (docente.materiasAsignadas || []).length === 1 && (
+                <button onClick={() => agregarFila('esp0')}
+                  className="px-4 py-2 rounded-xl bg-green-100 text-green-800 font-bold text-sm hover:bg-green-200 transition-all flex items-center gap-1 border-2 border-green-200">
+                  ＋ Agregar fila
+                </button>
+              )}
+              {docente.rol === 'area_especial' && (docente.materiasAsignadas || []).length > 1 && (
+                <select defaultValue="" onChange={e => { if (e.target.value !== '') { agregarFila(`esp${e.target.value}`); e.target.value = ''; }}}
+                  className="px-3 py-2 rounded-xl bg-green-100 text-green-800 font-bold text-sm border-2 border-green-200 cursor-pointer">
+                  <option value="">＋ Agregar fila a...</option>
+                  {(docente.materiasAsignadas || []).map((ma, i) => <option key={i} value={i}>{ma.nombre || ma}</option>)}
+                </select>
+              )}
+              <button onClick={onVolver}
+                className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">
+                ← Volver
+              </button>
+            </div>
           </div>
         </div>
       </div>
