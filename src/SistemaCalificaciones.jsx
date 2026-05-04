@@ -1795,13 +1795,13 @@ export default function SistemaCalificaciones() {
                 {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 "Juan Areco" — Oberá, Misiones — Ciclo Lectivo 2026</span>)}
               </div>
             </div>
-            <div className="relative text-center mb-8">
+            <div className="md:relative text-center mb-8">
               {usuario?.rol === 'administrador' && (() => {
                 const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
                 const solicitudesCount = solicitudes.length;
                 const badge = notifsNoLeidas + solicitudesCount;
                 return (
-                  <div className="absolute top-0 right-0">
+                  <div className="md:absolute md:top-0 md:right-0 flex justify-center mt-4 md:mt-0">
                     <div className="relative">
                       <button onClick={() => setMenuAcciones(v => !v)}
                         className="flex items-center gap-2 bg-white border-2 border-purple-200 hover:bg-purple-50 transition-all px-4 py-2.5 rounded-2xl shadow-sm">
@@ -1847,7 +1847,7 @@ export default function SistemaCalificaciones() {
               {usuario?.rol !== 'administrador' && (() => {
                 const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
                 return (
-                  <div className="absolute top-0 right-0 flex flex-col gap-2 items-end">
+                  <div className="md:absolute md:top-0 md:right-0 flex flex-row md:flex-col flex-wrap gap-2 justify-center md:items-end mt-4 md:mt-0">
                     <button onClick={() => setShowModalMensajes(true)}
                       className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
                       <span className="text-xl">✉️</span>
