@@ -3625,12 +3625,14 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
           let totalNotas = 0;
           let alumnosConNota = 0;
           let ultimoBimConNotas = 0;
+          const alumnosPorBim = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
           estudiantes.forEach(e => {
             let notasEst = 0;
             [1,2,3,4].forEach(bim => {
               if (e.bimestres?.[bim]?.nota) {
                 notasEst++;
+                alumnosPorBim[bim]++;
                 if (bim > ultimoBimConNotas) ultimoBimConNotas = bim;
               }
             });
@@ -3638,11 +3640,13 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
             totalNotas += notasEst;
           });
 
-          // % completitud = notas cargadas / (totalAlumnos × 4 bimestres)
-          const maxPosible = totalAlumnos * 4;
-          const pct = maxPosible > 0 ? Math.round((totalNotas / maxPosible) * 100) : 0;
+          // % completitud por bimestre activo
+          const hoyLocal = new Date(); hoyLocal.setHours(0,0,0,0);
+          const bimAct = CIERRES_BIMESTRE.find(b => hoyLocal >= b.inicio && hoyLocal <= b.cierre);
+          const bimRef = bimAct ? bimAct.bim : ultimoBimConNotas;
+          const pct = totalAlumnos > 0 ? Math.round(((alumnosPorBim[bimRef] || 0) / totalAlumnos) * 100) : 0;
 
-          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas, ultimoBimConNotas, pct };
+          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas, ultimoBimConNotas, pct, alumnosPorBim };
         })
       );
 
@@ -3653,9 +3657,18 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
   }, [db, docente]);
 
   const totalNotasGlobal = resumen.reduce((a, r) => a + r.totalNotas, 0);
-  const materiasActivas = resumen.filter(r => r.totalNotas > 0).length;
-  const maxPosibleGlobal = resumen.reduce((a, r) => a + r.totalAlumnos * 4, 0);
-  const pctGlobal = maxPosibleGlobal > 0 ? Math.round((totalNotasGlobal / maxPosibleGlobal) * 100) : 0;
+  const gradosActivos = resumen.filter(r => r.totalNotas > 0).length;
+
+  // Bimestre activo según fechas
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const bimActivo = CIERRES_BIMESTRE.find(b => hoy >= b.inicio && hoy <= b.cierre);
+  const bimParaCompletitud = bimActivo ? bimActivo.bim : ultimoBimGlobal;
+
+  // Completitud = alumnos con nota en el bimestre activo / total alumnos
+  const totalAlumnosGlobal = resumen.reduce((a, r) => a + r.totalAlumnos, 0);
+  const alumnosConNotaEnBimActivo = resumen.reduce((a, r) => a + (r.alumnosPorBim?.[bimParaCompletitud] || 0), 0);
+  const pctGlobal = totalAlumnosGlobal > 0 ? Math.round((alumnosConNotaEnBimActivo / totalAlumnosGlobal) * 100) : 0;
+
   const ultimoBimGlobal = resumen.reduce((a, r) => Math.max(a, r.ultimoBimConNotas), 0);
 
   const asignaturaDocente = docente.rol === 'area_especial'
@@ -3691,18 +3704,18 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
                 <p className="text-[10px] font-bold text-gray-500">Notas cargadas</p>
               </div>
               <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black text-amber-600">{materiasActivas}</p>
-                <p className="text-[10px] font-bold text-gray-500">Áreas activas</p>
+                <p className="text-xl font-black text-amber-600">{gradosActivos}</p>
+                <p className="text-[10px] font-bold text-gray-500">Grados activos</p>
               </div>
               <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black text-amber-600">{ultimoBimGlobal > 0 ? `${ultimoBimGlobal}°` : '—'}</p>
-                <p className="text-[10px] font-bold text-gray-500">Último bimestre</p>
+                <p className="text-xl font-black text-amber-600">{bimParaCompletitud > 0 ? `${bimParaCompletitud}°` : '—'}</p>
+                <p className="text-[10px] font-bold text-gray-500">{bimActivo ? 'Bimestre en curso' : 'Último bimestre'}</p>
               </div>
               <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
                 <p className="text-xl font-black" style={{ color: pctGlobal >= 75 ? '#16a34a' : pctGlobal >= 40 ? '#d97706' : '#dc2626' }}>
                   {pctGlobal}%
                 </p>
-                <p className="text-[10px] font-bold text-gray-500">Completitud</p>
+                <p className="text-[10px] font-bold text-gray-500">Completitud {bimParaCompletitud > 0 ? `${bimParaCompletitud}° Bim.` : ''}</p>
               </div>
             </div>
 
@@ -3746,7 +3759,9 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
           </>
         )}
         <div className="px-5 py-4 border-t bg-gray-50">
-          <p className="text-[10px] text-gray-400 text-center mb-2">1 nota = promedio de bimestre cargado · Máximo: {resumen.reduce((a,r) => a + r.totalAlumnos, 0)} alumnos × 4 bimestres</p>
+          <p className="text-[10px] text-gray-400 text-center mb-2">
+            Completitud = alumnos con nota en el {bimParaCompletitud > 0 ? `${bimParaCompletitud}° Bimestre` : 'bimestre activo'} · 1 nota = 1 bimestre cargado
+          </p>
           <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
         </div>
       </div>
