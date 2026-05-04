@@ -3608,36 +3608,41 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 
   useEffect(() => {
     const cargar = async () => {
-      const gradosDocente = docente.rol === 'docente_grado'
-        ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
-        : [];
-      const materiasDocente = docente.rol === 'docente_grado'
-        ? areas.curriculares
-        : (docente.materiasAsignadas || []).map(ma => ({ nombre: ma.nombre || ma }));
-
       const gradosMaterias = docente.rol === 'docente_grado'
-        ? gradosDocente.flatMap(g => materiasDocente.map(m => ({ grado: g, materia: m.nombre })))
-        : (docente.materiasAsignadas || []).flatMap(ma => (ma.grados || []).map(g => ({ grado: g, materia: ma.nombre || ma })));
+        ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
+            .flatMap(g => areas.curriculares.map(m => ({ grado: g, materia: m.nombre })))
+        : (docente.materiasAsignadas || []).flatMap(ma =>
+            (ma.grados || []).map(g => ({ grado: g, materia: ma.nombre || ma }))
+          );
 
       const resultados = await Promise.all(
         gradosMaterias.map(async ({ grado, materia }) => {
           const snap = await getDoc(doc(db, 'calificaciones', safeKey(`${materia}_${grado}`)));
           const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
           const totalAlumnos = (alumnosGlobales[grado] || []).length;
+
+          // Contar 1 nota por bimestre por alumno (si tiene nota de bimestre = 1 nota)
           let totalNotas = 0;
           let alumnosConNota = 0;
+          let ultimoBimConNotas = 0;
+
           estudiantes.forEach(e => {
             let notasEst = 0;
             [1,2,3,4].forEach(bim => {
-              const bimData = e.bimestres?.[bim];
-              if (bimData) {
-                Object.values(bimData).forEach(v => { if (v && v !== '') notasEst++; });
+              if (e.bimestres?.[bim]?.nota) {
+                notasEst++;
+                if (bim > ultimoBimConNotas) ultimoBimConNotas = bim;
               }
             });
             if (notasEst > 0) alumnosConNota++;
             totalNotas += notasEst;
           });
-          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas };
+
+          // % completitud = notas cargadas / (totalAlumnos × 4 bimestres)
+          const maxPosible = totalAlumnos * 4;
+          const pct = maxPosible > 0 ? Math.round((totalNotas / maxPosible) * 100) : 0;
+
+          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas, ultimoBimConNotas, pct };
         })
       );
 
@@ -3649,6 +3654,13 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 
   const totalNotasGlobal = resumen.reduce((a, r) => a + r.totalNotas, 0);
   const materiasActivas = resumen.filter(r => r.totalNotas > 0).length;
+  const maxPosibleGlobal = resumen.reduce((a, r) => a + r.totalAlumnos * 4, 0);
+  const pctGlobal = maxPosibleGlobal > 0 ? Math.round((totalNotasGlobal / maxPosibleGlobal) * 100) : 0;
+  const ultimoBimGlobal = resumen.reduce((a, r) => Math.max(a, r.ultimoBimConNotas), 0);
+
+  const asignaturaDocente = docente.rol === 'area_especial'
+    ? (docente.materiasAsignadas?.[0]?.nombre || docente.materiasAsignadas?.[0] || '')
+    : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -3660,7 +3672,9 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
           <div>
             <h3 className="text-lg font-bold text-white">📊 Actividad de {docente.nombre}</h3>
             <p className="text-xs text-amber-100 font-semibold">
-              {docente.rol === 'docente_grado' ? 'Docente de Grado' : 'Área Especial'}
+              {docente.rol === 'docente_grado'
+                ? 'Docente de Grado'
+                : `Área Especial${asignaturaDocente ? ` — ${asignaturaDocente}` : ''}`}
             </p>
           </div>
           <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
@@ -3670,30 +3684,44 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
           <div className="p-8 text-center text-gray-400 font-bold">Cargando actividad...</div>
         ) : (
           <>
-            <div className="px-6 py-4 grid grid-cols-2 gap-3 border-b bg-amber-50">
-              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
-                <p className="text-2xl font-black text-amber-600">{totalNotasGlobal}</p>
-                <p className="text-xs font-bold text-gray-500">Notas cargadas</p>
+            {/* Resumen global */}
+            <div className="px-6 py-4 grid grid-cols-4 gap-2 border-b bg-amber-50">
+              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
+                <p className="text-xl font-black text-amber-600">{totalNotasGlobal}</p>
+                <p className="text-[10px] font-bold text-gray-500">Notas cargadas</p>
               </div>
-              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
-                <p className="text-2xl font-black text-amber-600">{materiasActivas}</p>
-                <p className="text-xs font-bold text-gray-500">Materias/grados activos</p>
+              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
+                <p className="text-xl font-black text-amber-600">{materiasActivas}</p>
+                <p className="text-[10px] font-bold text-gray-500">Áreas activas</p>
+              </div>
+              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
+                <p className="text-xl font-black text-amber-600">{ultimoBimGlobal > 0 ? `${ultimoBimGlobal}°` : '—'}</p>
+                <p className="text-[10px] font-bold text-gray-500">Último bimestre</p>
+              </div>
+              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
+                <p className="text-xl font-black" style={{ color: pctGlobal >= 75 ? '#16a34a' : pctGlobal >= 40 ? '#d97706' : '#dc2626' }}>
+                  {pctGlobal}%
+                </p>
+                <p className="text-[10px] font-bold text-gray-500">Completitud</p>
               </div>
             </div>
+
+            {/* Tabla detalle */}
             <div className="max-h-72 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-2 text-left text-xs font-bold text-gray-500">Materia</th>
+                    <th className="px-4 py-2 text-center text-xs font-bold text-gray-500">Materia</th>
                     <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Grado</th>
                     <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Alumnos c/nota</th>
-                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Total notas</th>
+                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Notas</th>
+                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Completitud</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resumen.map((r, i) => (
                     <tr key={i} className={`border-b ${r.totalNotas === 0 ? 'bg-red-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      <td className="px-4 py-2.5 font-semibold text-gray-700 text-xs">{r.materia}</td>
+                      <td className="px-4 py-2.5 font-semibold text-gray-700 text-xs text-center">{r.materia}</td>
                       <td className="px-3 py-2.5 text-center font-bold text-gray-600 text-xs">{gradoLabel(r.grado)}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className={`text-xs font-black ${r.alumnosConNota === r.totalAlumnos ? 'text-green-600' : r.alumnosConNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
@@ -3705,6 +3733,11 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
                           {r.totalNotas === 0 ? 'Sin notas' : r.totalNotas}
                         </span>
                       </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className={`text-xs font-black ${r.pct >= 75 ? 'text-green-600' : r.pct >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                          {r.pct}%
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -3713,6 +3746,7 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
           </>
         )}
         <div className="px-5 py-4 border-t bg-gray-50">
+          <p className="text-[10px] text-gray-400 text-center mb-2">1 nota = promedio de bimestre cargado · Máximo: {resumen.reduce((a,r) => a + r.totalAlumnos, 0)} alumnos × 4 bimestres</p>
           <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
         </div>
       </div>
