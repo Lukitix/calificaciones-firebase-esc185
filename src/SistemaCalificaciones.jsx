@@ -641,6 +641,45 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
   }
 }
 
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Chip de criterio con renombrado inline
+// ════════════════════════════════════════════════════════
+function CriterioChip({ nombre, bloqueado, onEliminar, onRenombrar }) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(nombre);
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editando) inputRef.current?.focus(); }, [editando]);
+  useEffect(() => { setTexto(nombre); }, [nombre]);
+
+  const confirmar = () => {
+    setEditando(false);
+    onRenombrar(texto);
+  };
+
+  return (
+    <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
+      {editando ? (
+        <input ref={inputRef} type="text" value={texto}
+          onChange={e => setTexto(e.target.value)}
+          onBlur={confirmar}
+          onKeyDown={e => { if (e.key === 'Enter') confirmar(); if (e.key === 'Escape') { setTexto(nombre); setEditando(false); } }}
+          className="text-xs font-bold text-gray-700 bg-white border border-amber-400 rounded px-1 outline-none w-32" />
+      ) : (
+        <span className="text-xs font-bold text-gray-700">{nombre}</span>
+      )}
+      {!bloqueado && !editando && (
+        <button onClick={() => setEditando(true)} className="text-amber-400 hover:text-amber-600 transition-colors ml-0.5" title="Renombrar">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      )}
+      {!bloqueado && (
+        <button onClick={onEliminar} className="text-red-400 hover:text-red-600 transition-colors ml-0.5"><X size={11} /></button>
+      )}
+    </div>
+  );
+}
+
 function DocenteACargo({ materia, grado, todosUsuarios }) {
   const docente = todosUsuarios.find(u =>
     (u.rol === 'docente_grado' && (u.gradosAsignados?.includes(grado) || u.gradoAsignado === grado)) ||
@@ -1221,6 +1260,15 @@ export default function SistemaCalificaciones() {
       return;
     }
     const nuevos = { ...criteriosPorBimestre, [bimestre]: [...(criteriosPorBimestre[bimestre] || []), c.trim()] };
+    setCriteriosPorBimestre(nuevos);
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
+  };
+
+  const renombrarCriterio = async (bimestre, indexCrit, nuevoNombre) => {
+    if (!nuevoNombre.trim() || nuevoNombre.trim() === criteriosPorBimestre[bimestre][indexCrit]) return;
+    const nuevos = { ...criteriosPorBimestre };
+    nuevos[bimestre] = [...nuevos[bimestre]];
+    nuevos[bimestre][indexCrit] = nuevoNombre.trim();
     setCriteriosPorBimestre(nuevos);
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
   };
@@ -2161,12 +2209,9 @@ export default function SistemaCalificaciones() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {criteriosPorBimestre[bim].map((c, i) => (
-                        <div key={i} className="flex items-center gap-1 bg-amber-50 border border-amber-300 px-3 py-1 rounded-lg">
-                          <span className="text-xs font-bold text-gray-700">{c}</span>
-                          {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
-                            <button onClick={() => eliminarCriterio(bim, c)} className="text-red-400 hover:text-red-600 transition-colors ml-1"><X size={12} /></button>
-                          )}
-                        </div>
+                        <CriterioChip key={i} nombre={c} bloqueado={!!bimestresBlockeados[bim] || usuario?.rol === 'administrador'}
+                          onEliminar={() => eliminarCriterio(bim, c)}
+                          onRenombrar={(nuevoNombre) => renombrarCriterio(bim, i, nuevoNombre)} />
                       ))}
                     </div>
                   )}
@@ -2748,10 +2793,14 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
           {/* Grados por materia — área especial */}
           {usuario?.rol === 'area_especial' && (
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados por materia</label>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Materia asignada</label>
+              <div className="mb-3 bg-gray-50 border-2 border-gray-100 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-700">{materiasAsignadas.map(ma => ma.nombre || ma).join(', ')}</span>
+                <span className="text-xs text-gray-400 ml-auto">(solo la directora puede modificarla)</span>
+              </div>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-2">Grados a cargo</label>
               {materiasAsignadas.map(ma => (
                 <div key={ma.nombre} className="mb-4 border-2 border-gray-100 rounded-xl p-3">
-                  <p className="font-bold text-gray-800 text-sm mb-2">{ma.nombre}</p>
                   <div className="grid grid-cols-4 gap-1">
                     {grados.map(g => (
                       <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-gray-50 rounded p-1 cursor-pointer">
