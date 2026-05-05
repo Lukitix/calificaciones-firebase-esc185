@@ -2126,7 +2126,13 @@ export default function SistemaCalificaciones() {
           </div>
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-4">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
+            <p className="text-sm text-gray-600 mb-3">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
+            <div className="mb-4 bg-red-50 border-2 border-red-300 rounded-xl px-4 py-3 flex items-start gap-2">
+              <span className="text-red-500 text-lg flex-shrink-0 mt-0.5">⚠️</span>
+              <p className="text-xs font-semibold text-red-700 leading-relaxed">
+                <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la materia (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta, actitud o modales</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[1, 2, 3, 4].map(bim => (
                 <div key={bim} className={`bg-white border-2 rounded-xl p-4 ${bimestresBlockeados[bim] ? 'border-red-200 bg-red-50' : 'border-amber-100'}`}>
@@ -3602,175 +3608,6 @@ function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalifica
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Actividad Docente (para admin)
 // ════════════════════════════════════════════════════════
-function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
-  const [cargando, setCargando] = useState(true);
-  const [resumen, setResumen] = useState([]);
-
-  useEffect(() => {
-    const cargar = async () => {
-      const gradosMaterias = docente.rol === 'docente_grado'
-        ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
-            .flatMap(g => areas.curriculares.map(m => ({ grado: g, materia: m.nombre })))
-        : (docente.materiasAsignadas || []).flatMap(ma =>
-            (ma.grados || []).map(g => ({ grado: g, materia: ma.nombre || ma }))
-          );
-
-      const resultados = await Promise.all(
-        gradosMaterias.map(async ({ grado, materia }) => {
-          const snap = await getDoc(doc(db, 'calificaciones', safeKey(`${materia}_${grado}`)));
-          const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
-          const totalAlumnos = (alumnosGlobales[grado] || []).length;
-
-          // Contar 1 nota por bimestre por alumno (si tiene nota de bimestre = 1 nota)
-          let totalNotas = 0;
-          let alumnosConNota = 0;
-          let ultimoBimConNotas = 0;
-          const alumnosPorBim = { 1: 0, 2: 0, 3: 0, 4: 0 };
-
-          estudiantes.forEach(e => {
-            let notasEst = 0;
-            [1,2,3,4].forEach(bim => {
-              if (e.bimestres?.[bim]?.nota) {
-                notasEst++;
-                alumnosPorBim[bim]++;
-                if (bim > ultimoBimConNotas) ultimoBimConNotas = bim;
-              }
-            });
-            if (notasEst > 0) alumnosConNota++;
-            totalNotas += notasEst;
-          });
-
-          // % completitud por bimestre activo
-          const hoyLocal = new Date(); hoyLocal.setHours(0,0,0,0);
-          const bimAct = CIERRES_BIMESTRE.find(b => hoyLocal >= b.inicio && hoyLocal <= b.cierre);
-          const bimRef = bimAct ? bimAct.bim : ultimoBimConNotas;
-          const pct = totalAlumnos > 0 ? Math.round(((alumnosPorBim[bimRef] || 0) / totalAlumnos) * 100) : 0;
-
-          return { grado, materia, totalAlumnos, alumnosConNota, totalNotas, ultimoBimConNotas, pct, alumnosPorBim };
-        })
-      );
-
-      setResumen(resultados.filter(r => r.totalAlumnos > 0));
-      setCargando(false);
-    };
-    cargar();
-  }, [db, docente]);
-
-  const totalNotasGlobal = resumen.reduce((a, r) => a + r.totalNotas, 0);
-  const gradosActivos = resumen.filter(r => r.totalNotas > 0).length;
-
-  // Bimestre activo según fechas
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const bimActivo = CIERRES_BIMESTRE.find(b => hoy >= b.inicio && hoy <= b.cierre);
-  const bimParaCompletitud = bimActivo ? bimActivo.bim : ultimoBimGlobal;
-
-  // Completitud = alumnos con nota en el bimestre activo / total alumnos
-  const totalAlumnosGlobal = resumen.reduce((a, r) => a + r.totalAlumnos, 0);
-  const alumnosConNotaEnBimActivo = resumen.reduce((a, r) => a + (r.alumnosPorBim?.[bimParaCompletitud] || 0), 0);
-  const pctGlobal = totalAlumnosGlobal > 0 ? Math.round((alumnosConNotaEnBimActivo / totalAlumnosGlobal) * 100) : 0;
-
-  const ultimoBimGlobal = resumen.reduce((a, r) => Math.max(a, r.ultimoBimConNotas), 0);
-
-  const asignaturaDocente = docente.rol === 'area_especial'
-    ? (docente.materiasAsignadas?.[0]?.nombre || docente.materiasAsignadas?.[0] || '')
-    : '';
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
-        <div className="px-6 py-4 flex items-center justify-between border-b"
-          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-          <div>
-            <h3 className="text-lg font-bold text-white">📊 Actividad de {docente.nombre}</h3>
-            <p className="text-xs text-amber-100 font-semibold">
-              {docente.rol === 'docente_grado'
-                ? 'Docente de Grado'
-                : `Área Especial${asignaturaDocente ? ` — ${asignaturaDocente}` : ''}`}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
-        </div>
-
-        {cargando ? (
-          <div className="p-8 text-center text-gray-400 font-bold">Cargando actividad...</div>
-        ) : (
-          <>
-            {/* Resumen global */}
-            <div className="px-6 py-4 grid grid-cols-4 gap-2 border-b bg-amber-50">
-              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black text-amber-600">{totalNotasGlobal}</p>
-                <p className="text-[10px] font-bold text-gray-500">Notas cargadas</p>
-              </div>
-              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black text-amber-600">{gradosActivos}</p>
-                <p className="text-[10px] font-bold text-gray-500">Grados activos</p>
-              </div>
-              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black text-amber-600">{bimParaCompletitud > 0 ? `${bimParaCompletitud}°` : '—'}</p>
-                <p className="text-[10px] font-bold text-gray-500">{bimActivo ? 'Bimestre en curso' : 'Último bimestre'}</p>
-              </div>
-              <div className="bg-white rounded-xl p-2.5 text-center border-2 border-amber-100">
-                <p className="text-xl font-black" style={{ color: pctGlobal >= 75 ? '#16a34a' : pctGlobal >= 40 ? '#d97706' : '#dc2626' }}>
-                  {pctGlobal}%
-                </p>
-                <p className="text-[10px] font-bold text-gray-500">Completitud {bimParaCompletitud > 0 ? `${bimParaCompletitud}° Bim.` : ''}</p>
-              </div>
-            </div>
-
-            {/* Tabla detalle */}
-            <div className="max-h-72 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-2 text-center text-xs font-bold text-gray-500">Materia</th>
-                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Grado</th>
-                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Alumnos c/nota</th>
-                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Notas</th>
-                    <th className="px-3 py-2 text-center text-xs font-bold text-gray-500">Completitud</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resumen.map((r, i) => (
-                    <tr key={i} className={`border-b ${r.totalNotas === 0 ? 'bg-red-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      <td className="px-4 py-2.5 font-semibold text-gray-700 text-xs text-center">{r.materia}</td>
-                      <td className="px-3 py-2.5 text-center font-bold text-gray-600 text-xs">{gradoLabel(r.grado)}</td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`text-xs font-black ${r.alumnosConNota === r.totalAlumnos ? 'text-green-600' : r.alumnosConNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
-                          {r.alumnosConNota}/{r.totalAlumnos}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`text-xs font-black ${r.totalNotas === 0 ? 'text-red-400' : 'text-gray-700'}`}>
-                          {r.totalNotas === 0 ? 'Sin notas' : r.totalNotas}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`text-xs font-black ${r.pct >= 75 ? 'text-green-600' : r.pct >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
-                          {r.pct}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-        <div className="px-5 py-4 border-t bg-gray-50">
-          <p className="text-[10px] text-gray-400 text-center mb-2">
-            Completitud = alumnos con nota en el {bimParaCompletitud > 0 ? `${bimParaCompletitud}° Bimestre` : 'bimestre activo'} · 1 nota = 1 bimestre cargado
-          </p>
-          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════
-// COMPONENTE SEPARADO: Gestión de Docentes
 // ════════════════════════════════════════════════════════
 function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
