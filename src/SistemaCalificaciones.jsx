@@ -2129,7 +2129,7 @@ export default function SistemaCalificaciones() {
             <p className="text-sm text-gray-600 mb-3">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
             <div className="mb-4 bg-red-50 border-2 border-red-300 rounded-xl px-4 py-3 flex items-start gap-2">
               <span className="text-red-500 text-lg flex-shrink-0 mt-0.5">⚠️</span>
-              <p className="text-xs font-semibold text-red-700 leading-relaxed">
+              <p className="text-sm font-semibold text-red-700 leading-relaxed">
                 <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la materia (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta, actitud o modales</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
               </p>
             </div>
@@ -3745,17 +3745,15 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
                             <p className="text-xs font-black text-gray-700 mb-2">{bim}° Bimestre</p>
                             <div className="space-y-1.5">
                               {data.crits.map((crit, ci) => (
-                                <div key={ci} className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-semibold text-gray-600 flex-1">• {crit.nombre}</span>
-                                  <div className="flex items-center gap-2 flex-shrink-0">
-                                    <div className="w-20 bg-gray-200 rounded-full h-1.5">
-                                      <div className="h-1.5 rounded-full"
-                                        style={{ width: `${Math.round((crit.conNota / crit.total) * 100)}%`, backgroundColor: crit.conNota === crit.total ? '#16a34a' : crit.conNota === 0 ? '#dc2626' : '#d97706' }} />
-                                    </div>
-                                    <span className={`text-xs font-black w-10 text-right ${crit.conNota === crit.total ? 'text-green-600' : crit.conNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
-                                      {crit.conNota}/{crit.total}
-                                    </span>
+                                <div key={ci} className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-gray-600 w-48 flex-shrink-0">• {crit.nombre}</span>
+                                  <div className="w-20 bg-gray-200 rounded-full h-1.5 flex-shrink-0">
+                                    <div className="h-1.5 rounded-full"
+                                      style={{ width: `${Math.round((crit.conNota / crit.total) * 100)}%`, backgroundColor: crit.conNota === crit.total ? '#16a34a' : crit.conNota === 0 ? '#dc2626' : '#d97706' }} />
                                   </div>
+                                  <span className={`text-xs font-black w-10 text-right flex-shrink-0 ${crit.conNota === crit.total ? 'text-green-600' : crit.conNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
+                                    {crit.conNota}/{crit.total}
+                                  </span>
                                 </div>
                               ))}
                               {data.sinNota > 0 && (
