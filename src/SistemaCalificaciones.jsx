@@ -3579,16 +3579,39 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
             {/* Grados por materia — área especial */}
             {datos.rol === 'area_especial' && (
               <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-100">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-3">Materia(s) asignada(s)</label>
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {[...areas.especiales, ...areas.talleres].map(m => {
+                    const activa = datos.materiasAsignadas?.some(ma => (ma.nombre || ma) === m.nombre);
+                    return (
+                      <label key={m.nombre} className={`flex items-center gap-2 p-3 rounded-xl cursor-pointer border-2 transition-all ${activa ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200 hover:border-green-300'}`}>
+                        <input type="checkbox" className="accent-green-600 w-4 h-4"
+                          checked={activa}
+                          onChange={() => {
+                            setDatos(prev => {
+                              const actual = prev.materiasAsignadas || [];
+                              if (activa) {
+                                return { ...prev, materiasAsignadas: actual.filter(ma => (ma.nombre || ma) !== m.nombre) };
+                              } else {
+                                return { ...prev, materiasAsignadas: [...actual, { nombre: m.nombre, grados: [] }] };
+                              }
+                            });
+                          }} />
+                        <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
+                      </label>
+                    );
+                  })}
+                </div>
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block mb-3">Grados por materia</label>
                 {datos.materiasAsignadas?.map(ma => (
-                  <div key={ma.nombre} className="mb-4 bg-white border-2 border-gray-200 rounded-xl p-4">
-                    <p className="font-bold text-gray-800 text-sm mb-3">{ma.nombre}</p>
+                  <div key={ma.nombre || ma} className="mb-4 bg-white border-2 border-gray-200 rounded-xl p-4">
+                    <p className="font-bold text-gray-800 text-sm mb-3">{ma.nombre || ma}</p>
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                       {grados.map(g => (
                         <label key={g} className={`flex items-center gap-1 p-2 rounded-lg cursor-pointer border-2 transition-all text-xs font-semibold ${ma.grados?.includes(g) ? 'bg-green-100 border-green-400 text-green-800' : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-green-300'}`}>
                           <input type="checkbox" className="accent-green-600"
                             checked={ma.grados?.includes(g) || false}
-                            onChange={() => toggleGradoEspecial(ma.nombre, g)} />
+                            onChange={() => toggleGradoEspecial(ma.nombre || ma, g)} />
                           {gradoLabel(g)}
                         </label>
                       ))}
