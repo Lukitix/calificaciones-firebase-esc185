@@ -3593,7 +3593,9 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
                               if (activa) {
                                 return { ...prev, materiasAsignadas: actual.filter(ma => (ma.nombre || ma) !== m.nombre) };
                               } else {
-                                return { ...prev, materiasAsignadas: [...actual, { nombre: m.nombre, grados: [] }] };
+                                // Heredar grados de la primera materia existente
+                                const gradosHeredados = actual.length > 0 ? (actual[0].grados || []) : [];
+                                return { ...prev, materiasAsignadas: [...actual, { nombre: m.nombre, grados: gradosHeredados }] };
                               }
                             });
                           }} />
