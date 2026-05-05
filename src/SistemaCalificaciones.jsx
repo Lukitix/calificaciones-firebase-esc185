@@ -3608,6 +3608,178 @@ function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalifica
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Actividad Docente (para admin)
 // ════════════════════════════════════════════════════════
+function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
+  const [cargando, setCargando] = useState(true);
+  const [resumen, setResumen] = useState([]);
+  const [expandidos, setExpandidos] = useState({});
+
+  const toggleExpandido = (key) => setExpandidos(prev => ({ ...prev, [key]: !prev[key] }));
+
+  useEffect(() => {
+    const cargar = async () => {
+      const gradosMaterias = docente.rol === 'docente_grado'
+        ? (docente.gradosAsignados?.length > 0 ? docente.gradosAsignados : [docente.gradoAsignado].filter(Boolean))
+            .flatMap(g => areas.curriculares.map(m => ({ grado: g, materia: m.nombre })))
+        : (docente.materiasAsignadas || []).flatMap(ma =>
+            (ma.grados || []).map(g => ({ grado: g, materia: ma.nombre || ma }))
+          );
+
+      const hoyLocal = new Date(); hoyLocal.setHours(0,0,0,0);
+      const bimAct = CIERRES_BIMESTRE.find(b => hoyLocal >= b.inicio && hoyLocal <= b.cierre);
+
+      const resultados = await Promise.all(
+        gradosMaterias.map(async ({ grado, materia }) => {
+          const [snapCal, snapConf] = await Promise.all([
+            getDoc(doc(db, 'calificaciones', safeKey(`${materia}_${grado}`))),
+            getDoc(doc(db, 'configuracion', safeKey(`${materia}_${grado}`))),
+          ]);
+          const estudiantes = snapCal.exists() ? (snapCal.data().estudiantes || []) : [];
+          const criteriosPorBim = snapConf.exists() ? (snapConf.data().criterios || {}) : {};
+          const totalAlumnos = (alumnosGlobales[grado] || []).length;
+
+          const bimestresData = {};
+          [1,2,3,4].forEach(bim => {
+            const crits = criteriosPorBim[bim] || [];
+            if (crits.length === 0) return;
+            const critDetalles = crits.map((crit, ci) => {
+              const campo = `n${ci + 1}`;
+              const conNota = estudiantes.filter(e => {
+                const v = e.bimestres?.[bim]?.[campo];
+                return v && v !== '';
+              }).length;
+              return { nombre: crit, conNota, total: totalAlumnos };
+            });
+            const alumnosConPromedio = estudiantes.filter(e => e.bimestres?.[bim]?.nota).length;
+            const sinNota = totalAlumnos - alumnosConPromedio;
+            const tieneAlgunaNota = critDetalles.some(c => c.conNota > 0);
+            if (!tieneAlgunaNota) return;
+            bimestresData[bim] = { crits: critDetalles, alumnosConPromedio, sinNota, total: totalAlumnos };
+          });
+
+          const totalNotas = Object.values(bimestresData).reduce((a, b) => a + b.alumnosConPromedio, 0);
+          return { grado, materia, totalAlumnos, bimestresData, totalNotas };
+        })
+      );
+
+      const filtrados = resultados.filter(r => r.totalAlumnos > 0 && Object.keys(r.bimestresData).length > 0);
+      setResumen(filtrados);
+      if (filtrados.length > 0) setExpandidos({ [`${filtrados[0].materia}_${filtrados[0].grado}`]: true });
+      setCargando(false);
+    };
+    cargar();
+  }, [db, docente]);
+
+  const totalNotasGlobal = resumen.reduce((a, r) => a + r.totalNotas, 0);
+  const hoyLocal = new Date(); hoyLocal.setHours(0,0,0,0);
+  const bimActivo = CIERRES_BIMESTRE.find(b => hoyLocal >= b.inicio && hoyLocal <= b.cierre);
+  const pctGlobal = bimActivo
+    ? Math.round((resumen.reduce((a, r) => a + (r.bimestresData[bimActivo.bim]?.alumnosConPromedio || 0), 0) /
+        Math.max(1, resumen.reduce((a, r) => a + r.totalAlumnos, 0))) * 100)
+    : 0;
+  const asignaturaDocente = docente.rol === 'area_especial'
+    ? (docente.materiasAsignadas?.[0]?.nombre || docente.materiasAsignadas?.[0] || '') : '';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+          <div>
+            <h3 className="text-lg font-bold text-white">📊 Actividad de {docente.nombre}</h3>
+            <p className="text-xs text-amber-100 font-semibold">
+              {docente.rol === 'docente_grado' ? 'Docente de Grado' : `Área Especial${asignaturaDocente ? ` — ${asignaturaDocente}` : ''}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+        </div>
+        {cargando ? (
+          <div className="p-10 text-center">
+            <div className="text-4xl mb-3">⏳</div>
+            <p className="text-gray-500 font-bold">Cargando actividad...</p>
+            <p className="text-xs text-gray-400 mt-1">Esto puede tardar unos segundos</p>
+          </div>
+        ) : resumen.length === 0 ? (
+          <div className="p-10 text-center text-gray-400">
+            <p className="text-4xl mb-2">📭</p>
+            <p className="font-bold">Sin notas cargadas aún</p>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-4 grid grid-cols-3 gap-3 border-b bg-amber-50">
+              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
+                <p className="text-2xl font-black text-amber-600">{totalNotasGlobal}</p>
+                <p className="text-xs font-bold text-gray-500">Promedios cargados</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
+                <p className="text-2xl font-black text-amber-600">{resumen.length}</p>
+                <p className="text-xs font-bold text-gray-500">Grados activos</p>
+              </div>
+              <div className="bg-white rounded-xl p-3 text-center border-2 border-amber-100">
+                <p className="text-2xl font-black" style={{ color: pctGlobal >= 75 ? '#16a34a' : pctGlobal >= 40 ? '#d97706' : '#dc2626' }}>
+                  {bimActivo ? `${pctGlobal}%` : '—'}
+                </p>
+                <p className="text-xs font-bold text-gray-500">{bimActivo ? `Completitud ${bimActivo.bim}° Bim.` : 'Sin bimestre activo'}</p>
+              </div>
+            </div>
+            <div className="max-h-96 overflow-y-auto divide-y divide-gray-100">
+              {resumen.map((r) => {
+                const key = `${r.materia}_${r.grado}`;
+                const abierto = expandidos[key];
+                return (
+                  <div key={key}>
+                    <button onClick={() => toggleExpandido(key)}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors text-left">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-black text-gray-800">{r.materia}</span>
+                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{gradoLabel(r.grado)}</span>
+                        <span className="text-xs font-bold text-gray-500">{r.totalNotas} promedio{r.totalNotas !== 1 ? 's' : ''}</span>
+                      </div>
+                      <span className="text-gray-400 text-xs flex-shrink-0">{abierto ? '▲' : '▼'}</span>
+                    </button>
+                    {abierto && (
+                      <div className="px-5 pb-4 space-y-3">
+                        {Object.entries(r.bimestresData).map(([bim, data]) => (
+                          <div key={bim} className="bg-gray-50 rounded-xl p-3">
+                            <p className="text-xs font-black text-gray-700 mb-2">{bim}° Bimestre</p>
+                            <div className="space-y-1.5">
+                              {data.crits.map((crit, ci) => (
+                                <div key={ci} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-semibold text-gray-600 flex-1">• {crit.nombre}</span>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="w-20 bg-gray-200 rounded-full h-1.5">
+                                      <div className="h-1.5 rounded-full"
+                                        style={{ width: `${Math.round((crit.conNota / crit.total) * 100)}%`, backgroundColor: crit.conNota === crit.total ? '#16a34a' : crit.conNota === 0 ? '#dc2626' : '#d97706' }} />
+                                    </div>
+                                    <span className={`text-xs font-black w-10 text-right ${crit.conNota === crit.total ? 'text-green-600' : crit.conNota === 0 ? 'text-red-500' : 'text-amber-600'}`}>
+                                      {crit.conNota}/{crit.total}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              {data.sinNota > 0 && (
+                                <p className="text-xs font-bold text-red-500 mt-1.5">❌ {data.sinNota} alumno{data.sinNota !== 1 ? 's' : ''} sin promedio de bimestre</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        <div className="px-5 py-3 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════════════
 function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
