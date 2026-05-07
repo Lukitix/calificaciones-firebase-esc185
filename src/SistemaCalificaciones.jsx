@@ -1320,7 +1320,7 @@ export default function SistemaCalificaciones() {
   // ── Getters de roles ──
   const getMateriasDisponibles = () => {
     if (!usuario) return [];
-    if (usuario.rol === 'administrador') return [...areas.curriculares, ...areas.especiales, ...areas.talleres];
+    if (usuario.rol === 'administrador') return [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
     if (usuario.rol === 'docente_grado') return areas.curriculares.filter(m => usuario.materiasAsignadas.includes(m.nombre));
     if (usuario.rol === 'area_especial') return [...areas.especiales, ...areas.talleres].filter(m => usuario.materiasAsignadas.some(ma => ma.nombre === m.nombre));
     return [];
@@ -3350,7 +3350,6 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                 <tr>
                   <th className="border border-gray-300 bg-gray-100 p-2 text-center font-bold text-gray-700" style={{ minWidth: '90px' }}>Grado</th>
                   <th className="border border-gray-300 bg-gray-100 p-2 text-center font-bold text-gray-700" style={{ minWidth: '140px' }}>Docente</th>
-                  <th className="border border-gray-300 bg-gray-100 p-1" style={{ width: '28px' }}></th>
                   {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { label, cols, color }]) => (
                     <th key={sec} colSpan={cols.length}
                       className="border border-gray-300 p-2 text-center font-bold text-white"
@@ -3388,16 +3387,27 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
-                          {fila >= 2 && (
-                            <button onClick={() => eliminarFila(grupoKey, fila)}
-                              className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
-                          )}
-                        </td>
-                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                          cols.map(col => {
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }], si) =>
+                          cols.map((col, ci) => {
                             const keyStr = fila === 0 ? `${g}__${sec}__${col}` : `${g}_f${fila}__${sec}__${col}`;
-                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                            const isFirst = si === 0 && ci === 0;
+                            return (
+                              <td key={keyStr} className="border border-gray-300 p-0 relative">
+                                {isFirst && fila >= 2 && (
+                                  <button onClick={() => eliminarFila(grupoKey, fila)}
+                                    className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 text-red-400 hover:text-red-600 font-black text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-red-200">×</button>
+                                )}
+                                <input
+                                  type="text"
+                                  value={entregas[keyStr] || ''}
+                                  onChange={e => { const v = e.target.value; setEntregas(prev => ({ ...prev, [keyStr]: v })); }}
+                                  onBlur={e => actualizarCelda(keyStr, e.target.value)}
+                                  placeholder="—"
+                                  className={`w-full text-center font-bold py-1.5 px-1 outline-none transition-all ${entregas[keyStr] ? 'bg-green-50 text-green-700' : 'bg-white text-gray-300'}`}
+                                  style={{ minWidth: '64px', fontSize: '12px', lineHeight: '1.3' }}
+                                />
+                              </td>
+                            );
                           })
                         )}
                       </tr>
@@ -3422,16 +3432,27 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
-                          {fila >= 2 && (
-                            <button onClick={() => eliminarFila(grupoKey, fila)}
-                              className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
-                          )}
-                        </td>
-                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
-                          cols.map(col => {
+                        {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }], si) =>
+                          cols.map((col, ci) => {
                             const keyStr = fila === 0 ? `especial__${sec}__${col}` : `${grupoKey}_f${fila}__${sec}__${col}`;
-                            return <CeldaEditable key={keyStr} keyStr={keyStr} />;
+                            const isFirst = si === 0 && ci === 0;
+                            return (
+                              <td key={keyStr} className="border border-gray-300 p-0 relative">
+                                {isFirst && fila >= 2 && (
+                                  <button onClick={() => eliminarFila(grupoKey, fila)}
+                                    className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 text-red-400 hover:text-red-600 font-black text-xs bg-white rounded-full w-5 h-5 flex items-center justify-center shadow border border-red-200">×</button>
+                                )}
+                                <input
+                                  type="text"
+                                  value={entregas[keyStr] || ''}
+                                  onChange={e => { const v = e.target.value; setEntregas(prev => ({ ...prev, [keyStr]: v })); }}
+                                  onBlur={e => actualizarCelda(keyStr, e.target.value)}
+                                  placeholder="—"
+                                  className={`w-full text-center font-bold py-1.5 px-1 outline-none transition-all ${entregas[keyStr] ? 'bg-green-50 text-green-700' : 'bg-white text-gray-300'}`}
+                                  style={{ minWidth: '64px', fontSize: '12px', lineHeight: '1.3' }}
+                                />
+                              </td>
+                            );
                           })
                         )}
                       </tr>
