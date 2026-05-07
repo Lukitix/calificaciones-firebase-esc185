@@ -2056,6 +2056,24 @@ export default function SistemaCalificaciones() {
                 </div>
               </div>
             )}
+            {usuario?.rol === 'administrador' && (
+              <>
+                <div className="border-t-4 border-purple-100 my-8" />
+                <div className="mb-8">
+                  <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏫 Convivencia</h3>
+                  <div className="flex justify-center">
+                    {areas.convivencia.map(m => (
+                      <button key={m.nombre} onClick={() => abrirMateria(m)}
+                        className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
+                        style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: '2rem 3rem' }}>
+                        <span className="text-6xl">{m.icon}</span>
+                        <span className="font-extrabold text-center text-base">{m.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             {curricularesFilt.length === 0 && especielesFilt.length === 0 && talleresFilt.length === 0 && (
               <div className="text-center py-10 text-gray-400"><p className="text-5xl mb-3">📭</p><p className="font-bold text-lg">No tenés materias asignadas</p><p className="text-sm">Contactá al administrador del sistema</p></div>
             )}
