@@ -32,7 +32,7 @@ const areas = {
     { nombre: 'Formación Ética y Ciudadana', color1: '#ff6b9d', color2: '#c471ed', icon: '⚖️' },
   ],
   convivencia: [
-    { nombre: 'Convivencia', color1: '#f59e0b', color2: '#d97706', icon: '🤝', sinCriterios: true },
+    { nombre: 'Convivencia', color1: '#f59e0b', color2: '#d97706', icon: '🏫', sinCriterios: true },
   ],
   especiales: [
     { nombre: 'Educación Artística: Plástica', color1: '#fa709a', color2: '#fee140', icon: '🎨' },
@@ -2001,7 +2001,7 @@ export default function SistemaCalificaciones() {
             )}
             {usuario?.rol === 'docente_grado' && (
               <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🤝 Convivencia</h3>
+                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏫 Convivencia</h3>
                 <div className="flex justify-center">
                   {areas.convivencia.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
@@ -2246,7 +2246,7 @@ export default function SistemaCalificaciones() {
           )}
           {sinCriterios && (
             <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
-              <p className="text-sm font-semibold text-amber-800">🤝 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. No requiere criterios de evaluación.</p>
+              <p className="text-sm font-semibold text-amber-800">🏫 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. Esta sección refleja el desempeño en convivencia escolar, actitud y comportamiento, de forma separada a las áreas curriculares.</p>
             </div>
           )}
           {estActuales.length === 0 ? (
@@ -3236,7 +3236,7 @@ const ESTRUCTURA_ENTREGAS = {
   libretas: {
     label: 'Presentación de Libretas',
     color: '#f59e0b',
-    cols: ['1° Bim.', '2° Bim.', '3° Bim.', '4° Bim.']
+    cols: ['1° Bimestre', '2° Bimestre', '3° Bimestre', '4° Bimestre']
   },
   registros: {
     label: 'Registros',
@@ -3388,14 +3388,12 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        {fila >= 2 ? (
-                          <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                        <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                          {fila >= 2 && (
                             <button onClick={() => eliminarFila(grupoKey, fila)}
                               className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
-                          </td>
-                        ) : (
-                          <td className="border border-gray-300" style={{ width: '28px' }} />
-                        )}
+                          )}
+                        </td>
                         {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
                           cols.map(col => {
                             const keyStr = fila === 0 ? `${g}__${sec}__${col}` : `${g}_f${fila}__${sec}__${col}`;
@@ -3424,14 +3422,12 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        {fila >= 2 ? (
-                          <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                        <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
+                          {fila >= 2 && (
                             <button onClick={() => eliminarFila(grupoKey, fila)}
                               className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
-                          </td>
-                        ) : (
-                          <td className="border border-gray-300" style={{ width: '28px' }} />
-                        )}
+                          )}
+                        </td>
                         {Object.entries(ESTRUCTURA_ENTREGAS).map(([sec, { cols }]) =>
                           cols.map(col => {
                             const keyStr = fila === 0 ? `especial__${sec}__${col}` : `${grupoKey}_f${fila}__${sec}__${col}`;
