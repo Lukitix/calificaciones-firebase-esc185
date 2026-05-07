@@ -31,6 +31,9 @@ const areas = {
     { nombre: 'Ciencias Naturales', color1: '#43e97b', color2: '#38f9d7', icon: '🌿' },
     { nombre: 'Formación Ética y Ciudadana', color1: '#ff6b9d', color2: '#c471ed', icon: '⚖️' },
   ],
+  convivencia: [
+    { nombre: 'Convivencia', color1: '#f59e0b', color2: '#d97706', icon: '🤝', sinCriterios: true },
+  ],
   especiales: [
     { nombre: 'Educación Artística: Plástica', color1: '#fa709a', color2: '#fee140', icon: '🎨' },
     { nombre: 'Educación Física', color1: '#30cfd0', color2: '#330867', icon: '⚽' },
@@ -609,7 +612,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
 
       // ── Página 2: Áreas Especiales ──
       pdfDoc.addPage();
-      const especiales = [...areas.especiales, ...areas.talleres];
+      const especiales = [...areas.especiales, ...areas.talleres, ...areas.convivencia];
       const snapsEsp = await Promise.all(
         especiales.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
@@ -1996,6 +1999,21 @@ export default function SistemaCalificaciones() {
                 </div>
               </div>
             )}
+            {usuario?.rol === 'docente_grado' && (
+              <div className="mb-8">
+                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🤝 Convivencia</h3>
+                <div className="flex justify-center">
+                  {areas.convivencia.map(m => (
+                    <button key={m.nombre} onClick={() => abrirMateria(m)}
+                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: '2rem 3rem' }}>
+                      <span className="text-6xl">{m.icon}</span>
+                      <span className="font-extrabold text-center text-base">{m.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {curricularesFilt.length > 0 && especielesFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
             {especielesFilt.length > 0 && (
               <div className="mb-8">
@@ -2100,6 +2118,11 @@ export default function SistemaCalificaciones() {
   // ════════════════════════════════════════════════════════
   const gradosDisp = getGradosParaMateria(materia?.nombre || '');
   const soloLectura = usuario?.rol === 'administrador';
+  const sinCriterios = !!materia?.sinCriterios;
+  // Para Convivencia: inyectar un criterio automático invisible
+  const criteriosPorBimestreEfectivo = sinCriterios
+    ? { 1: ['Convivencia'], 2: ['Convivencia'], 3: ['Convivencia'], 4: ['Convivencia'] }
+    : criteriosPorBimestre;
   return (
     <>
       <style>{globalStyles}</style>
@@ -2172,6 +2195,7 @@ export default function SistemaCalificaciones() {
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Grado y división</p>
             <ChipsGrado lista={gradosDisp} seleccionado={grado} onChange={setGrado} />
           </div>
+          {!sinCriterios && (
           <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
             <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
             <p className="text-sm text-gray-600 mb-3">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
@@ -2219,6 +2243,12 @@ export default function SistemaCalificaciones() {
               ))}
             </div>
           </div>
+          )}
+          {sinCriterios && (
+            <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
+              <p className="text-sm font-semibold text-amber-800">🤝 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. No requiere criterios de evaluación.</p>
+            </div>
+          )}
           {estActuales.length === 0 ? (
             <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay estudiantes registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
@@ -2282,7 +2312,7 @@ export default function SistemaCalificaciones() {
                     const primerCiclo = esPrimerCiclo(grado);
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
                     const CeldaBimestre = ({ bim }) => {
-                      const crits = criteriosPorBimestre[bim] || [];
+                      const crits = criteriosPorBimestreEfectivo[bim] || [];
                       const bloqueado = bimestresBlockeados[bim];
                       const notaBim = e.bimestres?.[bim]?.nota || '';
                       return (
@@ -2298,10 +2328,12 @@ export default function SistemaCalificaciones() {
                                 const mostrar = primerCiclo && val !== '' ? abrevConceptual(val) : (val || '');
                                 return (
                                   <div key={idx} className="flex flex-col items-center gap-0.5">
-                                    <span className="text-center font-bold text-gray-800 leading-snug"
-                                      style={{ fontSize: '10px', width: '90px', overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
-                                      {crit}
-                                    </span>
+                                    {!sinCriterios && (
+                                      <span className="text-center font-bold text-gray-800 leading-snug"
+                                        style={{ fontSize: '10px', width: '90px', overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}>
+                                        {crit}
+                                      </span>
+                                    )}
                                     {bloqueado || soloLectura ? (
                                       <div className="nota-input flex items-center justify-center font-black"
                                         style={{ fontSize: primerCiclo ? '9px' : '12px', backgroundColor: colorNota(val)?.bg || '', color: colorNota(val)?.text || '#374151' }}>
@@ -3345,9 +3377,9 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                 {docente.rol === 'docente_grado' ? (
                   gradosDocente.flatMap((g, gi) => {
                     const grupoKey = g;
-                    const filasBase = [0, 1, 2];
+                    const filasBase = [0, 1];
                     const extras = filasExtra[grupoKey] || 0;
-                    const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 3 + i)];
+                    const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 2 + i)];
                     return todasFilas.map(fila => (
                       <tr key={`${g}-${fila}`} className={gi % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         {fila === 0 ? (
@@ -3356,7 +3388,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        {fila >= 3 ? (
+                        {fila >= 2 ? (
                           <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
                             <button onClick={() => eliminarFila(grupoKey, fila)}
                               className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
@@ -3376,9 +3408,9 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                 ) : (
                   (docente.materiasAsignadas || []).flatMap((ma, mai) => {
                     const grupoKey = `esp${mai}`;
-                    const filasBase = [0, 1, 2];
+                    const filasBase = [0, 1];
                     const extras = filasExtra[grupoKey] || 0;
-                    const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 3 + i)];
+                    const todasFilas = [...filasBase, ...Array.from({ length: extras }, (_, i) => 2 + i)];
                     return todasFilas.map(fila => (
                       <tr key={`${mai}-${fila}`} className={mai % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                         {fila === 0 ? (
@@ -3392,7 +3424,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
                             <td className="border border-gray-300 p-2 text-gray-600 text-xs font-semibold text-center" rowSpan={todasFilas.length}>{docente.nombre}</td>
                           </>
                         ) : null}
-                        {fila >= 3 ? (
+                        {fila >= 2 ? (
                           <td className="border border-gray-300 p-1 text-center" style={{ width: '28px' }}>
                             <button onClick={() => eliminarFila(grupoKey, fila)}
                               className="text-red-400 hover:text-red-600 transition-colors font-black text-base leading-none">×</button>
