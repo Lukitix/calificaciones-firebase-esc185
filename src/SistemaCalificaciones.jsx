@@ -4264,16 +4264,18 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                         const c1 = calcCuat(b1, b2);
                         const c2 = calcCuat(b3, b4);
                         const pf = calcFinal(b1, b2, b3, b4);
-                        const pfNum = parseFloat(pf);
+                        const primerCiclo = esPrimerCiclo(gradoSel);
+                        const fmtNota = (v) => v ? (primerCiclo ? abrevConceptual(v) : v) : '—';
+                        const fmtTexto = (v) => v ? (primerCiclo ? textoConceptual(v) : v) : '—';
 
                         const CeldaLectura = ({ bim }) => {
                           const notaBim = e.bimestres?.[bim]?.nota || '';
                           const col = colorNota(notaBim);
                           return (
                             <td className="p-3 border-r border-gray-100 text-center">
-                              <div className="inline-flex items-center justify-center w-16 h-10 rounded-xl font-black text-base border-2"
-                                style={{ backgroundColor: col?.bg || '#f3f4f6', color: col?.text || '#9ca3af', borderColor: col?.bg || '#e5e7eb' }}>
-                                {notaBim || '—'}
+                              <div className="inline-flex items-center justify-center w-16 h-10 rounded-xl font-black border-2"
+                                style={{ fontSize: primerCiclo && notaBim ? '9px' : '14px', backgroundColor: col?.bg || '#f3f4f6', color: col?.text || '#9ca3af', borderColor: col?.bg || '#e5e7eb' }}>
+                                {fmtNota(notaBim)}
                               </div>
                             </td>
                           );
@@ -4287,17 +4289,17 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                             <CeldaLectura bim={2} />
                             <td className="p-3 text-center bg-purple-50">
                               <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                                style={{ backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>{c1 || '—'}</span>
+                                style={{ fontSize: primerCiclo && c1 ? '9px' : '13px', backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>{fmtTexto(c1)}</span>
                             </td>
                             <CeldaLectura bim={3} />
                             <CeldaLectura bim={4} />
                             <td className="p-3 text-center bg-purple-50">
                               <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                                style={{ backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>{c2 || '—'}</span>
+                                style={{ fontSize: primerCiclo && c2 ? '9px' : '13px', backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>{fmtTexto(c2)}</span>
                             </td>
                             <td className="p-3 text-center">
                               <span className="inline-block px-4 py-2 rounded-xl font-black text-base shadow"
-                                style={{ backgroundColor: colorNota(pf)?.text || '#7c3aed', color: 'white' }}>{pf || '—'}</span>
+                                style={{ fontSize: primerCiclo && pf ? '10px' : '15px', backgroundColor: colorNota(pf)?.text || '#7c3aed', color: 'white' }}>{fmtTexto(pf)}</span>
                             </td>
                           </tr>
                         );
