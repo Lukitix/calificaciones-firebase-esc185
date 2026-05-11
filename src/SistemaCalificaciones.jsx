@@ -1101,15 +1101,38 @@ export default function SistemaCalificaciones() {
     const nuevos = { ...alumnosGlobales };
     if (!nuevos[gradoActual]) nuevos[gradoActual] = [];
     if (alumnoForm.editando) {
-      const idx = nuevos[gradoActual].findIndex(a => a.dni === alumnoForm.editando.dni);
-      if (idx !== -1) nuevos[gradoActual][idx] = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' };
+      const dniOriginal = alumnoForm.editando.dni;
+      const nuevoNombre = alumnoForm.nombre.trim();
+      const nuevoDni = alumnoForm.dni.trim();
+      const nuevoSexo = alumnoForm.sexo || 'V';
+
+      // 1. Actualizar en alumnosGlobales
+      const idx = nuevos[gradoActual].findIndex(a => a.dni === dniOriginal);
+      if (idx !== -1) nuevos[gradoActual][idx] = { nombre: nuevoNombre, dni: nuevoDni, sexo: nuevoSexo };
+      await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
+
+      // 2. Propagar cambio de nombre/dni a todas las calificaciones del grado
+      const todasMaterias = [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
+      await Promise.all(todasMaterias.map(async (m) => {
+        const key = safeKey(`${m.nombre}_${gradoActual}`);
+        const snap = await getDoc(doc(db, 'calificaciones', key));
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const estudiantes = data.estudiantes || [];
+        const idxEst = estudiantes.findIndex(e => e.dni === dniOriginal);
+        if (idxEst === -1) return;
+        const nuevosEst = [...estudiantes];
+        nuevosEst[idxEst] = { ...nuevosEst[idxEst], nombre: nuevoNombre, dni: nuevoDni, sexo: nuevoSexo };
+        await setDoc(doc(db, 'calificaciones', key), { ...data, estudiantes: nuevosEst });
+      }));
+
     } else {
       if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
         await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
       }
       nuevos[gradoActual].push({ nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' });
+      await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
     }
-    await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
     setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null });
   };
 
