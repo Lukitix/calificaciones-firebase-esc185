@@ -122,7 +122,9 @@ const escalaConceptual = [
 const getConceptual = (nota) => {
   const n = parseFloat(nota);
   if (isNaN(n)) return null;
-  return escalaConceptual.find(e => n >= e.min && n <= e.max) || null;
+  // Redondear: decimal >= 0.5 sube, < 0.5 baja
+  const redondeado = Math.floor(n) + (n % 1 >= 0.5 ? 1 : 0);
+  return escalaConceptual.find(e => redondeado >= e.min && redondeado <= e.max) || null;
 };
 
 const abrevConceptual = (nota) => {
@@ -131,8 +133,11 @@ const abrevConceptual = (nota) => {
 };
 
 const textoConceptual = (nota) => {
-  const c = getConceptual(nota);
-  return c ? `${c.texto} (${Math.round(parseFloat(nota))})` : (nota || '');
+  const n = parseFloat(nota);
+  if (isNaN(n)) return nota || '';
+  const redondeado = Math.floor(n) + (n % 1 >= 0.5 ? 1 : 0);
+  const c = escalaConceptual.find(e => redondeado >= e.min && redondeado <= e.max);
+  return c ? `${c.texto} (${redondeado})` : (nota || '');
 };
 
 const colorNota = (nota) => {
@@ -606,9 +611,9 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre))]];
       autoTable(pdfDoc, {
         startY: 32, head: headCurr, body: buildBody(datosCurr),
-        styles: { font: 'helvetica', fontSize: 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
         headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
@@ -629,9 +634,9 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: 8, cellPadding: 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: 7 },
-        columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 52 } },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
         alternateRowStyles: { fillColor: [255, 251, 235] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
