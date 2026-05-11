@@ -429,8 +429,10 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     const c1raw = calcularCuatrimestre(b1, b2);
     const c2raw = calcularCuatrimestre(b3, b4);
     const pfraw = calcularPromedioFinal(b1, b2, b3, b4);
+    // Si no hay promedio final, mostrar el último bimestre disponible
+    const pfMostrar = pfraw || b4 || b3 || b2 || b1;
     const fmt = (v) => v ? (primerCiclo ? textoConceptual(v) : v) : '—';
-    return [e.nombre, fmt(b1), fmt(b2), fmt(c1raw), fmt(b3), fmt(b4), fmt(c2raw), fmt(pfraw)];
+    return [e.nombre, fmt(b1), fmt(b2), fmt(c1raw), fmt(b3), fmt(b4), fmt(c2raw), fmt(pfMostrar)];
   });
 
   autoTable(doc, {
@@ -581,7 +583,9 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
           const b3 = est?.bimestres?.[3]?.nota || '';
           const b4 = est?.bimestres?.[4]?.nota || '';
           const pf = calcularPromedioFinal(b1, b2, b3, b4);
-          row.push(pf ? (primerCiclo ? textoConceptual(pf) : pf) : '—');
+          // Si hay promedio final usarlo, sino usar el último bimestre disponible
+          const notaMostrar = pf || b4 || b3 || b2 || b1;
+          row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : notaMostrar) : '—');
         });
         return row;
       });
