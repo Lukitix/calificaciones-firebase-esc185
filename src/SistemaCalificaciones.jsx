@@ -153,12 +153,14 @@ function useModal() {
     new Promise(resolve => setModal({ tipo: 'alert', mensaje, tipo_icono: tipo, titulo, resolve })), []);
   const showConfirm = useCallback((mensaje, titulo = '¿Está seguro?') =>
     new Promise(resolve => setModal({ tipo: 'confirm', mensaje, titulo, resolve })), []);
+  const showConfirmYesNo = useCallback((mensaje, titulo = '') =>
+    new Promise(resolve => setModal({ tipo: 'yesno', mensaje, titulo, resolve })), []);
   const showPrompt = useCallback((mensaje, placeholder = '', titulo = null) =>
     new Promise(resolve => setModal({ tipo: 'prompt', mensaje, placeholder, titulo, resolve })), []);
   const closeModal = useCallback((valor = null) => {
     setModal(prev => { if (prev?.resolve) prev.resolve(valor); return null; });
   }, []);
-  return { modal, showAlert, showConfirm, showPrompt, closeModal };
+  return { modal, showAlert, showConfirm, showConfirmYesNo, showPrompt, closeModal };
 }
 
 function ModalRenderer({ modal, closeModal }) {
@@ -210,6 +212,10 @@ function ModalRenderer({ modal, closeModal }) {
           {modal.tipo === 'confirm' && (<>
             <button onClick={() => closeModal(false)} className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cancelar</button>
             <button onClick={() => closeModal(true)} className="px-6 py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-all">Confirmar</button>
+          </>)}
+          {modal.tipo === 'yesno' && (<>
+            <button onClick={() => closeModal(false)} className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">No</button>
+            <button onClick={() => closeModal(true)} className="px-6 py-2.5 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-all">Sí</button>
           </>)}
           {modal.tipo === 'prompt' && (<>
             <button onClick={() => closeModal(null)} className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cancelar</button>
@@ -749,7 +755,7 @@ function DocenteACargo({ materia, grado, todosUsuarios }) {
 // COMPONENTE PRINCIPAL
 // ════════════════════════════════════════════════════════════════════════════
 export default function SistemaCalificaciones() {
-  const { modal, showAlert, showConfirm, showPrompt, closeModal } = useModal();
+  const { modal, showAlert, showConfirm, showConfirmYesNo, showPrompt, closeModal } = useModal();
 
   const [pantalla, setPantalla] = useState('cargando');
   const [usuario, setUsuario] = useState(null);
@@ -2194,7 +2200,7 @@ export default function SistemaCalificaciones() {
     return (
       <NotasEspeciales
         db={db} globalStyles={globalStyles} modal={modal} closeModal={closeModal}
-        usuario={usuario} alumnosGlobales={alumnosGlobales}
+        usuario={usuario} alumnosGlobales={alumnosGlobales} todosUsuarios={todosUsuarios}
         onInicio={() => setPantalla('inicio')} onCerrarSesion={() => setModalCerrarSesion(true)}
         modalCerrarSesion={modalCerrarSesion} ModalCerrarSesion={ModalCerrarSesion}
         ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} ChipsGrado={ChipsGrado}
@@ -2247,7 +2253,7 @@ export default function SistemaCalificaciones() {
                     <button
                       disabled={pdfUnificadoGenerando}
                       onClick={async () => {
-                        const incTalleres = await showConfirm('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
+                        const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
                         setPdfUnificadoGenerando(true);
                         try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
                         finally { setPdfUnificadoGenerando(false); }
@@ -2262,7 +2268,7 @@ export default function SistemaCalificaciones() {
                   <button
                     disabled={pdfUnificadoGenerando}
                     onClick={async () => {
-                      const incTalleres = await showConfirm('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
+                      const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
                       setPdfUnificadoGenerando(true);
                       try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
                       finally { setPdfUnificadoGenerando(false); }
@@ -4220,7 +4226,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Calificaciones de Áreas Especiales (solo lectura para docentes de grado)
 // ════════════════════════════════════════════════════════
-function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
+function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, todosUsuarios, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
   const gradoPropio = usuario?.gradoAsignado || '';
   const gradosDisp = gradoPropio ? [gradoPropio] : [];
   const [gradoSel, setGradoSel] = useState(gradoPropio);
@@ -4313,9 +4319,19 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                   <span className="text-3xl">{materiasSel.icon}</span> {materiasSel.nombre}
                   <Badge color="purple">{gradoLabel(gradoSel)}</Badge>
                 </h3>
-                {configuracion.docente && (
-                  <span className="text-sm text-gray-500 font-semibold">· Docente: <strong>{configuracion.docente}</strong></span>
-                )}
+                {(() => {
+                  const docenteACargo = (todosUsuarios || []).find(u =>
+                    u.rol === 'area_especial' &&
+                    u.materiasAsignadas?.some(ma => (ma.nombre || ma) === materiasSel.nombre && ma.grados?.includes(gradoSel))
+                  );
+                  const nombreCargo = docenteACargo?.nombre || configuracion?.docente;
+                  return nombreCargo ? (
+                    <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-3 py-1.5 rounded-xl">
+                      <span className="text-purple-600">👤</span>
+                      <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreCargo}</span></span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {cargando ? (
