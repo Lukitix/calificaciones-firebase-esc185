@@ -872,11 +872,16 @@ export default function SistemaCalificaciones() {
   const [todosUsuarios, setTodosUsuarios] = useState([]);
 
   useEffect(() => {
-    if (!authUser || !usuario || usuario.rol !== 'administrador') return;
+    if (!authUser || !usuario) return;
+    // Admin: carga solicitudes y todos los usuarios
+    // Docentes: solo carga lista de usuarios activos (para ver docente a cargo en especiales)
     const unsub = onSnapshot(collection(db, 'usuarios'), (snapshot) => {
       const lista = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
-      setSolicitudes(lista.filter(u => u.activo === false));
-      setTodosUsuarios(lista.filter(u => u.activo !== false && u.rol !== 'administrador'));
+      const activos = lista.filter(u => u.activo !== false && u.rol !== 'administrador');
+      setTodosUsuarios(activos);
+      if (usuario.rol === 'administrador') {
+        setSolicitudes(lista.filter(u => u.activo === false));
+      }
     });
     return () => unsub();
   }, [authUser?.uid, usuario?.rol]);
