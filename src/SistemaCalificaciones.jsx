@@ -27,8 +27,8 @@ const areas = {
   curriculares: [
     { nombre: 'Lengua y Literatura', color1: '#667eea', color2: '#764ba2', icon: '📖' },
     { nombre: 'Matemática', color1: '#f093fb', color2: '#f5576c', icon: '🔢' },
-    { nombre: 'Ciencias Sociales', color1: '#4facfe', color2: '#00f2fe', icon: '🌍' },
     { nombre: 'Ciencias Naturales', color1: '#43e97b', color2: '#38f9d7', icon: '🌿' },
+    { nombre: 'Ciencias Sociales', color1: '#4facfe', color2: '#00f2fe', icon: '🌍' },
     { nombre: 'Formación Ética y Ciudadana', color1: '#ff6b9d', color2: '#c471ed', icon: '⚖️' },
   ],
   convivencia: [
@@ -513,18 +513,20 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
   }
 }
 
-// ─── PDF UNIFICADO (docente de grado) ───────────────────────────────────────
-async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
+// ─── PDF UNIFICADO ───────────────────────────────────────────────────────────
+async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios }) {
   const doc_ref = doc;
   try {
     const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = pdfDoc.internal.pageSize.getWidth();
     const hoy = new Date().toLocaleDateString('es-AR');
+    const esAdmin = usuario?.rol === 'administrador';
     const nombreDocente = usuario?.nombre || '—';
-    const gradosDocente = usuario?.gradosAsignados?.length > 0
-      ? usuario.gradosAsignados
-      : [usuario?.gradoAsignado].filter(Boolean);
-    const firmaX = pageW - 75;
+    const gradosDocente = esAdmin
+      ? Object.keys(alumnosGlobales).filter(g => (alumnosGlobales[g] || []).length > 0).sort()
+      : usuario?.gradosAsignados?.length > 0
+        ? usuario.gradosAsignados
+        : [usuario?.gradoAsignado].filter(Boolean);
 
     const abreviarMateria = (nombre) => {
       const abrevs = {
@@ -532,20 +534,25 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
         'Ciencias Sociales': 'Cs. Sociales',
         'Ciencias Naturales': 'Cs. Naturales',
         'Formación Ética y Ciudadana': 'Form. Ética',
-        'Educación Artística: Plástica': 'Educ. Art: Plástica',
-        'Educación Artística: Música': 'Educ. Art: Música',
-        'Educación Física': 'Educ. Física',
-        'Lengua Extranjera: Inglés': 'Leng. Ext: Inglés',
-        'Lengua Extranjera: Portugués': 'Leng. Ext: Portugués',
-        'Tecnología': 'Tecnología',
-        'Laboratorio': 'Laboratorio',
-        'Informática': 'Informática',
-        'Taller de Ajedrez': 'T. de Ajedrez',
-        'Taller de Música': 'T. de Música',
-        'Taller de Plástica': 'T. de Plástica',
-        'Taller de Danza': 'T. de Danza',
+        'Educación Artística: Plástica': 'Art.: Plástica',
+        'Educación Artística: Música': 'Art.: Música',
+        'Educación Física': 'Ed. Física',
+        'Lengua Extranjera: Inglés': 'Inglés',
+        'Lengua Extranjera: Portugués': 'Portugués',
+        'Taller de Ajedrez': 'T. Ajedrez',
+        'Taller de Música': 'T. Música',
+        'Taller de Plástica': 'T. Plástica',
+        'Taller de Danza': 'T. Danza',
+        'Convivencia': 'Convivencia',
       };
       return abrevs[nombre] || nombre;
+    };
+
+    // Obtener materias que el docente tiene asignadas para un grado
+    const getMateriasDocente = (grado) => {
+      if (esAdmin) return [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia];
+      // Para docente de grado: todas las curriculares + convivencia
+      return [...areas.curriculares, ...areas.convivencia];
     };
 
     const encabezado = (titulo, grado) => {
@@ -555,11 +562,16 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       pdfDoc.setFontSize(13); pdfDoc.setFont('helvetica', 'bold');
       pdfDoc.text('Escuela Provincial N° 185 — "Juan Areco"', pageW / 2, 10, { align: 'center' });
       pdfDoc.setFontSize(9.5); pdfDoc.setFont('helvetica', 'normal');
-      pdfDoc.text(`${titulo}   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}`, pageW / 2, 18, { align: 'center' });
+      const linea2 = esAdmin
+        ? `${titulo}   |   Grado: ${gradoLabel(grado)}   |   Dirección`
+        : `${titulo}   |   Grado: ${gradoLabel(grado)}   |   Docente: ${nombreDocente}`;
+      pdfDoc.text(linea2, pageW / 2, 18, { align: 'center' });
       pdfDoc.text(`Fecha de emisión: ${hoy}`, pageW / 2, 24, { align: 'center' });
     };
 
     const agregarFirma = (finalY, grado) => {
+      if (esAdmin) return; // Admin: sin firma
+      const firmaX = pageW - 75;
       pdfDoc.setTextColor(60,60,60); pdfDoc.setFontSize(9); pdfDoc.setFont('helvetica', 'normal');
       pdfDoc.line(firmaX, finalY + 4, firmaX + 65, finalY + 4);
       pdfDoc.text(nombreDocente, firmaX + 32, finalY + 9, { align: 'center' });
@@ -588,15 +600,16 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
           const b3 = est?.bimestres?.[3]?.nota || '';
           const b4 = est?.bimestres?.[4]?.nota || '';
           const pf = calcularPromedioFinal(b1, b2, b3, b4);
-          // Si hay promedio final usarlo, sino usar el último bimestre disponible
           const notaMostrar = pf || b4 || b3 || b2 || b1;
           row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : notaMostrar) : '—');
         });
         return row;
       });
 
-      // ── Página 1: Áreas Curriculares ──
-      const curriculares = areas.curriculares;
+      // ── Página 1: Áreas Curriculares (+ Convivencia) ──
+      const curriculares = getMateriasDocente(grado).filter(m =>
+        [...areas.curriculares, ...areas.convivencia].some(a => a.nombre === m.nombre)
+      );
       const snapsCurr = await Promise.all(
         curriculares.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
@@ -619,33 +632,41 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
       });
       agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
 
-      // ── Página 2: Áreas Especiales ──
-      pdfDoc.addPage();
-      const especiales = [...areas.especiales, ...areas.talleres, ...areas.convivencia];
+      // ── Página 2: Áreas Especiales (solo admin o si el docente tiene especiales) ──
+      const especiales = [...areas.especiales, ...areas.talleres];
       const snapsEsp = await Promise.all(
         especiales.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
       const datosEsp = especiales.map((m, i) => ({
         nombre: m.nombre,
         estudiantes: snapsEsp[i].exists() ? (snapsEsp[i].data().estudiantes || []) : []
+      })).filter(d => d.estudiantes.some(e => {
+        const notas = [1,2,3,4].map(b => e.bimestres?.[b]?.nota || '').filter(Boolean);
+        return notas.length > 0;
       }));
 
-      encabezado('Áreas Especiales y Talleres — Promedios Finales', grado);
-      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
-      autoTable(pdfDoc, {
-        startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
-        alternateRowStyles: { fillColor: [255, 251, 235] },
-        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
-      });
-      agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+      if (datosEsp.length > 0) {
+        pdfDoc.addPage();
+        encabezado('Áreas Especiales y Talleres — Promedios Finales', grado);
+        const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+        autoTable(pdfDoc, {
+          startY: 32, head: headEsp, body: buildBody(datosEsp),
+          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+          headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
+          columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
+          alternateRowStyles: { fillColor: [255, 251, 235] },
+          tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+        });
+        agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+      }
 
       if (gradosDocente.indexOf(grado) < gradosDocente.length - 1) pdfDoc.addPage();
     }
 
-    pdfDoc.save(`PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`);
+    const nombreArchivo = esAdmin
+      ? `PDF_Unificado_Direccion_${hoy.replace(/\//g,'-')}.pdf`
+      : `PDF_Unificado_${nombreDocente.replace(/[^\w]/g,'_')}_${hoy.replace(/\//g,'-')}.pdf`;
+    pdfDoc.save(nombreArchivo);
     return true;
   } catch(err) {
     console.error('Error PDF unificado:', err);
@@ -653,7 +674,6 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db }) {
   }
 }
 
-// ════════════════════════════════════════════════════════
 // COMPONENTE: Chip de criterio con renombrado inline
 // ════════════════════════════════════════════════════════
 function CriterioChip({ nombre, bloqueado, onEliminar, onRenombrar }) {
@@ -2217,6 +2237,18 @@ export default function SistemaCalificaciones() {
                     </button>
                     <InfoPDFUnificado />
                   </div>
+                )}
+                {usuario?.rol === 'administrador' && (
+                  <button
+                    disabled={pdfUnificadoGenerando}
+                    onClick={async () => {
+                      setPdfUnificadoGenerando(true);
+                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                      finally { setPdfUnificadoGenerando(false); }
+                    }}
+                    className="btn-primary flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
+                    <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Dirección'}
+                  </button>
                 )}
                 {esPrimerCiclo(grado) && (
                   <button onClick={() => setShowEscala(true)}
