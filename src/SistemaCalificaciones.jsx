@@ -514,7 +514,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
 }
 
 // ─── PDF UNIFICADO ───────────────────────────────────────────────────────────
-async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios }) {
+async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios, includeTalleres = false }) {
   const doc_ref = doc;
   try {
     const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -632,29 +632,48 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       });
       agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
 
-      // ── Página 2: Áreas Especiales (solo admin o si el docente tiene especiales) ──
-      const especiales = [...areas.especiales, ...areas.talleres];
+      // ── Página 2: Áreas Especiales ──
+      const especiales = areas.especiales;
       const snapsEsp = await Promise.all(
         especiales.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
       const datosEsp = especiales.map((m, i) => ({
         nombre: m.nombre,
         estudiantes: snapsEsp[i].exists() ? (snapsEsp[i].data().estudiantes || []) : []
-      })).filter(d => d.estudiantes.some(e => {
-        const notas = [1,2,3,4].map(b => e.bimestres?.[b]?.nota || '').filter(Boolean);
-        return notas.length > 0;
       }));
 
-      if (datosEsp.length > 0) {
+      pdfDoc.addPage();
+      encabezado('Áreas Especiales — Promedios Finales', grado);
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+      autoTable(pdfDoc, {
+        startY: 32, head: headEsp, body: buildBody(datosEsp),
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
+        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
+        alternateRowStyles: { fillColor: [255, 251, 235] },
+        tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
+      });
+      agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+
+      // ── Página 3: Talleres (solo si includeTalleres) ──
+      if (includeTalleres) {
+        const talleres = areas.talleres;
+        const snapsTall = await Promise.all(
+          talleres.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
+        );
+        const datosTall = talleres.map((m, i) => ({
+          nombre: m.nombre,
+          estudiantes: snapsTall[i].exists() ? (snapsTall[i].data().estudiantes || []) : []
+        }));
         pdfDoc.addPage();
-        encabezado('Áreas Especiales y Talleres — Promedios Finales', grado);
-        const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+        encabezado('Talleres — Promedios Finales', grado);
+        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre))]];
         autoTable(pdfDoc, {
-          startY: 32, head: headEsp, body: buildBody(datosEsp),
+          startY: 32, head: headTall, body: buildBody(datosTall),
           styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-          headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
           columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
-          alternateRowStyles: { fillColor: [255, 251, 235] },
+          alternateRowStyles: { fillColor: [236, 253, 245] },
           tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
         });
         agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
@@ -2228,8 +2247,9 @@ export default function SistemaCalificaciones() {
                     <button
                       disabled={pdfUnificadoGenerando}
                       onClick={async () => {
+                        const incTalleres = await showConfirm('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
                         setPdfUnificadoGenerando(true);
-                        try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                        try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
                         finally { setPdfUnificadoGenerando(false); }
                       }}
                       className="btn-primary flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50 flex-1">
@@ -2242,8 +2262,9 @@ export default function SistemaCalificaciones() {
                   <button
                     disabled={pdfUnificadoGenerando}
                     onClick={async () => {
+                      const incTalleres = await showConfirm('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
                       setPdfUnificadoGenerando(true);
-                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db }); }
+                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
                       finally { setPdfUnificadoGenerando(false); }
                     }}
                     className="btn-primary flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
