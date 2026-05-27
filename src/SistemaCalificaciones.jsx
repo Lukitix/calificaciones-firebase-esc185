@@ -776,6 +776,9 @@ export default function SistemaCalificaciones() {
 
   // Login con email real
   const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false);
+  const [recuperarEmail, setRecuperarEmail] = useState('');
+  const [recuperarCargando, setRecuperarCargando] = useState(false);
   const [loginCargando, setLoginCargando] = useState(false);
 
   // Cargar email guardado si el usuario lo había marcado
@@ -1608,17 +1611,8 @@ export default function SistemaCalificaciones() {
                     ? <div style={{ width: 24, height: 24, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     : 'Ingresar →'}
                 </button>
-                <button onClick={async () => {
-                  const email = loginForm.email.trim();
-                  if (!email) { await showAlert('Ingresá tu correo electrónico primero.', 'warning'); return; }
-                  try {
-                    const emailFirebase = email.includes('@') ? email : `${email}@ep185.edu.ar`;
-                    await sendPasswordResetEmail(auth, emailFirebase);
-                    await showAlert(`✅ Te enviamos un link de recuperación a ${emailFirebase}. Revisá tu bandeja de entrada (y spam). El link expira en 1 hora.`, 'success', 'Email enviado');
-                  } catch(e) {
-                    await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
-                  }
-                }} className="text-sm text-purple-600 hover:text-purple-800 font-semibold text-center w-full transition-colors">
+                <button onClick={() => setMostrarRecuperar(true)}
+                  className="text-sm text-purple-600 hover:text-purple-800 font-semibold text-center w-full transition-colors">
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
@@ -1707,6 +1701,63 @@ export default function SistemaCalificaciones() {
           )}
         </div>
       </div>
+      {mostrarRecuperar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+            <div className="px-6 py-4 flex items-center justify-between border-b"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+              <h3 className="text-lg font-bold text-white">🔑 Recuperar contraseña</h3>
+              <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
+                className="text-white/70 hover:text-white"><X size={22} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm text-gray-600 font-semibold leading-relaxed">
+                Ingresá tu correo electrónico y te enviaremos un link para restablecer tu contraseña. El link expira en 1 hora.
+              </p>
+              <input
+                type="email"
+                value={recuperarEmail}
+                onChange={e => setRecuperarEmail(e.target.value)}
+                placeholder="Tu correo electrónico"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold"
+                onKeyDown={e => e.key === 'Enter' && !recuperarCargando && handleRecuperar()}
+                autoFocus
+              />
+            </div>
+            <div className="px-6 pb-5 flex flex-col gap-2">
+              <button
+                onClick={async () => {
+                  if (!recuperarEmail.trim()) return;
+                  setRecuperarCargando(true);
+                  try {
+                    const emailFirebase = recuperarEmail.trim().includes('@')
+                      ? recuperarEmail.trim()
+                      : `${recuperarEmail.trim()}@ep185.edu.ar`;
+                    await sendPasswordResetEmail(auth, emailFirebase);
+                    setMostrarRecuperar(false);
+                    setRecuperarEmail('');
+                    await showAlert(`✅ Enviamos el link de recuperación a ${emailFirebase}. Revisá tu bandeja de entrada y también spam. El link expira en 1 hora.`, 'success', 'Email enviado');
+                  } catch(e) {
+                    await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
+                  } finally {
+                    setRecuperarCargando(false);
+                  }
+                }}
+                disabled={!recuperarEmail.trim() || recuperarCargando}
+                className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+                {recuperarCargando ? 'Enviando...' : 'Enviar correo de recuperación'}
+              </button>
+              <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
+                className="w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 
