@@ -5,7 +5,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import {
   doc,
@@ -1606,6 +1607,19 @@ export default function SistemaCalificaciones() {
                   {loginCargando
                     ? <div style={{ width: 24, height: 24, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     : 'Ingresar →'}
+                </button>
+                <button onClick={async () => {
+                  const email = loginForm.email.trim();
+                  if (!email) { await showAlert('Ingresá tu correo electrónico primero.', 'warning'); return; }
+                  try {
+                    const emailFirebase = email.includes('@') ? email : `${email}@ep185.edu.ar`;
+                    await sendPasswordResetEmail(auth, emailFirebase);
+                    await showAlert(`✅ Te enviamos un link de recuperación a ${emailFirebase}. Revisá tu bandeja de entrada (y spam). El link expira en 1 hora.`, 'success', 'Email enviado');
+                  } catch(e) {
+                    await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
+                  }
+                }} className="text-sm text-purple-600 hover:text-purple-800 font-semibold text-center w-full transition-colors">
+                  ¿Olvidaste tu contraseña?
                 </button>
               </div>
               <button onClick={() => setRegistro({ ...registro, show: true })}
