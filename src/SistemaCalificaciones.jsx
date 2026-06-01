@@ -4297,9 +4297,10 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
 // COMPONENTE: Calificaciones de Áreas Especiales (solo lectura para docentes de grado)
 // ════════════════════════════════════════════════════════
 function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnosGlobales, todosUsuarios, onInicio, onCerrarSesion, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, ChipsGrado }) {
-  const gradoPropio = usuario?.gradoAsignado || '';
-  const gradosDisp = gradoPropio ? [gradoPropio] : [];
-  const [gradoSel, setGradoSel] = useState(gradoPropio);
+  const gradosDisp = usuario?.gradosAsignados?.length > 0
+    ? usuario.gradosAsignados
+    : [usuario?.gradoAsignado].filter(Boolean);
+  const [gradoSel, setGradoSel] = useState(gradosDisp[0] || '');
   const [materiasSel, setMateriasSel] = useState(null);
   const [calificaciones, setCalificaciones] = useState([]);
   const [configuracion, setConfiguracion] = useState({ criterios: { 1: [], 2: [], 3: [], 4: [] }, docente: '' });
@@ -4362,6 +4363,13 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
               Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoLabel(gradoSel)}</strong>) para completar los boletines de calificaciones de los alumnos.
             </p>
           </div>
+
+          {gradosDisp.length > 1 && (
+            <div className="mb-5 bg-indigo-50 border-2 border-indigo-100 rounded-2xl p-4">
+              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-2">Seleccioná el grado</p>
+              <ChipsGrado lista={gradosDisp} seleccionado={gradoSel} onChange={(g) => { setGradoSel(g); setMateriasSel(null); }} />
+            </div>
+          )}
 
           {!materiasSel ? (
             <>
