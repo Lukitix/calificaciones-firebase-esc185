@@ -18,7 +18,9 @@ import {
   onSnapshot,
   getDocs,
   query,
-  where
+  where,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -806,6 +808,7 @@ export default function SistemaCalificaciones() {
   const [showPerfil, setShowPerfil] = useState(false);
   const [showFechasBimestre, setShowFechasBimestre] = useState(false);
   const [menuAcciones, setMenuAcciones] = useState(false);
+  const [showRegistroMods, setShowRegistroMods] = useState(false);
   const [avisos, setAvisos] = useState([]);
   const [showAvisos, setShowAvisos] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
@@ -1255,17 +1258,36 @@ export default function SistemaCalificaciones() {
   }, []);
 
   const actualizarCampo = (id, bimestre, campo, valor) => {
-    if (bimestresBlockeados[bimestre]) return; // bloqueado
+    if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
     setEstudiantes(prev => {
       const nuevos = { ...prev };
       const lista = (nuevos[key] || []).map(est => {
         if (est.id !== id) return est;
+        const valorAnterior = est.bimestres?.[bimestre]?.[campo] || '';
         const nuevoBim = { ...est.bimestres[bimestre], [campo]: valor };
         if (campo.startsWith('n')) {
           const notas = ['n1','n2','n3','n4','n5'].map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
           nuevoBim.nota = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : '';
+        }
+        // Registrar cambio si hay diferencia real
+        if (valor !== valorAnterior && campo.startsWith('n') && (valor || valorAnterior)) {
+          const criterioIdx = parseInt(campo.replace('n','')) - 1;
+          const criterioNombre = criteriosPorBimestre[bimestre]?.[criterioIdx] || campo;
+          setDoc(doc(collection(db, 'logs')), {
+            docente: usuario?.nombre || '—',
+            alumno: est.nombre,
+            materia: materia.nombre,
+            grado,
+            bimestre,
+            criterio: criterioNombre,
+            antes: valorAnterior || '(vacío)',
+            despues: valor || '(vacío)',
+            fecha: new Date().toISOString(),
+            fechaCorta: new Date().toLocaleDateString('es-AR'),
+            hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+          });
         }
         return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBim } };
       });
@@ -2046,6 +2068,11 @@ export default function SistemaCalificaciones() {
                               <span className="text-sm font-bold text-gray-700">Solicitudes</span>
                               {solicitudesCount > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{solicitudesCount}</span>}
                             </button>
+                            <button onClick={() => { setMenuAcciones(false); setShowRegistroMods(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors text-left border-t border-gray-50">
+                              <span className="text-lg">📋</span>
+                              <span className="text-sm font-bold text-gray-700">Registro de Modificaciones</span>
+                            </button>
                           </div>
                         </>
                       )}
@@ -2258,6 +2285,10 @@ export default function SistemaCalificaciones() {
           <ModalAvisos
             db={db} avisos={avisos} authUser={authUser}
             onClose={() => setShowAvisos(false)} />
+        )}
+        {showRegistroMods && (
+          <ModalRegistroModificaciones
+            db={db} onClose={() => setShowRegistroMods(false)} />
         )}
       </>
     );
@@ -2670,6 +2701,100 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Registro de Modificaciones (admin)
+// ════════════════════════════════════════════════════════
+function ModalRegistroModificaciones({ db, onClose }) {
+  const [logs, setLogs] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [filtroDocente, setFiltroDocente] = useState('');
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'logs'),
+      orderBy('fecha', 'desc'),
+      limit(150)
+    );
+    const unsub = onSnapshot(q, snap => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setCargando(false);
+    });
+    return () => unsub();
+  }, [db]);
+
+  const docentes = [...new Set(logs.map(l => l.docente))].sort();
+  const logsFiltrados = filtroDocente ? logs.filter(l => l.docente === filtroDocente) : logs;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b"
+          style={{ background: 'linear-gradient(135deg, #ea580c, #dc2626)' }}>
+          <div>
+            <h3 className="text-lg font-bold text-white">📋 Registro de Modificaciones</h3>
+            <p className="text-xs text-orange-100 font-semibold">Últimas 150 modificaciones de notas</p>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="px-5 py-3 border-b bg-gray-50">
+          <select value={filtroDocente} onChange={e => setFiltroDocente(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-700 bg-white">
+            <option value="">Todos los docentes</option>
+            {docentes.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto">
+          {cargando ? (
+            <div className="p-10 text-center text-gray-400 font-bold">⏳ Cargando registros...</div>
+          ) : logsFiltrados.length === 0 ? (
+            <div className="p-10 text-center text-gray-400">
+              <p className="text-4xl mb-2">📭</p>
+              <p className="font-bold">Sin modificaciones registradas aún</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {logsFiltrados.map(log => (
+                <div key={log.id} className="px-5 py-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-black text-gray-800">
+                        {log.docente}
+                        <span className="text-gray-400 font-semibold"> modificó la nota de </span>
+                        <span className="text-purple-700">{log.alumno}</span>
+                      </p>
+                      <p className="text-xs font-semibold text-gray-600 mt-0.5">
+                        {log.materia} · {gradoLabel(log.grado)} · {log.bimestre}° Bimestre
+                        {log.criterio && log.criterio !== 'n1' && ` · ${log.criterio}`}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-lg border border-red-200">{log.antes}</span>
+                        <span className="text-gray-400 text-xs">→</span>
+                        <span className="text-xs font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-lg border border-green-200">{log.despues}</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-bold text-gray-500">{log.fechaCorta}</p>
+                      <p className="text-xs font-bold text-gray-400">{log.hora}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t bg-gray-50">
+          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
