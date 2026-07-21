@@ -234,7 +234,7 @@ function ModalRenderer({ modal, closeModal }) {
 const globalStyles = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
-* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; font-size: 15px; }
 h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
 :root {
   --navy: #1e3a5f; --navy2: #2d5282; --navy-lt: #eef3f9;
@@ -283,6 +283,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.04); }
 .toast-visible { animation: toastIn 0.25s ease-out both; }
+.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'Inter', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
+.n-field-input:focus { border-color: var(--indigo); }
 `;
 
 // ─── SUBCOMPONENTES ──────────────────────────────────────────────────────────
@@ -1608,7 +1610,7 @@ export default function SistemaCalificaciones() {
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
         {/* Panel izquierdo — marca */}
-        <div style={{ width: '50%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px' }}>
+        <div style={{ width: '40%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
             <img
               src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
@@ -1626,7 +1628,7 @@ export default function SistemaCalificaciones() {
           <div></div>
         </div>
         {/* Panel derecho — formulario */}
-        <div style={{ width: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '60%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '100%', maxWidth: 420, padding: '52px 48px' }} className="fade-in">
           {!registro.show ? (
             <>
@@ -1679,7 +1681,7 @@ export default function SistemaCalificaciones() {
               </div>
               <button onClick={() => setRegistro({ ...registro, show: true })}
                 className="btn-primary" style={{ width: '100%', marginTop: 16, padding: '10px 20px', borderRadius: 'var(--r)', background: 'transparent', color: 'var(--navy)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                + Solicitar acceso
+                + Registrar nuevo usuario
               </button>
             </>
           ) : (
@@ -1837,66 +1839,98 @@ export default function SistemaCalificaciones() {
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'var(--navy)' }}>
-          <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
-            <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => { setVolverAGestion(false); setPantalla('inicio'); }} onCerrarSesion={() => setModalCerrarSesion(true)} />
-            {volverAGestion && usuario?.rol === 'administrador' && (
-              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                className="mb-4 self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
-                ← Volver a Gestión de Docentes
+        <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
+          {/* Topbar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                <Home size={14} /> Inicio
               </button>
-            )}
-            <div className="mb-4 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
-              <span className="text-xl mt-0.5">⚠️</span>
-              <p className="text-amber-800 font-semibold text-sm leading-relaxed">Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
+              {volverAGestion && usuario?.rol === 'administrador' && (
+                <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #bbf7d0', background: 'var(--green-lt)', color: 'var(--green)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                  ← Gestión de Docentes
+                </button>
+              )}
+              <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>👥 Gestión de Alumnos</span>
             </div>
+            <button onClick={() => setModalCerrarSesion(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <LogOut size={14} /> Salir
+            </button>
+          </div>
+
+          <div style={{ padding: '24px 28px', maxWidth: '100%' }} className="fade-in">
+            {/* Aviso */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'var(--amber-lt)', border: '1.5px solid #fcd34d', borderRadius: 'var(--r)', padding: '12px 16px', marginBottom: 20 }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#92400e', lineHeight: 1.5 }}>Exclusivo para docentes de grado. Los alumnos cargados acá aparecerán en <strong>todas las materias</strong> del grado automáticamente.</p>
+            </div>
+
+            {/* Selector grado (admin) */}
             {usuario?.rol !== 'docente_grado' && (
-              <div className="mb-6">
-                <p className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">Seleccioná el grado:</p>
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Seleccioná el grado:</p>
                 <ChipsGrado lista={grados} seleccionado={grado} onChange={setGrado} />
               </div>
             )}
-            <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-2xl p-5">
-              <h3 className="text-lg font-extrabold text-gray-800 mb-4">{alumnoForm.editando ? '✏️ Editar alumno' : '➕ Agregar alumno'} <span className="text-blue-600">• {gradoLabel(gradoActual)}</span></h3>
-              <div className="flex flex-wrap gap-3">
-                <input type="text" value={alumnoForm.nombre} onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })}
+
+            {/* Formulario agregar/editar alumno */}
+            <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 16 }}>
+                {alumnoForm.editando ? '✏️ Editar alumno' : '➕ Agregar alumno'} <span style={{ color: 'var(--indigo)', fontWeight: 600 }}>· {gradoLabel(gradoActual)}</span>
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                <input type="text" value={alumnoForm.nombre}
+                  onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })}
                   onBlur={e => setAlumnoForm(f => ({ ...f, nombre: capitalizarNombre(e.target.value) }))}
                   placeholder="Ej: García, María José"
-                  className="flex-1 min-w-48 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
-                <input type="text" value={alumnoForm.dni} onChange={e => setAlumnoForm({ ...alumnoForm, dni: e.target.value })} onKeyDown={e => e.key === 'Enter' && agregarAlumno()} placeholder="D.N.I N°..."
-                  className="w-44 px-4 py-2.5 border-2 border-blue-300 rounded-xl focus:outline-none focus:border-blue-500 text-gray-800 font-semibold" />
-                <div className="flex gap-1 items-center bg-white border-2 border-blue-300 rounded-xl px-3 py-1">
-                  <span className="text-xs font-bold text-gray-500 mr-1">Sexo:</span>
+                  style={{ flex: 1, minWidth: 200, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                <input type="text" value={alumnoForm.dni}
+                  onChange={e => setAlumnoForm({ ...alumnoForm, dni: e.target.value })}
+                  onKeyDown={e => e.key === 'Enter' && agregarAlumno()}
+                  placeholder="D.N.I N°..."
+                  style={{ width: 160, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: '#f8fafc', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginRight: 4 }}>Sexo:</span>
                   {['V', 'M'].map(s => (
-                    <button key={s} type="button"
-                      onClick={() => setAlumnoForm({ ...alumnoForm, sexo: s })}
-                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-all ${alumnoForm.sexo === s ? (s === 'V' ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white') : 'text-gray-500 hover:bg-gray-100'}`}>
+                    <button key={s} type="button" onClick={() => setAlumnoForm({ ...alumnoForm, sexo: s })}
+                      style={{ padding: '5px 12px', borderRadius: 6, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', background: alumnoForm.sexo === s ? (s === 'V' ? '#3b82f6' : '#ec4899') : 'transparent', color: alumnoForm.sexo === s ? '#fff' : 'var(--muted)' }}>
                       {s === 'V' ? '♂ V' : '♀ M'}
                     </button>
                   ))}
                 </div>
-                <button onClick={agregarAlumno} className="btn-primary flex items-center gap-2 bg-green-500 text-white px-6 py-2.5 rounded-xl font-bold shadow"><Plus size={18} /> {alumnoForm.editando ? 'Actualizar' : 'Agregar'}</button>
-                {alumnoForm.editando && <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null })} className="flex items-center gap-1 bg-gray-300 text-gray-700 px-4 py-2.5 rounded-xl font-bold hover:bg-gray-400 transition-all"><X size={16} /> Cancelar</button>}
-              </div>
-            </div>
-            <div className="mb-6 bg-green-50 border-2 border-green-200 rounded-2xl p-5">
-              <h3 className="text-lg font-extrabold text-gray-800 mb-3">🔍 Buscar alumno</h3>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={busquedaDNI}
-                  onChange={e => { setBusquedaDNI(e.target.value); setResultadoBusqueda(null); }}
-                  placeholder="Nombre(s) o D.N.I N°..."
-                  className="w-full px-4 py-2.5 border-2 border-green-300 rounded-xl focus:outline-none focus:border-green-500 text-gray-800 font-semibold pr-10"
-                />
-                {busquedaDNI && (
-                  <button onClick={() => { setBusquedaDNI(''); setResultadoBusqueda(null); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                    <X size={16} />
+                <button onClick={agregarAlumno} className="btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  <Plus size={16} /> {alumnoForm.editando ? 'Actualizar' : 'Agregar'}
+                </button>
+                {alumnoForm.editando && (
+                  <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null })}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                    <X size={14} /> Cancelar
                   </button>
                 )}
               </div>
-              {/* Resultados predictivos */}
+            </div>
+
+            {/* Buscador */}
+            <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '16px 20px', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 10 }}>🔍 Buscar alumno</h3>
+              <div style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: 12, top: 11, color: 'var(--muted)' }} size={16} />
+                <input type="text" value={busquedaDNI}
+                  onChange={e => { setBusquedaDNI(e.target.value); setResultadoBusqueda(null); }}
+                  placeholder="Nombre(s) o D.N.I N°..."
+                  style={{ width: '100%', paddingLeft: 36, paddingRight: 36, padding: '10px 14px 10px 36px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                {busquedaDNI && (
+                  <button onClick={() => { setBusquedaDNI(''); setResultadoBusqueda(null); }}
+                    style={{ position: 'absolute', right: 10, top: 11, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
               {busquedaDNI.trim().length > 0 && (() => {
                 const termino = busquedaDNI.trim().toLowerCase();
                 const alumnosDelGrado = alumnosGlobales[gradoActual] || [];
@@ -1904,58 +1938,74 @@ export default function SistemaCalificaciones() {
                   a.nombre.toLowerCase().includes(termino) || a.dni.includes(termino)
                 ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
                 if (coincidencias.length === 0) return (
-                  <div className="mt-2 px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-400 font-semibold">
+                  <div style={{ marginTop: 8, padding: '10px 14px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
                     Sin resultados en {gradoLabel(gradoActual)}
                   </div>
                 );
                 return (
-                  <div className="mt-2 bg-white border-2 border-green-200 rounded-xl overflow-hidden shadow-sm">
+                  <div style={{ marginTop: 8, background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', overflow: 'hidden', boxShadow: 'var(--sh)' }}>
                     {coincidencias.map((a, idx) => (
-                      <div key={idx}
-                        className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 last:border-0 hover:bg-green-50 transition-colors">
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid #f1f5f9' }}>
                         <div>
-                          <p className="font-bold text-gray-800 text-sm">{a.nombre}</p>
-                          <p className="text-xs text-gray-500 font-semibold">DNI: {a.dni} · {gradoLabel(gradoActual)}</p>
+                          <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{a.nombre}</p>
+                          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>DNI: {a.dni} · {gradoLabel(gradoActual)}</p>
                         </div>
                       </div>
                     ))}
-                    <div className="px-4 py-2 bg-green-50 text-xs text-green-700 font-bold">
+                    <div style={{ padding: '8px 14px', background: 'var(--navy-lt)', fontSize: 12, color: 'var(--navy)', fontWeight: 700 }}>
                       {coincidencias.length} resultado{coincidencias.length !== 1 ? 's' : ''} en {gradoLabel(gradoActual)}
                     </div>
                   </div>
                 );
               })()}
             </div>
-            <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
-                <h3 className="text-lg font-extrabold text-gray-800">Lista · {gradoLabel(gradoActual)}</h3>
-                <Badge color="blue">
+
+            {/* Lista de alumnos */}
+            <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden', marginBottom: 20 }}>
+              <div style={{ padding: '14px 20px', background: 'var(--navy-lt)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Lista · {gradoLabel(gradoActual)}</h3>
+                <span style={{ background: 'var(--blue-lt)', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
                   {alumnosGr.length} alumnos{alumnosGr.length > 0 ? ` (${alumnosGr.filter(a => (a.sexo||'V')==='V').length}V / ${alumnosGr.filter(a => a.sexo==='M').length}M)` : ''}
-                </Badge>
+                </span>
               </div>
               {alumnosGr.length === 0 ? (
-                <div className="text-center py-14 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-lg">No hay alumnos registrados</p></div>
+                <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No hay alumnos registrados</p>
+                </div>
               ) : (
-                <table className="w-full">
-                  <thead><tr className="tabla-header"><th className="p-3 text-center font-bold text-sm">#</th><th className="p-3 text-left font-bold text-sm">Nombre completo</th><th className="p-3 text-center font-bold text-sm">D.N.I N°</th><th className="p-3 text-center font-bold text-sm">Sexo</th><th className="p-3 text-center font-bold text-sm">Acciones</th></tr></thead>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr className="tabla-header">
+                      {['#','Nombre completo','D.N.I N°','Sexo','Acciones'].map(h => (
+                        <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Nombre completo' ? 'left' : 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: '0.04em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
                   <tbody>
                     {[...alumnosGr].sort((a, b) => {
                       if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
                       return a.nombre.localeCompare(b.nombre, 'es');
                     }).map((a, i) => (
-                      <tr key={i} className={`border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                        <td className="p-3 text-gray-400 font-bold text-sm">{i + 1}</td>
-                        <td className="p-3 font-bold text-gray-800 text-left">{a.nombre}</td>
-                        <td className="p-3 text-center"><Badge>{a.dni}</Badge></td>
-                        <td className="p-3 text-center">
-                          <span className={`inline-block px-2 py-1 rounded-lg text-xs font-bold ${(a.sexo || 'V') === 'V' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                      <tr key={i} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{a.nombre}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{a.dni}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: (a.sexo||'V')==='V' ? '#dbeafe' : '#fce7f3', color: (a.sexo||'V')==='V' ? '#1d4ed8' : '#be185d' }}>
                             {(a.sexo || 'V') === 'V' ? '♂ V' : '♀ M'}
                           </span>
                         </td>
-                        <td className="p-3 text-center">
-                          <div className="flex gap-2 justify-center">
-                            <button onClick={() => { setAlumnoForm({ nombre: a.nombre, dni: a.dni, sexo: a.sexo || 'V', editando: a }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="btn-primary flex items-center gap-1 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Save size={14} /> Editar</button>
-                            <button onClick={() => eliminarAlumno(a)} className="btn-primary flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold"><Trash2 size={14} /> Eliminar</button>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                            <button onClick={() => { setAlumnoForm({ nombre: a.nombre, dni: a.dni, sexo: a.sexo || 'V', editando: a }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                              className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                              <Save size={13} /> Editar
+                            </button>
+                            <button onClick={() => eliminarAlumno(a)}
+                              className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                              <Trash2 size={13} /> Eliminar
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1964,34 +2014,33 @@ export default function SistemaCalificaciones() {
                 </table>
               )}
             </div>
-            {/* ── Registro de Bajas ── */}
+
+            {/* Registro de Bajas */}
             {bajas.filter(b => b.grado === gradoActual).length > 0 && (
-              <div className="mt-8 bg-red-50 border-2 border-red-200 rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 bg-red-100 border-b-2 border-red-200 flex items-center justify-between">
-                  <h3 className="text-lg font-extrabold text-red-800">📋 Registro de Bajas · {gradoLabel(gradoActual)}</h3>
-                  <Badge color="red">{bajas.filter(b => b.grado === gradoActual).length} baja(s)</Badge>
+              <div style={{ background: '#fff', border: '1.5px solid #fecaca', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+                <div style={{ padding: '14px 20px', background: 'var(--red-lt)', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--red)', fontFamily: 'Outfit,sans-serif' }}>📋 Registro de Bajas · {gradoLabel(gradoActual)}</h3>
+                  <span style={{ background: '#fff', color: 'var(--red)', border: '1px solid #fecaca', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>{bajas.filter(b => b.grado === gradoActual).length} baja(s)</span>
                 </div>
-                <table className="w-full">
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="bg-red-200">
-                      <th className="p-3 text-center font-bold text-sm text-red-900">Nombre completo</th>
-                      <th className="p-3 text-center font-bold text-sm text-red-900">D.N.I N°</th>
-                      <th className="p-3 text-center font-bold text-sm text-red-900">Motivo</th>
-                      <th className="p-3 text-center font-bold text-sm text-red-900">Fecha</th>
-                      <th className="p-3 text-center font-bold text-sm text-red-900">Acción</th>
+                    <tr style={{ background: '#fee2e2' }}>
+                      {['Nombre completo','D.N.I N°','Motivo','Fecha','Acción'].map(h => (
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--red)' }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {bajas.filter(b => b.grado === gradoActual).map((b, i) => (
-                      <tr key={i} className={`border-b border-red-100 ${i % 2 === 0 ? 'bg-white' : 'bg-red-50'}`}>
-                        <td className="p-3 font-bold text-gray-800 text-center">{b.nombre}</td>
-                        <td className="p-3 text-center"><Badge color="red">{b.dni}</Badge></td>
-                        <td className="p-3 text-center text-sm text-gray-700 font-semibold">{b.motivo}</td>
-                        <td className="p-3 text-center text-sm text-gray-500 font-semibold">{b.fecha}</td>
-                        <td className="p-3 text-center">
-                          <button onClick={() => eliminarRegistroBaja(b)}
-                            className="btn-primary flex items-center gap-1 bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold mx-auto">
-                            <Trash2 size={14} /> Eliminar
+                      <tr key={i} className="tabla-row" style={{ borderBottom: '1px solid #fee2e2' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', textAlign: 'center', fontSize: 13 }}>{b.nombre}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{b.dni}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--slate)' }}>{b.motivo}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>{b.fecha}</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <button onClick={() => eliminarRegistroBaja(b)} className="btn-primary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            <Trash2 size={13} /> Eliminar
                           </button>
                         </td>
                       </tr>
@@ -2128,10 +2177,6 @@ export default function SistemaCalificaciones() {
                       </>
                     )}
                   </div>
-                  <button onClick={() => setShowPerfil(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
-                    👤 Mi perfil
-                  </button>
                 </>
               ) : (
                 <>
@@ -2165,11 +2210,11 @@ export default function SistemaCalificaciones() {
             {/* WELCOME BAR */}
             <div style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente'}</h2>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{rolLabel(usuario)}</p>
-                {(isDocGrado || isAdmin) && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 5, fontStyle: 'italic' }}>A continuación se listan tus espacios curriculares asignados para el ciclo lectivo 2026.</p>}
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.rol === 'administrador' ? 'Raquel Noemí' : (usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente')}</h2>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{usuario?.rol === 'administrador' ? 'Directora' : rolLabel(usuario)}</p>
+                {isDocGrado && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 5, fontStyle: 'italic' }}>A continuación se listan tus espacios curriculares asignados para el ciclo lectivo 2026.</p>}
               </div>
-              {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre · cierra {bimActivo.hasta.toLocaleDateString('es-AR',{day:'2-digit',month:'long'})}</span>}
+              {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 20px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre · cierra {bimActivo.hasta.toLocaleDateString('es-AR',{day:'2-digit',month:'long'})}</span>}
             </div>
 
             {/* SELECTOR DE GRADO para docentes con múltiples grados */}
@@ -2220,9 +2265,9 @@ export default function SistemaCalificaciones() {
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(curricularesFilt.length, 5)}, 1fr)`, gap: 10 }}>
                   {curricularesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2236,9 +2281,9 @@ export default function SistemaCalificaciones() {
                 <div style={{ display: 'flex' }}>
                   {areas.convivencia.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2252,9 +2297,9 @@ export default function SistemaCalificaciones() {
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(especielesFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {especielesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2268,9 +2313,9 @@ export default function SistemaCalificaciones() {
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(talleresFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {talleresFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -3663,8 +3708,8 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: 'var(--navy)' }}>
-        <div className="max-w-full mx-auto bg-white rounded-3xl shadow-2xl p-4 fade-in">
+      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: '#e2e8f0' }}>
+        <div className="max-w-full mx-auto bg-white rounded-2xl shadow-md p-4 fade-in" style={{ border: '1px solid var(--border)' }}>
           <TopBar titulo="📋 Documentaciones presentadas por Grados/Áreas - 2026" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
 
           <div className="mt-4 mb-4 flex flex-wrap items-center gap-4">
@@ -3906,8 +3951,8 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'var(--navy)' }}>
-        <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
+      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: '#e2e8f0' }}>
+        <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-md p-6 md:p-10 fade-in" style={{ border: '1px solid var(--border)' }}>
           <TopBar titulo="✏️ Editar Docente" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
 
           <div className="mt-6 space-y-6">
@@ -4041,20 +4086,22 @@ function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalifica
 
   return (
     <div className="relative inline-block" ref={ref}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="bg-gray-100 hover:bg-indigo-100 text-gray-700 hover:text-indigo-700 px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-0.5 border border-gray-200 hover:border-indigo-300">
-        {gradoLabel(grado)} <span className="text-[9px]">▾</span>
+      <button onClick={() => setOpen(v => !v)}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--navy-lt)', color: 'var(--navy)', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+        {gradoLabel(grado)} <span style={{ fontSize: 9 }}>▾</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden"
-          style={{ minWidth: '160px', animation: 'fadeIn 0.1s ease-out' }}>
+        <div style={{ position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 50, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--sh-md)', overflow: 'hidden', minWidth: 160, animation: 'fadeIn 0.1s ease-out' }}>
           <button onClick={() => { setOpen(false); onVerAlumnos(grado, tabActiva); }}
-            className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2 transition-colors">
+            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}
+            onMouseEnter={e => e.currentTarget.style.background='var(--navy-lt)'}
+            onMouseLeave={e => e.currentTarget.style.background='none'}>
             👥 Ver alumnos
           </button>
           <button onClick={() => { setOpen(false); onVerCalificaciones(grado, materia, tabActiva); }}
-            className="w-full text-left px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-2 transition-colors border-t border-gray-100">
+            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}
+            onMouseEnter={e => e.currentTarget.style.background='var(--violet-lt)'}
+            onMouseLeave={e => e.currentTarget.style.background='none'}>
             📊 Ver calificaciones
           </button>
         </div>
@@ -4295,93 +4342,104 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'var(--navy)' }}>
-        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
-          <TopBar titulo="👤 Gestión de Docentes" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+      <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
+        {/* Topbar */}
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onInicio}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <Home size={14} /> Inicio
+            </button>
+            <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>👤 Gestión de Docentes</span>
+          </div>
+          <button onClick={onCerrarSesion}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+            <LogOut size={14} /> Salir
+          </button>
+        </div>
 
-
-
+        <div style={{ padding: '24px 28px' }} className="fade-in">
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
             {[['grado','🏫 Docentes de Grado'],['especial','🎨 Áreas Especiales']].map(([key, label]) => (
               <button key={key} onClick={() => setTabActiva(key)}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${tabActiva === key ? 'bg-green-500 text-white shadow' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', fontWeight: 700, fontSize: 14, border: '1.5px solid', borderColor: tabActiva === key ? 'var(--navy)' : 'var(--border)', background: tabActiva === key ? 'var(--navy)' : '#fff', color: tabActiva === key ? '#fff' : 'var(--slate)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
                 {label}
               </button>
             ))}
           </div>
 
-          {/* Buscador predictivo */}
-          <div className="mb-6 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              value={busqueda}
-              onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar docente..."
-              className="w-full pl-11 pr-10 py-3 border-2 border-gray-200 rounded-2xl focus:outline-none focus:border-green-400 text-gray-800 font-semibold text-sm"
-            />
+          {/* Buscador */}
+          <div style={{ position: 'relative', marginBottom: 20 }}>
+            <Search style={{ position: 'absolute', left: 12, top: 12, color: 'var(--muted)' }} size={16} />
+            <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
+              placeholder="Buscar docente por nombre o correo..."
+              style={{ width: '100%', paddingLeft: 36, paddingRight: 36, padding: '11px 14px 11px 36px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)', background: '#fff' }} />
             {busqueda && (
               <button onClick={() => setBusqueda('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                <X size={16} />
+                style={{ position: 'absolute', right: 10, top: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                <X size={15} />
               </button>
             )}
           </div>
 
-          <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b-2 border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-extrabold text-gray-800">Docentes registrados</h3>
-              <Badge color="green">{usuariosFiltrados.length} {busqueda ? 'resultado(s)' : 'docentes'}</Badge>
+          {/* Tabla docentes */}
+          <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', background: 'var(--navy-lt)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Docentes registrados</h3>
+              <span style={{ background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
+                {usuariosFiltrados.length} {busqueda ? 'resultado(s)' : 'docentes'}
+              </span>
             </div>
             {usuariosFiltrados.length === 0 ? (
-              <div className="text-center py-14 text-gray-400">
-                <div className="text-5xl mb-3">{busqueda ? '🔍' : '👤'}</div>
-                <p className="font-bold text-lg">{busqueda ? `Sin resultados para "${busqueda}"` : 'No hay docentes registrados'}</p>
+              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>{busqueda ? '🔍' : '👤'}</div>
+                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{busqueda ? `Sin resultados para "${busqueda}"` : 'No hay docentes registrados'}</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: 'linear-gradient(135deg, #059669, #10b981)', color: 'white' }}>
+                    <tr className="tabla-header">
                       {['Nombre', 'Correo', 'Rol', 'Grado(s) / Materia(s)', 'Estado', 'Creado', 'Acciones'].map(h => (
-                        <th key={h} className="p-4 text-center font-bold text-sm tracking-wide align-middle">{h}</th>
+                        <th key={h} style={{ padding: '11px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {usuariosFiltrados.map((u, i) => (
-                      <tr key={u.uid || i} className={`border-b border-gray-100 hover:bg-green-50 transition-all duration-150 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
-                        <td className="p-4 align-top text-center">
-                          <div className="font-extrabold text-gray-800 text-sm">{u.nombre}</div>
+                      <tr key={u.uid || i} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{u.nombre}</div>
                         </td>
-                        <td className="p-4 align-top text-center">
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-semibold bg-gray-100 px-2 py-1 rounded-lg">
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', fontWeight: 600, background: '#f8fafc', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)' }}>
                             📧 {u.email}
                           </span>
                         </td>
-                        <td className="p-4 align-top text-center">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${u.rol === 'administrador' ? 'bg-purple-100 text-purple-800' : u.rol === 'docente_grado' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: u.rol === 'docente_grado' ? 'var(--blue-lt)' : 'var(--amber-lt)', color: u.rol === 'docente_grado' ? '#1d4ed8' : 'var(--amber)' }}>
                             {rolLabel(u)}
                           </span>
                         </td>
-                        <td className="p-4 align-top text-center text-xs text-gray-600 max-w-xs">
+                        <td style={{ padding: '12px 14px', textAlign: 'center', maxWidth: 200 }}>
                           {u.rol === 'docente_grado'
                             ? (() => {
                                 const gs = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
                                 return (
-                                  <div className="flex flex-col gap-1.5 items-center">
-                                    <div className="flex flex-wrap gap-1 justify-center">
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
                                       {gs.map((g, j) => (
                                         <ChipGradoAdmin key={j} grado={g} materia={u.materiasAsignadas?.[0] || ''}
-                                          tabActiva={tabActiva}
-                                          onVerAlumnos={onVerAlumnos}
-                                          onVerCalificaciones={onVerCalificaciones} />
+                                          tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
                                       ))}
                                     </div>
                                     {u.materiasAsignadas?.length > 0 && (
-                                      <div className="flex flex-col gap-0.5 items-center mt-1">
-                                        {u.materiasAsignadas.map((m, i) => <span key={i} className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-bold inline-block text-[10px]">{m}</span>)}
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
+                                        {u.materiasAsignadas.map((m, i) => (
+                                          <span key={i} style={{ background: 'var(--blue-lt)', color: '#1d4ed8', padding: '2px 7px', borderRadius: 4, fontWeight: 700, fontSize: 11, display: 'inline-block' }}>{m}</span>
+                                        ))}
                                       </div>
                                     )}
                                   </div>
@@ -4389,48 +4447,48 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                               })()
                             : u.rol === 'area_especial'
                             ? (u.materiasAsignadas?.length > 0
-                              ? <div className="flex flex-col gap-1.5 items-center">
+                              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                                   {u.materiasAsignadas.map((ma, i) => (
-                                    <div key={i} className="text-center">
-                                      <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-md font-bold inline-block">{ma.nombre}</span>
+                                    <div key={i} style={{ textAlign: 'center' }}>
+                                      <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 12, display: 'inline-block', marginBottom: 3 }}>{ma.nombre}</span>
                                       {ma.grados?.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-0.5 justify-center">
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
                                           {ma.grados.map((g, j) => (
                                             <ChipGradoAdmin key={j} grado={g} materia={ma.nombre}
-                                              tabActiva={tabActiva}
-                                              onVerAlumnos={onVerAlumnos}
-                                              onVerCalificaciones={onVerCalificaciones} />
+                                              tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
                                           ))}
                                         </div>
                                       )}
                                     </div>
                                   ))}
                                 </div>
-                              : <span className="text-gray-400 italic">Sin materias</span>)
-                            : <span className="text-gray-400">—</span>}
+                              : <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 }}>Sin materias</span>)
+                            : <span style={{ color: 'var(--muted)' }}>—</span>}
                         </td>
-                        <td className="p-4 align-top text-center">{u.activo ? <Badge color="green">✓ Activo</Badge> : <Badge color="red">⏳ Pendiente</Badge>}</td>
-                        <td className="p-4 align-top text-center text-xs text-gray-400 font-semibold whitespace-nowrap">{new Date(u.fechaCreacion).toLocaleDateString('es-AR')}</td>
-                        <td className="p-4 align-top text-center">
-                          <div className="flex flex-col gap-2 items-center">
-                            <button
-                              onClick={() => onEditarDocente({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
-                              <Save size={14} /> Editar
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          {u.activo
+                            ? <span style={{ background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 10px' }}>✓ Activo</span>
+                            : <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 10px' }}>⏳ Pendiente</span>}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {new Date(u.fechaCreacion).toLocaleDateString('es-AR')}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center', minWidth: 100 }}>
+                            <button onClick={() => onEditarDocente({ ...u })} className="btn-primary"
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+                              <Save size={13} /> Editar
                             </button>
-                            <button
-                              onClick={() => eliminarUsuario(u)}
-                              className="btn-primary flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
-                              <Trash2 size={14} /> Eliminar
+                            <button onClick={() => eliminarUsuario(u)} className="btn-primary"
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+                              <Trash2 size={13} /> Eliminar
                             </button>
-                            <button
-                              onClick={() => onVerEntregas({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-violet-500 hover:bg-violet-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
+                            <button onClick={() => onVerEntregas({ ...u })} className="btn-primary"
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
                               📋 Entregas
                             </button>
-                            <button
-                              onClick={() => onVerActividad({ ...u })}
-                              className="btn-primary flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow w-full justify-center">
+                            <button onClick={() => onVerActividad({ ...u })} className="btn-primary"
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--amber-lt)', color: 'var(--amber)', border: '1.5px solid #fde68a', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
                               📊 Actividad
                             </button>
                           </div>
@@ -4509,8 +4567,8 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'var(--navy)' }}>
-        <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
+      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: '#e2e8f0' }}>
+        <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-md p-5 md:p-8 fade-in" style={{ border: '1px solid var(--border)' }}>
           <TopBar titulo="📋 Calificaciones de Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
           <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
