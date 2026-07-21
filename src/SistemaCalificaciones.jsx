@@ -232,55 +232,72 @@ function ModalRenderer({ modal, closeModal }) {
 
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 const globalStyles = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
-* { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
+:root {
+  --navy: #1e3a5f; --navy2: #2d5282; --navy-lt: #eef3f9;
+  --indigo: #4338ca; --violet: #5b21b6; --violet-lt: #ede9fe;
+  --border: #e2e8f0; --slate: #475569; --slate-lt: #f8fafc;
+  --text: #1e293b; --muted: #64748b;
+  --green: #16a34a; --green-lt: #dcfce7;
+  --red: #dc2626; --red-lt: #fee2e2;
+  --amber: #d97706; --amber-lt: #fef3c7;
+  --blue-lt: #eff6ff; --zebra: #eceff4;
+  --bim-sep: 2px solid #2d4a6a;
+  --r: 8px; --r-lg: 12px;
+  --sh: 0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --sh-md: 0 4px 14px rgba(0,0,0,.10);
+}
 @keyframes marquee { 0% { transform: translateX(0%) } 100% { transform: translateX(-33.33%) } }
 .animate-marquee { display: inline-block; animation: marquee 22s linear infinite; }
 @keyframes modalEntrada { from { opacity: 0; transform: scale(0.92) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(0.95); } }
-.fade-in { animation: fadeIn 0.3s ease-out both; }
-.card-materia { transition: transform 0.2s ease, box-shadow 0.2s ease; animation: fadeInUp 0.4s ease-out both; }
-.card-materia:hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 20px 40px rgba(0,0,0,0.18); }
-.card-materia:nth-child(1) { animation-delay: 0.03s; }
-.card-materia:nth-child(2) { animation-delay: 0.07s; }
-.card-materia:nth-child(3) { animation-delay: 0.11s; }
-.card-materia:nth-child(4) { animation-delay: 0.15s; }
-.card-materia:nth-child(5) { animation-delay: 0.19s; }
-.card-materia:nth-child(6) { animation-delay: 0.23s; }
-.card-materia:nth-child(7) { animation-delay: 0.27s; }
-.card-materia:nth-child(8) { animation-delay: 0.31s; }
-.btn-primary { transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); filter: brightness(1.05); }
-.btn-primary:active { transform: translateY(0); }
+.fade-in { animation: fadeIn 0.25s ease-out both; }
+.card-materia { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; animation: fadeInUp 0.3s ease-out both; }
+.card-materia:hover { transform: translateY(-2px); box-shadow: var(--sh-md); border-color: var(--navy) !important; }
+.card-materia:nth-child(1) { animation-delay: 0.03s; } .card-materia:nth-child(2) { animation-delay: 0.06s; }
+.card-materia:nth-child(3) { animation-delay: 0.09s; } .card-materia:nth-child(4) { animation-delay: 0.12s; }
+.card-materia:nth-child(5) { animation-delay: 0.15s; } .card-materia:nth-child(6) { animation-delay: 0.18s; }
+.card-materia:nth-child(7) { animation-delay: 0.21s; } .card-materia:nth-child(8) { animation-delay: 0.24s; }
+.btn-primary { transition: all 0.15s ease; }
+.btn-primary:hover { filter: brightness(1.08); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.btn-primary:active { filter: brightness(0.97); }
 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { opacity: 0.5; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
-::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 3px; }
-.nota-input { width: 44px; height: 36px; padding: 2px; border: 2px solid #ddd6fe; border-radius: 6px; text-align: center; font-size: 13px; font-weight: 700; color: #374151; background: #faf5ff; transition: border-color 0.15s, background 0.15s; }
-.nota-input:focus { outline: none; border-color: #7c3aed; background: #fff; }
-.tabla-header { background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; }
-.tabla-row { transition: background-color 0.18s ease; }
+::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+.nota-input { width: 44px; height: 34px; padding: 2px; border: 1.5px solid var(--border); border-radius: 6px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text); background: #f8fafc; transition: border-color 0.15s, background 0.15s; font-family: 'Inter', sans-serif; }
+.nota-input:focus { outline: none; border-color: var(--indigo); background: #fff; }
+.tabla-header { background: var(--navy); color: white; }
+.tabla-row { transition: background-color 0.15s ease; }
+.tabla-row:nth-child(even) { background: var(--zebra); }
+.tabla-row:hover { background: #d6dff0 !important; }
+.bim-sep-left { border-left: var(--bim-sep) !important; }
+.bim-sep-right { border-right: var(--bim-sep) !important; }
 .chip-grado { transition: all 0.15s ease; }
-.chip-grado:hover { transform: scale(1.05); }
+.chip-grado:hover { transform: scale(1.04); }
 .toast-visible { animation: toastIn 0.25s ease-out both; }
 `;
 
 // ─── SUBCOMPONENTES ──────────────────────────────────────────────────────────
 function TopBar({ titulo, onInicio, onCerrarSesion }) {
   return (
-    <div className="flex justify-between items-center mb-6 pb-5 border-b-2 border-gray-100">
-      <h2 className="text-2xl md:text-3xl font-extrabold text-gray-800">{titulo}</h2>
+    <div className="flex justify-between items-center mb-6 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit, sans-serif' }}>{titulo}</h2>
       <div className="flex gap-2">
-        <button onClick={onInicio} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
-          <Home size={16} /> Inicio
+        <button onClick={onInicio} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
+          style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 'var(--r)' }}>
+          <Home size={15} /> Inicio
         </button>
-        <button onClick={onCerrarSesion} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
-          <LogOut size={16} /> Salir
+        <button onClick={onCerrarSesion} className="btn-primary flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm"
+          style={{ background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', borderRadius: 'var(--r)' }}>
+          <LogOut size={15} /> Salir
         </button>
       </div>
     </div>
@@ -291,8 +308,13 @@ function ChipsGrado({ lista, seleccionado, onChange }) {
   return (
     <div className="flex flex-wrap gap-2">
       {lista.map(g => (
-        <button key={g} onClick={() => onChange(g)}
-          className={`chip-grado px-4 py-2 rounded-xl font-bold text-sm ${seleccionado === g ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-purple-100 hover:text-purple-700'}`}>
+        <button key={g} onClick={() => onChange(g)} className="chip-grado px-3 py-1.5 font-bold text-sm"
+          style={{
+            borderRadius: 'var(--r)', border: '1.5px solid',
+            borderColor: seleccionado === g ? 'var(--navy)' : 'var(--border)',
+            background: seleccionado === g ? 'var(--navy)' : '#fff',
+            color: seleccionado === g ? '#fff' : 'var(--slate)',
+          }}>
           {gradoLabel(g)}
         </button>
       ))}
@@ -301,16 +323,22 @@ function ChipsGrado({ lista, seleccionado, onChange }) {
 }
 
 function Badge({ children, color = 'purple' }) {
-  const colores = { purple: 'bg-purple-100 text-purple-800', blue: 'bg-blue-100 text-blue-800', green: 'bg-green-100 text-green-800', red: 'bg-red-100 text-red-800' };
-  return <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${colores[color]}`}>{children}</span>;
+  const colores = {
+    purple: { bg: 'var(--violet-lt)', text: 'var(--violet)' },
+    blue:   { bg: 'var(--blue-lt)',   text: '#1d4ed8' },
+    green:  { bg: 'var(--green-lt)',  text: 'var(--green)' },
+    red:    { bg: 'var(--red-lt)',    text: 'var(--red)' },
+  };
+  const c = colores[color] || colores.purple;
+  return <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.text }}>{children}</span>;
 }
 
 function Spinner({ texto = 'Cargando...' }) {
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)' }}>
-      <div className="bg-white rounded-3xl shadow-2xl p-12 flex flex-col items-center gap-4">
-        <div style={{ width: 48, height: 48, border: '5px solid #e9d5ff', borderTop: '5px solid #7c3aed', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <p className="font-bold text-gray-600">{texto}</p>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center" style={{ background: 'var(--navy)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: 'var(--sh-md)', padding: '48px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <div style={{ width: 44, height: 44, border: '4px solid var(--border)', borderTop: '4px solid var(--navy)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ fontWeight: 600, color: 'var(--muted)', fontSize: 14 }}>{texto}</p>
       </div>
     </div>
   );
@@ -718,23 +746,23 @@ function CriterioChip({ nombre, bloqueado, onEliminar, onRenombrar }) {
   };
 
   return (
-    <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 px-2 py-1 rounded-lg">
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: bloqueado ? '#f8fafc' : '#fff', border: '1.5px solid', borderColor: 'var(--border)', borderRadius: 6, padding: '3px 8px' }}>
       {editando ? (
         <input ref={inputRef} type="text" value={texto}
           onChange={e => setTexto(e.target.value)}
           onBlur={confirmar}
           onKeyDown={e => { if (e.key === 'Enter') confirmar(); if (e.key === 'Escape') { setTexto(nombre); setEditando(false); } }}
-          className="text-xs font-bold text-gray-700 bg-white border border-amber-400 rounded px-1 outline-none w-32" />
+          style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', background: '#fff', border: '1px solid var(--indigo)', borderRadius: 4, padding: '0 4px', outline: 'none', width: 100, fontFamily: 'Inter,sans-serif' }} />
       ) : (
-        <span className="text-xs font-bold text-gray-700">{nombre}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: bloqueado ? 'var(--muted)' : 'var(--text)' }}>{nombre}</span>
       )}
       {!bloqueado && !editando && (
-        <button onClick={() => setEditando(true)} className="text-amber-400 hover:text-amber-600 transition-colors ml-0.5" title="Renombrar">
+        <button onClick={() => setEditando(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', marginLeft: 2 }} title="Renombrar">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       )}
       {!bloqueado && (
-        <button onClick={onEliminar} className="text-red-400 hover:text-red-600 transition-colors ml-0.5"><X size={11} /></button>
+        <button onClick={onEliminar} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', display: 'flex' }}><X size={11} /></button>
       )}
     </div>
   );
@@ -1578,131 +1606,152 @@ export default function SistemaCalificaciones() {
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%)' }}>
-        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md fade-in">
-          <div className="text-center mb-8">
+      <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
+        {/* Panel izquierdo — marca */}
+        <div style={{ width: '50%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
             <img
               src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
               alt="Escuela Provincial N° 185"
-              className="mx-auto mb-3 rounded-2xl shadow-md"
-              style={{ width: 240, height: 150, objectFit: 'cover' }}
-              onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }}
+              style={{ width: 240, height: 240, objectFit: 'cover', borderRadius: 'var(--r-lg)', border: '3px solid rgba(255,255,255,.2)', boxShadow: '0 16px 48px rgba(0,0,0,.4)' }}
+              onError={e => { e.target.style.display='none'; }}
             />
-            <div className="text-6xl mb-3" style={{ display: 'none' }}>🏫</div>
-            <h1 className="text-2xl font-extrabold text-gray-800 leading-tight">Escuela Provincial N° 185</h1>
-            <h2 className="text-xl font-bold text-purple-700 mb-1">"Juan Areco"</h2>
-            <p className="text-sm text-gray-500 font-semibold tracking-wide uppercase">Sistema de Calificaciones · 2026</p>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.3, fontFamily: 'Outfit,sans-serif' }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 10, lineHeight: 1.8 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', fontWeight: 600, marginTop: 12 }}>Sistema de Calificaciones</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', fontWeight: 700, letterSpacing: '0.07em', marginTop: 6 }}>CICLO LECTIVO 2026</p>
+            </div>
           </div>
+          <div></div>
+        </div>
+        {/* Panel derecho — formulario */}
+        <div style={{ width: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 420, padding: '52px 48px' }} className="fade-in">
           {!registro.show ? (
             <>
-              <h3 className="text-xl font-extrabold text-gray-700 mb-5 text-center">Iniciar Sesión</h3>
-              <div className="space-y-4">
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                  <input type="email" value={loginForm.email}
-                    onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
-                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                    placeholder={loginForm.recordarme ? '' : 'Correo electrónico'}
-                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold" />
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                  <input type={loginForm.verPass ? 'text' : 'password'} value={loginForm.pass}
-                    onChange={e => setLoginForm({ ...loginForm, pass: e.target.value })}
-                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                    placeholder={loginForm.recordarme ? '' : 'Contraseña'}
-                    className="w-full pl-10 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold" />
-                  <button onClick={() => setLoginForm({ ...loginForm, verPass: !loginForm.verPass })}
-                    className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600">
-                    {loginForm.verPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                {/* Recordarme */}
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <div onClick={() => setLoginForm(f => ({ ...f, recordarme: !f.recordarme }))}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${loginForm.recordarme ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
-                    {loginForm.recordarme && <svg width="11" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 6 }}>Bienvenido/a</h2>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>Ingresá tus credenciales para acceder al sistema.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Correo electrónico</label>
+                  <div style={{ position: 'relative' }}>
+                    <Mail style={{ position: 'absolute', left: 12, top: 11, color: 'var(--muted)' }} size={16} />
+                    <input type="email" value={loginForm.email}
+                      onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                      placeholder="tu@correo.com"
+                      className="n-field-input" style={{ paddingLeft: 36 }} />
                   </div>
-                  <span className="text-sm text-gray-600 font-semibold">Recordarme</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contraseña</label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock style={{ position: 'absolute', left: 12, top: 11, color: 'var(--muted)' }} size={16} />
+                    <input type={loginForm.verPass ? 'text' : 'password'} value={loginForm.pass}
+                      onChange={e => setLoginForm({ ...loginForm, pass: e.target.value })}
+                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                      placeholder="••••••••"
+                      className="n-field-input" style={{ paddingLeft: 36, paddingRight: 36 }} />
+                    <button onClick={() => setLoginForm({ ...loginForm, verPass: !loginForm.verPass })}
+                      style={{ position: 'absolute', right: 10, top: 9, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                      {loginForm.verPass ? <EyeOff size={17} /> : <Eye size={17} />}
+                    </button>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <div onClick={() => setLoginForm(f => ({ ...f, recordarme: !f.recordarme }))}
+                    style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: loginForm.recordarme ? 'var(--navy)' : 'var(--border)', background: loginForm.recordarme ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', flexShrink: 0 }}>
+                    {loginForm.recordarme && <svg width="10" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span style={{ fontSize: 13, color: 'var(--slate)', fontWeight: 500 }}>Recordarme en este dispositivo</span>
                 </label>
                 <button onClick={handleLogin} disabled={loginCargando}
-                  className="btn-primary w-full py-3 rounded-xl font-extrabold text-white text-lg shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
+                  className="btn-primary" style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 'var(--r)', padding: '11px 20px', fontSize: 14, fontWeight: 700, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loginCargando ? 0.6 : 1, cursor: loginCargando ? 'not-allowed' : 'pointer' }}>
                   {loginCargando
-                    ? <div style={{ width: 24, height: 24, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    : 'Ingresar →'}
+                    ? <div style={{ width: 22, height: 22, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    : 'Ingresar al sistema'}
                 </button>
                 <button onClick={() => setMostrarRecuperar(true)}
-                  className="text-sm text-purple-600 hover:text-purple-800 font-semibold text-center w-full transition-colors">
+                  style={{ fontSize: 12, color: 'var(--indigo)', fontWeight: 600, textAlign: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
               <button onClick={() => setRegistro({ ...registro, show: true })}
-                className="btn-primary w-full mt-4 py-2.5 rounded-xl font-bold text-white bg-blue-500 hover:bg-blue-600 transition-all">
-                + Registrar nuevo usuario
+                className="btn-primary" style={{ width: '100%', marginTop: 16, padding: '10px 20px', borderRadius: 'var(--r)', background: 'transparent', color: 'var(--navy)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                + Solicitar acceso
               </button>
             </>
           ) : (
             <>
-              <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center">Registrar Usuario</h3>
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 4 }}>Solicitar acceso</h2>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Completá el formulario. La directora aprobará tu solicitud.</p>
+              <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {[
-                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Ej: García, María José',               type: 'text' },
-                  { val: registro.data.email,    key: 'email',    ph: 'Correo electrónico (Gmail u otro)',     type: 'email' },
-                  { val: registro.data.password, key: 'password', ph: 'Contraseña (mín. 6 caracteres)',        type: 'password' },
+                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Apellido, Nombre(s)',                    type: 'text' },
+                  { val: registro.data.email,    key: 'email',    ph: 'Correo electrónico',                     type: 'email' },
+                  { val: registro.data.password, key: 'password', ph: 'Contraseña (mín. 6 caracteres)',         type: 'password' },
                 ].map(({ val, key, ph, type }) => (
                   <input key={key} type={type} value={val} placeholder={ph}
                     onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, [key]: e.target.value } }))}
                     onBlur={key === 'nombre' ? e => setRegistro(r => ({ ...r, data: { ...r.data, nombre: capitalizarNombre(e.target.value) } })) : undefined}
-                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold" />
+                    className="n-field-input" />
                 ))}
-                <select value={registro.data.rol}
-                  onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, rol: e.target.value, materiasAsignadas: [] } }))}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-gray-800 font-semibold bg-white focus:outline-none focus:border-purple-500">
-                  <option value="docente_grado">Docente de Grado</option>
-                  <option value="area_especial">Docente Área Especial</option>
-                </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Área Especial'}].map(({val,lbl}) => (
+                      <div key={val} onClick={() => setRegistro(r => ({ ...r, data: { ...r.data, rol: val, materiasAsignadas: [] } }))}
+                        style={{ border: '1.5px solid', borderColor: registro.data.rol === val ? 'var(--indigo)' : 'var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', cursor: 'pointer', background: registro.data.rol === val ? 'var(--violet-lt)' : '#fff' }}>
+                        <strong style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{lbl}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 {registro.data.rol === 'docente_grado' && (
-                  <div className="border-2 border-purple-200 rounded-xl p-3 bg-purple-50">
-                    <p className="font-bold text-purple-800 mb-3 text-sm uppercase tracking-wide">Grados a cargo</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      {grados.map(g => (
-                        <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-white rounded p-1 cursor-pointer">
-                          <input type="checkbox"
-                            checked={(registro.data.gradosAsignados || [registro.data.gradoAsignado]).includes(g)}
-                            onChange={() => {
-                              const actual = registro.data.gradosAsignados || [registro.data.gradoAsignado].filter(Boolean);
-                              const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
-                              setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
-                            }}
-                            className="accent-purple-600" /> {gradoLabel(g)}
-                        </label>
-                      ))}
+                  <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12, background: 'var(--navy-lt)' }}>
+                    <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados a cargo</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
+                      {grados.map(g => {
+                        const sel = (registro.data.gradosAsignados || [registro.data.gradoAsignado]).includes(g);
+                        return (
+                          <label key={g} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={sel}
+                              onChange={() => {
+                                const actual = registro.data.gradosAsignados || [registro.data.gradoAsignado].filter(Boolean);
+                                const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
+                                setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
+                              }}
+                              style={{ accentColor: 'var(--navy)' }} />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{gradoLabel(g)}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-                <div className="border-2 border-gray-200 rounded-xl p-3">
-                  <p className="font-bold text-gray-700 mb-2 text-sm uppercase tracking-wide">Materias asignadas</p>
+                <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12 }}>
+                  <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Materias asignadas</p>
                   {materiasRegistro.map(m => (
-                    <label key={m.nombre} className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer">
+                    <label key={m.nombre} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', cursor: 'pointer', borderRadius: 6 }}>
                       <input type="checkbox"
                         checked={registro.data.rol === 'docente_grado' ? registro.data.materiasAsignadas.includes(m.nombre) : registro.data.materiasAsignadas.some(ma => ma.nombre === m.nombre)}
-                        onChange={() => toggleMateriaRegistro(m.nombre)} className="accent-purple-600 w-4 h-4" />
-                      <span className="text-sm text-gray-800 font-semibold">{m.icon} {m.nombre}</span>
+                        onChange={() => toggleMateriaRegistro(m.nombre)} style={{ accentColor: 'var(--navy)', width: 15, height: 15 }} />
+                      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{m.icon} {m.nombre}</span>
                     </label>
                   ))}
                 </div>
                 {registro.data.rol === 'area_especial' && registro.data.materiasAsignadas.length > 0 && (
-                  <div className="border-2 border-purple-200 rounded-xl p-3 bg-purple-50">
-                    <p className="font-bold text-purple-800 mb-3 text-sm uppercase tracking-wide">Grados por materia</p>
+                  <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12, background: 'var(--navy-lt)' }}>
+                    <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados por materia</p>
                     {registro.data.materiasAsignadas.map(ma => (
-                      <div key={ma.nombre} className="mb-3">
-                        <p className="font-bold text-gray-800 mb-1 text-sm">{ma.nombre}</p>
-                        <div className="grid grid-cols-4 gap-1">
+                      <div key={ma.nombre} style={{ marginBottom: 12 }}>
+                        <p style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6, fontSize: 12 }}>{ma.nombre}</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
                           {grados.map(g => (
-                            <label key={g} className="flex items-center gap-1 text-xs text-gray-700 font-semibold hover:bg-white rounded p-1 cursor-pointer">
-                              <input type="checkbox" checked={ma.grados.includes(g)} onChange={() => toggleGradoRegistro(ma.nombre, g)} className="accent-purple-600" /> {gradoLabel(g)}
+                            <label key={g} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={ma.grados.includes(g)} onChange={() => toggleGradoRegistro(ma.nombre, g)} style={{ accentColor: 'var(--navy)' }} />
+                              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{gradoLabel(g)}</span>
                             </label>
                           ))}
                         </div>
@@ -1711,31 +1760,30 @@ export default function SistemaCalificaciones() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-3 mt-4">
-                <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })} className="flex-1 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold hover:bg-gray-300 transition-all">Cancelar</button>
+              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
+                  style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
                 <button onClick={handleRegistro} disabled={registroCargando}
-                  className="btn-primary flex-1 py-2.5 rounded-xl text-white font-bold shadow disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}>
-                  {registroCargando ? 'Registrando...' : 'Registrar'}
+                  className="btn-primary" style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: registroCargando ? 0.6 : 1, cursor: registroCargando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {registroCargando ? 'Enviando...' : 'Enviar solicitud de acceso'}
                 </button>
               </div>
             </>
           )}
+          </div>
         </div>
       </div>
       {mostrarRecuperar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-            style={{ animation: 'modalEntrada 0.2s ease-out' }}>
-            <div className="px-6 py-4 flex items-center justify-between border-b"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
-              <h3 className="text-lg font-bold text-white">🔑 Recuperar contraseña</h3>
+          <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 20px 60px rgba(0,0,0,.2)', width: '100%', maxWidth: 400, overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'var(--navy)', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>🔑 Recuperar contraseña</h3>
               <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
-                className="text-white/70 hover:text-white"><X size={22} /></button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
             </div>
-            <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-600 font-semibold leading-relaxed">
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.6 }}>
                 Ingresá tu correo electrónico y te enviaremos un link para restablecer tu contraseña. El link expira en 1 hora.
               </p>
               <input
@@ -1743,12 +1791,12 @@ export default function SistemaCalificaciones() {
                 value={recuperarEmail}
                 onChange={e => setRecuperarEmail(e.target.value)}
                 placeholder="Tu correo electrónico"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 text-gray-800 font-semibold"
+                className="n-field-input"
                 onKeyDown={e => e.key === 'Enter' && !recuperarCargando && handleRecuperar()}
                 autoFocus
               />
             </div>
-            <div className="px-6 pb-5 flex flex-col gap-2">
+            <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 onClick={async () => {
                   if (!recuperarEmail.trim()) return;
@@ -1768,12 +1816,11 @@ export default function SistemaCalificaciones() {
                   }
                 }}
                 disabled={!recuperarEmail.trim() || recuperarCargando}
-                className="w-full py-3 rounded-xl font-bold text-white disabled:opacity-50 transition-all"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+                className="btn-primary" style={{ width: '100%', padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: (!recuperarEmail.trim() || recuperarCargando) ? 0.5 : 1, cursor: (!recuperarEmail.trim() || recuperarCargando) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {recuperarCargando ? 'Enviando...' : 'Enviar correo de recuperación'}
               </button>
               <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
-                className="w-full py-2.5 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                style={{ width: '100%', padding: '9px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 Cancelar
               </button>
             </div>
@@ -1783,13 +1830,14 @@ export default function SistemaCalificaciones() {
     </>
   );
 
+
   if (pantalla === 'administracion') {
     const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
     return (
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
+        <div className="min-h-screen w-full p-2 md:p-4" style={{ background: 'var(--navy)' }}>
           <div className="w-[95%] max-w-none mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
             <TopBar titulo="👥 Gestión de Alumnos" onInicio={() => { setVolverAGestion(false); setPantalla('inicio'); }} onCerrarSesion={() => setModalCerrarSesion(true)} />
             {volverAGestion && usuario?.rol === 'administrador' && (
@@ -2015,241 +2063,226 @@ export default function SistemaCalificaciones() {
     const curricularesFilt = areas.curriculares.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
     const especielesFilt = areas.especiales.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
     const talleresFilt = areas.talleres.filter(m => materiasDisp.some(md => md.nombre === m.nombre));
+    const isAdmin = usuario?.rol === 'administrador';
+    const isDocGrado = usuario?.rol === 'docente_grado';
+    const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
+    const avisosNoLeidos = avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length;
+    const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
+    const solicitudesCount = solicitudes.length;
+    const badgeAdmin = notifsNoLeidas + solicitudesCount;
+    // Saludo por hora
+    const hora = new Date().getHours();
+    const saludo = hora < 12 ? 'Buenos días' : hora < 20 ? 'Buenas tardes' : 'Buenas noches';
+    // Bimestre activo
+    const hoy = new Date();
+    const bimestresConfig = [
+      { n:1, desde: new Date('2026-03-02'), hasta: new Date('2026-05-08') },
+      { n:2, desde: new Date('2026-05-11'), hasta: new Date('2026-07-31') },
+      { n:3, desde: new Date('2026-08-03'), hasta: new Date('2026-10-09') },
+      { n:4, desde: new Date('2026-10-12'), hasta: new Date('2026-12-04') },
+    ];
+    const bimActivo = bimestresConfig.find(b => hoy >= b.desde && hoy <= b.hasta);
     return (
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' }}>
-          <div className="w-full max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
-            <div className="overflow-hidden mb-8 rounded-2xl py-3" style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-              <div className="animate-marquee whitespace-nowrap">
-                {[1, 2, 3].map(i => <span key={i} className="text-white text-xl md:text-2xl font-extrabold mx-10">🏫 Escuela Provincial N° 185 "Juan Areco" — Oberá, Misiones — Ciclo Lectivo 2026</span>)}
-              </div>
+        <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
+          {/* TOPBAR */}
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Esc. Prov. N° 185 "Juan Areco"</span>
+              <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Sistema de Calificaciones</span>
             </div>
-            <div className="md:relative text-center mb-8">
-              {usuario?.rol === 'administrador' && (() => {
-                const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
-                const solicitudesCount = solicitudes.length;
-                const badge = notifsNoLeidas + solicitudesCount;
-                return (
-                  <div className="md:absolute md:top-0 md:right-0 flex justify-center mt-4 md:mt-0">
-                    <div className="relative">
-                      <button onClick={() => setMenuAcciones(v => !v)}
-                        className="flex items-center gap-2 bg-white border-2 border-purple-200 hover:bg-purple-50 transition-all px-4 py-2.5 rounded-2xl shadow-sm">
-                        <span className="text-lg">⚙️</span>
-                        <span className="text-sm font-bold text-purple-700">Acciones</span>
-                        {badge > 0 && <span className="bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{badge}</span>}
-                        <span className="text-purple-400 text-xs">{menuAcciones ? '▲' : '▼'}</span>
-                      </button>
-                      {menuAcciones && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setMenuAcciones(false)} />
-                          <div className="absolute right-0 top-full mt-2 z-50 bg-white border-2 border-gray-100 rounded-2xl shadow-xl overflow-hidden w-56"
-                            style={{ animation: 'fadeIn 0.15s ease-out' }}>
-                            <button onClick={() => { setMenuAcciones(false); setShowModalMensajes(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors text-left">
-                              <span className="text-lg">✉️</span>
-                              <span className="text-sm font-bold text-gray-700">Mensajes</span>
-                            </button>
-                            <button onClick={() => { setMenuAcciones(false); setShowNotifsBimestre(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left border-t border-gray-50">
-                              <span className="text-lg">✅</span>
-                              <span className="text-sm font-bold text-gray-700">Bimestres completados</span>
-                              {notifsNoLeidas > 0 && <span className="ml-auto bg-green-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{notifsNoLeidas}</span>}
-                            </button>
-                            <button onClick={() => { setMenuAcciones(false); setShowFechasBimestre(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left border-t border-gray-50">
-                              <span className="text-lg">📢</span>
-                              <span className="text-sm font-bold text-gray-700">Enviar recordatorio</span>
-                            </button>
-                            <button onClick={() => { setMenuAcciones(false); setShowModalSolicitudes(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-purple-50 transition-colors text-left border-t border-gray-50">
-                              <span className="text-lg">🔔</span>
-                              <span className="text-sm font-bold text-gray-700">Solicitudes</span>
-                              {solicitudesCount > 0 && <span className="ml-auto bg-red-500 text-white text-xs font-black px-1.5 py-0.5 rounded-full">{solicitudesCount}</span>}
-                            </button>
-                            <button onClick={() => { setMenuAcciones(false); setShowRegistroMods(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-orange-50 transition-colors text-left border-t border-gray-50">
-                              <span className="text-lg">📋</span>
-                              <span className="text-sm font-bold text-gray-700">Registro de Modificaciones</span>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-              {usuario?.rol !== 'administrador' && (() => {
-                const noLeidos = mensajes.filter(m => !m.leidoPor?.[authUser?.uid]).length;
-                return (
-                  <div className="md:absolute md:top-0 md:right-0 flex flex-row md:flex-col flex-wrap gap-2 justify-center md:items-end mt-4 md:mt-0">
-                    <button onClick={() => setShowModalMensajes(true)}
-                      className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 hover:bg-blue-100 transition-all px-4 py-2 rounded-2xl" title="Mensajes">
-                      <span className="text-xl">✉️</span>
-                      {noLeidos > 0
-                        ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{noLeidos}</span>
-                        : <span className="text-xs font-bold text-blue-600">Mensajes</span>}
+            <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+              {isAdmin ? (
+                <>
+                  <div style={{ position: 'relative' }}>
+                    <button onClick={() => setMenuAcciones(v => !v)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                      ⚙️ Acciones
+                      {badgeAdmin > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{badgeAdmin}</span>}
+                      <span style={{ fontSize: 10, color: 'var(--muted)' }}>{menuAcciones ? '▲' : '▼'}</span>
                     </button>
-                    <button onClick={() => { setShowAvisos(true); }}
-                      className="flex items-center gap-2 bg-amber-50 border-2 border-amber-200 hover:bg-amber-100 transition-all px-4 py-2 rounded-2xl">
-                      <span className="text-xl">🔔</span>
-                      {avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length > 0
-                        ? <span className="bg-red-500 text-white text-xs font-black px-2 py-0.5 rounded-full">{avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length}</span>
-                        : <span className="text-xs font-bold text-amber-600">Avisos</span>}
-                    </button>
-                    <button onClick={() => setShowFechasBimestre(true)}
-                      className="flex items-center gap-2 bg-indigo-50 border-2 border-indigo-200 hover:bg-indigo-100 transition-all px-4 py-2 rounded-2xl">
-                      <span className="text-xl">📅</span>
-                      <span className="text-xs font-bold text-indigo-600">Bimestres Ciclo Lectivo 2026</span>
-                    </button>
+                    {menuAcciones && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuAcciones(false)} />
+                        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, zIndex: 50, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', boxShadow: 'var(--sh-md)', overflow: 'hidden', minWidth: 220, animation: 'fadeIn 0.15s ease-out' }}>
+                          {[
+                            { icon: '✉️', label: 'Mensajes', action: () => { setMenuAcciones(false); setShowModalMensajes(true); } },
+                            { icon: '✅', label: 'Bimestres completados', action: () => { setMenuAcciones(false); setShowNotifsBimestre(true); }, badge: notifsNoLeidas },
+                            { icon: '📢', label: 'Enviar recordatorio', action: () => { setMenuAcciones(false); setShowFechasBimestre(true); } },
+                            { icon: '🔔', label: 'Solicitudes', action: () => { setMenuAcciones(false); setShowModalSolicitudes(true); }, badge: solicitudesCount },
+                            { icon: '📋', label: 'Registro de Modificaciones', action: () => { setMenuAcciones(false); setShowRegistroMods(true); } },
+                          ].map(({icon, label, action, badge}) => (
+                            <button key={label} onClick={action}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter,sans-serif' }}
+                              onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
+                              onMouseLeave={e => e.currentTarget.style.background='none'}>
+                              <span style={{ fontSize: 16 }}>{icon}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', flex: 1 }}>{label}</span>
+                              {badge > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{badge}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
-                );
-              })()}
-              <h1 className="text-3xl md:text-4xl font-black text-gray-800 mb-4">¡Bienvenidos Colegas! 👋</h1>
-              {(() => {
-                const rec = getRecordatorioBimestre();
-                if (!rec) return null;
-                return (
-                  <div className="mb-4 mx-auto max-w-lg bg-amber-50 border-2 border-amber-400 rounded-2xl px-5 py-3 flex items-center gap-3">
-                    <span className="text-2xl">⏰</span>
-                    <div className="text-left">
-                      <p className="font-black text-amber-800 text-sm">
-                        {rec.diff === 0
-                          ? `⚠️ ¡Hoy cierra el ${rec.bim}° Bimestre!`
-                          : `⚠️ El ${rec.bim}° Bimestre cierra en ${rec.diff} día${rec.diff > 1 ? 's' : ''}`}
-                      </p>
-                      <p className="text-xs text-amber-700 font-semibold">Fecha de cierre: {rec.cierre} — Completá las notas a tiempo.</p>
-                    </div>
-                  </div>
-                );
-              })()}
-              <div className="inline-flex items-center gap-3 bg-purple-50 border-2 border-purple-100 px-6 py-3 rounded-2xl mb-4">
-                <div className="text-left">
-                  <p className="font-extrabold text-gray-800 text-lg">{nombreMostrado(usuario)}</p>
-                  <p className="text-sm text-purple-600 font-semibold">{rolLabel(usuario)}</p>
-                </div>
-                {usuario?.rol !== 'administrador' && (
                   <button onClick={() => setShowPerfil(true)}
-                    className="btn-primary flex items-center gap-1 bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-xl text-xs font-bold transition-all">
-                    ✏️ Mi perfil
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    👤 Mi perfil
                   </button>
-                )}
-              </div>
-              <div>
-                <button onClick={() => setModalCerrarSesion(true)} className="btn-primary inline-flex items-center gap-2 bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold shadow">
-                  <LogOut size={18} /> Cerrar Sesión
-                </button>
-              </div>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setShowModalMensajes(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    ✉️ Mensajes {noLeidos > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{noLeidos}</span>}
+                  </button>
+                  <button onClick={() => setShowAvisos(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    🔔 Avisos {avisosNoLeidos > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{avisosNoLeidos}</span>}
+                  </button>
+                  <button onClick={() => setShowFechasBimestre(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    📅 Bimestres
+                  </button>
+                  <button onClick={() => setShowPerfil(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    👤 Mi perfil
+                  </button>
+                </>
+              )}
+              <button onClick={() => setModalCerrarSesion(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                <LogOut size={14} /> Cerrar sesión
+              </button>
             </div>
-            <div className="flex flex-wrap justify-center gap-4 mb-10">
+          </div>
+
+          {/* CONTENIDO */}
+          <div style={{ padding: '28px 28px', maxWidth: '100%' }} className="fade-in">
+            {/* WELCOME BAR */}
+            <div style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente'}</h2>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{rolLabel(usuario)}</p>
+                {(isDocGrado || isAdmin) && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 5, fontStyle: 'italic' }}>A continuación se listan tus espacios curriculares asignados para el ciclo lectivo 2026.</p>}
+              </div>
+              {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre · cierra {bimActivo.hasta.toLocaleDateString('es-AR',{day:'2-digit',month:'long'})}</span>}
+            </div>
+
+            {/* SELECTOR DE GRADO para docentes con múltiples grados */}
+            {isDocGrado && (usuario?.gradosAsignados?.length > 1) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 'var(--r)', background: 'var(--navy-lt)', border: '1px solid var(--border)', marginBottom: 20 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginRight: 4 }}>Grado activo:</p>
+                <ChipsGrado lista={usuario.gradosAsignados} seleccionado={grado} onChange={setGrado} />
+              </div>
+            )}
+
+            {/* RECORDATORIO BIMESTRE */}
+            {(() => {
+              const rec = getRecordatorioBimestre();
+              if (!rec) return null;
+              return (
+                <div style={{ marginBottom: 20, background: 'var(--amber-lt)', border: '1.5px solid #fcd34d', borderRadius: 'var(--r)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>⏰</span>
+                  <div>
+                    <p style={{ fontWeight: 700, color: 'var(--amber)', fontSize: 13 }}>
+                      {rec.diff === 0 ? `⚠️ ¡Hoy cierra el ${rec.bim}° Bimestre!` : `⚠️ El ${rec.bim}° Bimestre cierra en ${rec.diff} día${rec.diff > 1 ? 's' : ''}`}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginTop: 2 }}>Fecha de cierre: {rec.cierre} — Completá las notas a tiempo.</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* BOTONES DE GESTIÓN (admin/docente grado) */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {puedeGestionarAlumnos && (
-                <button onClick={() => { setVolverAGestion(false); setPantalla('administracion'); }} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)' }}>👥 Gestión de Alumnos</button>
+                <button onClick={() => { setVolverAGestion(false); setPantalla('administracion'); }}
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>👥 Gestión de Alumnos</button>
               )}
               {puedeGestionarUsuarios && (
-                <button onClick={() => setPantalla('gestion_usuarios')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}>👤 Gestión de Docentes</button>
+                <button onClick={() => setPantalla('gestion_usuarios')}
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>👤 Gestión de Docentes</button>
               )}
-              {usuario?.rol === 'docente_grado' && (
-                <button onClick={() => setPantalla('notas_especiales')} className="btn-primary text-white px-8 py-4 rounded-2xl font-extrabold text-lg shadow-xl inline-flex items-center gap-3" style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>📋 Calificaciones de Áreas Especiales</button>
+              {isDocGrado && (
+                <button onClick={() => setPantalla('notas_especiales')}
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>📋 Calificaciones de Áreas Especiales</button>
               )}
             </div>
+
+            {/* CURRICULARES */}
             {curricularesFilt.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">📚 Áreas Curriculares</h3>
-                <div className={`grid gap-4 justify-center ${
-                  curricularesFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
-                  curricularesFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
-                  curricularesFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
-                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
-                }`}>
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Áreas Curriculares</p>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(curricularesFilt.length, 5)}, 1fr)`, gap: 10 }}>
                   {curricularesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: curricularesFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
-                      <span className={curricularesFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
-                      <span className={`font-extrabold text-center leading-tight ${curricularesFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {usuario?.rol === 'docente_grado' && (
-              <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏫 Convivencia</h3>
-                <div className="flex justify-center">
+
+            {/* CONVIVENCIA */}
+            {(isDocGrado || isAdmin) && (
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Convivencia</p>
+                <div style={{ display: 'flex' }}>
                   {areas.convivencia.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: '2rem 3rem' }}>
-                      <span className="text-6xl">{m.icon}</span>
-                      <span className="font-extrabold text-center text-base">{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {curricularesFilt.length > 0 && especielesFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
+
+            {/* ESPECIALES */}
             {especielesFilt.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🎨 Áreas Especiales</h3>
-                <div className={`grid gap-4 justify-center ${
-                  especielesFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
-                  especielesFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
-                  especielesFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
-                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                }`}>
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Áreas Especiales</p>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(especielesFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {especielesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: especielesFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
-                      <span className={especielesFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
-                      <span className={`font-extrabold text-center leading-tight ${especielesFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {talleresFilt.length > 0 && <div className="border-t-4 border-purple-100 my-8" />}
+
+            {/* TALLERES */}
             {talleresFilt.length > 0 && (
-              <div className="mb-8">
-                <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏆 Talleres</h3>
-                <div className={`grid gap-4 justify-center ${
-                  talleresFilt.length === 1 ? 'grid-cols-1 max-w-xs mx-auto' :
-                  talleresFilt.length === 2 ? 'grid-cols-2 max-w-sm mx-auto' :
-                  talleresFilt.length === 3 ? 'grid-cols-3 max-w-lg mx-auto' :
-                  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                }`}>
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Talleres</p>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(talleresFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {talleresFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: talleresFilt.length <= 3 ? '2.5rem 1.5rem' : '1.5rem' }}>
-                      <span className={talleresFilt.length <= 3 ? 'text-7xl' : 'text-5xl'}>{m.icon}</span>
-                      <span className={`font-extrabold text-center leading-tight ${talleresFilt.length <= 3 ? 'text-base' : 'text-sm'}`}>{m.nombre}</span>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '18px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{m.icon}</div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {usuario?.rol === 'administrador' && (
-              <>
-                <div className="border-t-4 border-purple-100 my-8" />
-                <div className="mb-8">
-                  <h3 className="text-xl font-extrabold text-gray-700 mb-4 text-center uppercase tracking-wide">🏫 Convivencia</h3>
-                  <div className="flex justify-center">
-                    {areas.convivencia.map(m => (
-                      <button key={m.nombre} onClick={() => abrirMateria(m)}
-                        className="card-materia rounded-2xl text-white flex flex-col items-center gap-3 shadow-lg"
-                        style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})`, padding: '2rem 3rem' }}>
-                        <span className="text-6xl">{m.icon}</span>
-                        <span className="font-extrabold text-center text-base">{m.nombre}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+
             {curricularesFilt.length === 0 && especielesFilt.length === 0 && talleresFilt.length === 0 && (
-              <div className="text-center py-10 text-gray-400"><p className="text-5xl mb-3">📭</p><p className="font-bold text-lg">No tenés materias asignadas</p><p className="text-sm">Contactá al administrador del sistema</p></div>
+              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                <p style={{ fontSize: 48, marginBottom: 12 }}>📭</p>
+                <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No tenés materias asignadas</p>
+                <p style={{ fontSize: 13, marginTop: 4 }}>Contactá al administrador del sistema</p>
+              </div>
             )}
           </div>
         </div>
@@ -2294,6 +2327,7 @@ export default function SistemaCalificaciones() {
     );
   }
 
+
   // ════════════════════════════════════════════════════════
   // PANTALLA: NOTAS ÁREAS ESPECIALES (solo lectura, para maestras de grado)
   // ════════════════════════════════════════════════════════
@@ -2323,125 +2357,128 @@ export default function SistemaCalificaciones() {
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: `linear-gradient(135deg, ${materia.color1}, ${materia.color2})` }}>
-        <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
-          <div className="flex flex-col gap-4 mb-6 pb-5 border-b-2 border-gray-100">
-            <div className="flex justify-between items-start">
-              <h2 className="text-2xl md:text-3xl font-black text-gray-800 flex items-center gap-3">
-                <span className="text-4xl">{materia.icon}</span>{materia.nombre}
-              </h2>
-              <div className="flex flex-col gap-2">
-                <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }} className="btn-primary flex items-center gap-2 bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><Home size={16} /> Inicio</button>
-                <button onClick={() => setModalCerrarSesion(true)} className="btn-primary flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow"><LogOut size={16} /> Salir</button>
-                {usuario?.rol !== 'administrador' && (
-                  <button
-                    disabled={pdfGenerando || estActuales.length === 0}
-                    onClick={() => {
-                      setPdfGenerando(true);
-                      try {
-                        const ok = generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario });
-                        if (!ok) alert('No se pudo generar el PDF. Verificá la consola para más detalles.');
-                      } finally {
-                        setPdfGenerando(false);
-                      }
-                    }}
-                    className="btn-primary flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
-                    <FileDown size={16} /> {pdfGenerando ? 'Generando...' : 'Descargar PDF'}
-                  </button>
-                )}
-                {usuario?.rol === 'docente_grado' && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={pdfUnificadoGenerando}
-                      onClick={async () => {
-                        const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
-                        setPdfUnificadoGenerando(true);
-                        try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
-                        finally { setPdfUnificadoGenerando(false); }
-                      }}
-                      className="btn-primary flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50 flex-1">
-                      <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
-                    </button>
-                    <InfoPDFUnificado />
-                  </div>
-                )}
-                {usuario?.rol === 'administrador' && (
-                  <button
-                    disabled={pdfUnificadoGenerando}
-                    onClick={async () => {
-                      const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
-                      setPdfUnificadoGenerando(true);
-                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
-                      finally { setPdfUnificadoGenerando(false); }
-                    }}
-                    className="btn-primary flex items-center gap-2 bg-gray-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow disabled:opacity-50">
-                    <FileDown size={16} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Dirección'}
-                  </button>
-                )}
-                {esPrimerCiclo(grado) && (
-                  <button onClick={() => setShowEscala(true)}
-                    className="btn-primary flex items-center gap-2 bg-violet-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow">
-                    📊 Escala
-                  </button>
-                )}
-              </div>
+      <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
+        {/* TOPBAR MATERIA */}
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              <Home size={14} /> Inicio
+            </button>
+            <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{materia.nombre}</span>
+            <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--violet-lt)', color: 'var(--violet)' }}>{gradoLabel(grado)}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            {usuario?.rol !== 'administrador' && (
+              <button
+                disabled={pdfGenerando || estActuales.length === 0}
+                onClick={() => {
+                  setPdfGenerando(true);
+                  try {
+                    const ok = generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario });
+                    if (!ok) alert('No se pudo generar el PDF. Verificá la consola para más detalles.');
+                  } finally {
+                    setPdfGenerando(false);
+                  }
+                }}
+                className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, opacity: (pdfGenerando || estActuales.length === 0) ? 0.5 : 1, cursor: (pdfGenerando || estActuales.length === 0) ? 'not-allowed' : 'pointer' }}>
+                <FileDown size={14} /> {pdfGenerando ? 'Generando...' : 'PDF Individual'}
+              </button>
+            )}
+            {usuario?.rol === 'administrador' && (
+              <button
+                disabled={pdfUnificadoGenerando}
+                onClick={async () => {
+                  const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
+                  setPdfUnificadoGenerando(true);
+                  try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                  finally { setPdfUnificadoGenerando(false); }
+                }}
+                className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, opacity: pdfUnificadoGenerando ? 0.5 : 1 }}>
+                <FileDown size={14} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Dirección'}
+              </button>
+            )}
+            {esPrimerCiclo(grado) && (
+              <button onClick={() => setShowEscala(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                📊 Escala
+              </button>
+            )}
+            <button onClick={() => setModalCerrarSesion(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              <LogOut size={14} /> Salir
+            </button>
+          </div>
+        </div>
+        <div className="w-full fade-in" style={{ padding: '0 0 32px 0' }}>
+          {/* HEADER MATERIA */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 9, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{materia.icon}</div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>{materia.nombre}</h3>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{gradoLabel(grado)} · {estActuales.length} estudiantes</p>
             </div>
             {usuario?.rol !== 'administrador' && (nombreMostrado(usuario) || docenteNombre.guardado) && (
-              <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-4 py-2 rounded-xl">
-                <span className="text-purple-600">👤</span>
-                <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreMostrado(usuario) || docenteNombre.guardado}</span></span>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--violet-lt)', border: '1px solid #ddd6fe', borderRadius: 6, padding: '5px 11px' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--violet)' }}>👤 {nombreMostrado(usuario) || docenteNombre.guardado}</span>
               </div>
             )}
           </div>
-          {/* Botón volver — debajo del título, arriba del selector de grados */}
+          {/* Botón volver */}
           {volverAGestion && usuario?.rol === 'administrador' && (
-            <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-              className="mb-4 self-start flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-800 px-4 py-2 rounded-xl font-bold text-sm border-2 border-green-200 transition-all">
-              ← Volver a Gestión de Docentes
-            </button>
+            <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
+              <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'var(--green-lt)', color: 'var(--green)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                ← Volver a Gestión de Docentes
+              </button>
+            </div>
           )}
-          <div className="mb-6 bg-indigo-50 border-2 border-indigo-100 rounded-2xl p-5">
-            {gradosDisp.length > 1 && <p className="text-indigo-700 font-bold text-sm mb-3 text-center">📋 Seleccioná el grado correspondiente a tu asignatura</p>}
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Grado y división</p>
+          <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--navy-lt)' }}>
+            {gradosDisp.length > 1 && <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--navy)', marginBottom: 8 }}>Seleccioná el grado correspondiente a tu asignatura</p>}
             <ChipsGrado lista={gradosDisp} seleccionado={grado} onChange={setGrado} />
           </div>
           {!sinCriterios && (
-          <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
-            <h3 className="text-lg font-extrabold text-gray-800 mb-1">📝 Criterios de Evaluación por Bimestre</h3>
-            <p className="text-sm text-gray-600 mb-3">Etiquetas para calificaciones (consideradas en cada bimestre). Ej: <em>Evaluación escrita, concepto, trabajo áulico, trabajo práctico, etc...</em></p>
-            <div className="mb-4 bg-red-50 border-2 border-red-300 rounded-xl px-4 py-3 flex items-start gap-2">
-              <span className="text-red-500 text-lg flex-shrink-0 mt-0.5">⚠️</span>
-              <p className="text-sm font-semibold text-red-700 leading-relaxed">
-                <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la materia (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta, actitud o modales</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
+          <div style={{ margin: '0 0 0 0', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Criterios de Evaluación</h3>
+              <p style={{ fontSize: 11, color: 'var(--muted)' }}>Etiquetas para calificaciones por bimestre</p>
+            </div>
+            <div style={{ background: '#fff5f5', border: '1.5px solid #fca5a5', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ color: 'var(--red)', fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠️</span>
+              <p style={{ fontSize: 11, fontWeight: 600, color: '#b91c1c', lineHeight: 1.5 }}>
+                <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la asignatura (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta o actitud</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[1, 2, 3, 4].map(bim => (
-                <div key={bim} className={`bg-white border-2 rounded-xl p-4 ${bimestresBlockeados[bim] ? 'border-red-200 bg-red-50' : 'border-amber-100'}`}>
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-extrabold text-gray-700">{bim}° Bimestre</h4>
-                      {bimestresBlockeados[bim] && <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">✅ Completo</span>}
+                <div key={bim} style={{ background: bimestresBlockeados[bim] ? '#f0fdf4' : '#f8fafc', border: '1.5px solid', borderColor: bimestresBlockeados[bim] ? '#86efac' : 'var(--border)', borderRadius: 'var(--r)', padding: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)' }}>{bim}° Bimestre</h4>
+                      {bimestresBlockeados[bim] && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'var(--green-lt)', padding: '1px 7px', borderRadius: 20 }}>✅ Completo</span>}
                     </div>
-                    <div className="flex gap-2">
+                    <div style={{ display: 'flex', gap: 5 }}>
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
-                        <button onClick={() => agregarCriterio(bim)} className="btn-primary flex items-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow"><Plus size={14} /> Agregar</button>
+                        <button onClick={() => agregarCriterio(bim)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                          <Plus size={12} /> Agregar
+                        </button>
                       )}
                       {usuario?.rol !== 'administrador' && (
-                        <button
-                          onClick={() => toggleBloquearBimestre(bim)}
-                          title={bimestresBlockeados[bim] ? 'Reabrir bimestre' : 'Marcar bimestre como completo'}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-colors ${bimestresBlockeados[bim] ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
-                          {bimestresBlockeados[bim] ? <LockIcon size={13} /> : <Unlock size={13} />}
-                          {bimestresBlockeados[bim] ? 'Completo' : '✓ Completo'}
+                        <button onClick={() => toggleBloquearBimestre(bim)}
+                          title={bimestresBlockeados[bim] ? 'Reabrir bimestre' : 'Marcar completo'}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: bimestresBlockeados[bim] ? 'var(--green-lt)' : '#f1f5f9', color: bimestresBlockeados[bim] ? 'var(--green)' : 'var(--slate)', border: '1.5px solid', borderColor: bimestresBlockeados[bim] ? '#86efac' : 'var(--border)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                          {bimestresBlockeados[bim] ? <LockIcon size={12} /> : <Unlock size={12} />}
+                          {bimestresBlockeados[bim] ? 'Completo' : '✓ Marcar'}
                         </button>
                       )}
                     </div>
                   </div>
                   {criteriosPorBimestre[bim]?.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic">Sin criterios aún.</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Sin criterios aún.</p>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {criteriosPorBimestre[bim].map((c, i) => (
                         <CriterioChip key={i} nombre={c} bloqueado={!!bimestresBlockeados[bim] || usuario?.rol === 'administrador'}
                           onEliminar={() => eliminarCriterio(bim, c)}
@@ -2455,53 +2492,50 @@ export default function SistemaCalificaciones() {
           </div>
           )}
           {sinCriterios && (
-            <div className="mb-6 bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
-              <p className="text-sm font-semibold text-amber-800">🏫 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. Esta sección refleja el desempeño en convivencia escolar, actitud y comportamiento, de forma separada a las áreas curriculares.</p>
+            <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--amber-lt)' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#92400e' }}>🏫 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. Esta sección refleja el desempeño en convivencia escolar, actitud y comportamiento, de forma separada a las áreas curriculares.</p>
             </div>
           )}
           {estActuales.length === 0 ? (
-            <div className="text-center py-16 text-gray-400"><div className="text-5xl mb-3">📋</div><p className="font-bold text-xl text-gray-600">No hay estudiantes registrados</p><p className="text-sm mt-1">Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No hay estudiantes registrados</p><p style={{ fontSize: 13, marginTop: 4 }}>Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <>
-              <div className="mb-3 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-xl px-4 py-2 max-w-sm">
-                <Search size={16} className="text-gray-400 flex-shrink-0" />
+              {/* Barra búsqueda */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 24px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
+                <Search size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
                 <input
                   type="text" value={busquedaAlumno}
                   onChange={e => setBusquedaAlumno(e.target.value)}
                   placeholder="Buscar alumno por nombre o DNI..."
-                  className="flex-1 text-sm font-semibold text-gray-700 outline-none bg-transparent" />
-                {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>}
+                  style={{ flex: 1, maxWidth: 320, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
               </div>
-            <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
+            <div style={{ overflowX: 'auto' }}>
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="tabla-header">
-                    <th className="p-3 text-center text-sm font-bold w-10">#</th>
-                    <th className="p-3 text-left text-sm font-bold min-w-40 pl-4" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>Estudiante</th>
-                    <th className="p-3 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>D.N.I</th>
+                  <tr style={{ background: 'var(--navy)' }}>
+                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', width: 30 }}>#</th>
+                    <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 155 }}>Estudiante</th>
+                    <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>
                     {[1, 2].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       return (
-                        <th key={b} className="p-2 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>
-                          <div className="flex items-center justify-center gap-1">
-                            {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
-                          </div>
+                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>1° Cuat.</th>
+                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° Cuat.</th>
                     {[3, 4].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       return (
-                        <th key={b} className="p-2 text-center text-sm font-bold" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>
-                          <div className="flex items-center justify-center gap-1">
-                            {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
-                          </div>
+                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center text-sm font-bold bg-purple-800 min-w-16" style={{ borderRight: '2px solid rgba(255,255,255,0.35)' }}>2° Cuat.</th>
-                    <th className="p-3 text-center text-sm font-bold bg-indigo-900 min-w-20">Prom. Final</th>
+                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>2° Cuat.</th>
+                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#3b1d8a', minWidth: 80, borderLeft: 'var(--bim-sep)' }}>Final</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2526,8 +2560,8 @@ export default function SistemaCalificaciones() {
                       const bloqueado = bimestresBlockeados[bim];
                       const notaBim = e.bimestres?.[bim]?.nota || '';
                       return (
-                        <td className={`p-2 border-r-2 border-gray-200 ${bloqueado ? 'bg-red-50' : ''}`} style={{ minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px' }}>
-                          {bloqueado && <div className="text-center text-xs text-red-400 font-bold mb-1">🔒</div>}
+                        <td style={{ padding: '8px 11px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px', background: bloqueado ? '#fef2f2' : 'inherit' }}>
+                          {bloqueado && <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--red)', fontWeight: 700, marginBottom: 4 }}>🔒</div>}
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
                               <span className="text-xs font-bold text-gray-500 italic bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">Sin criterios</span>
@@ -2570,30 +2604,27 @@ export default function SistemaCalificaciones() {
                       );
                     };
                     return (
-                      <tr key={e.id} className={`tabla-row border-b border-gray-100 hover:bg-purple-50 transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                        <td className="p-3 text-center text-gray-400 font-bold text-sm">{i + 1}</td>
-                        <td className="p-3 font-bold text-gray-800 text-sm text-left pl-4">{e.nombre}</td>
-                        <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
+                      <tr key={e.id} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '8px 11px', textAlign: 'center', color: 'var(--muted)', fontSize: 11, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '8px 11px', fontWeight: 600, color: 'var(--text)', fontSize: 12 }}>{e.nombre}</td>
+                        <td style={{ padding: '8px 11px', textAlign: 'center', fontSize: 11, color: 'var(--muted)' }}>{e.dni || '-'}</td>
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
-                        <td className="p-3 text-center bg-purple-50">
-                          <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                            style={{ backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>
-                            {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '-'}
+                        <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c1 ? 9 : 12, fontWeight: 700, background: colorNota(c1)?.bg || '#eef2ff', color: colorNota(c1)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c1)?.bg || '#c7d2fe' }}>
+                            {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '—'}
                           </span>
                         </td>
                         <CeldaBimestre bim={3} />
                         <CeldaBimestre bim={4} />
-                        <td className="p-3 text-center bg-purple-50">
-                          <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                            style={{ backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>
-                            {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '-'}
+                        <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c2 ? 9 : 12, fontWeight: 700, background: colorNota(c2)?.bg || '#eef2ff', color: colorNota(c2)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c2)?.bg || '#c7d2fe' }}>
+                            {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '—'}
                           </span>
                         </td>
-                        <td className="p-3 text-center">
-                          <span className="inline-block text-white px-4 py-2 rounded-xl font-black shadow"
-                            style={{ fontSize: primerCiclo && promFinal ? '11px' : '16px', backgroundColor: colorNota(promFinal)?.text || '#7c3aed', color: 'white' }}>
-                            {promFinal ? (primerCiclo ? textoConceptual(promFinal) : promFinal) : '-'}
+                        <td style={{ padding: '8px 11px', textAlign: 'center', borderLeft: 'var(--bim-sep)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && promFinal ? 9 : 13, fontWeight: 800, background: 'var(--violet)', color: '#fff', border: '1.5px solid var(--violet)' }}>
+                            {promFinal ? (primerCiclo ? textoConceptual(promFinal) : promFinal) : '—'}
                           </span>
                         </td>
                       </tr>
@@ -2604,7 +2635,7 @@ export default function SistemaCalificaciones() {
             </div>
             </>
           )}
-          <div className="mt-5 text-center text-xs text-gray-400 font-semibold">
+          <div style={{ padding: '10px 24px', textAlign: 'center', fontSize: 11, color: 'var(--muted)', fontWeight: 600, borderTop: '1px solid var(--border)', background: '#f8fafc' }}>
             ☁️ Los datos se sincronizan automáticamente con Firebase · {estActuales.length} estudiante(s) en {gradoLabel(grado)}
           </div>
 
@@ -2621,8 +2652,8 @@ export default function SistemaCalificaciones() {
             const maxVal = Math.max(...datos.flatMap(d => [d.aprobados, d.desaprobados]), 1);
             const barH = 80;
             return (
-              <div className="mb-6 bg-white border-2 border-gray-100 rounded-2xl p-5">
-                <h3 className="text-base font-extrabold text-gray-800 mb-4">📊 Aprobados / Desaprobados por Bimestre</h3>
+              <div style={{ margin: '0', padding: '20px 24px', borderTop: '1px solid var(--border)', background: '#fafbfc' }}>
+                <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, fontFamily: 'Outfit,sans-serif' }}>📊 Aprobados / Desaprobados por Bimestre</h3>
                 <div className="flex items-end gap-6 justify-center">
                   {datos.map(d => (
                     <div key={d.bim} className="flex flex-col items-center gap-1">
@@ -3605,7 +3636,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
     : [];
 
   if (cargando) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--navy)' }}>
       <div className="text-white text-xl font-bold">Cargando...</div>
     </div>
   );
@@ -3632,7 +3663,7 @@ function EntregasDocente({ db, globalStyles, modal, closeModal, showAlert, docen
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}>
+      <div className="min-h-screen w-full p-4 md:p-6" style={{ background: 'var(--navy)' }}>
         <div className="max-w-full mx-auto bg-white rounded-3xl shadow-2xl p-4 fade-in">
           <TopBar titulo="📋 Documentaciones presentadas por Grados/Áreas - 2026" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
 
@@ -3875,7 +3906,7 @@ function EditarDocente({ db, globalStyles, modal, closeModal, showAlert, docente
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
+      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'var(--navy)' }}>
         <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
           <TopBar titulo="✏️ Editar Docente" onInicio={onVolver} onCerrarSesion={onCerrarSesion} />
 
@@ -4264,7 +4295,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)' }}>
+      <div className="min-h-screen w-full p-4 md:p-8" style={{ background: 'var(--navy)' }}>
         <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-6 md:p-10 fade-in">
           <TopBar titulo="👤 Gestión de Docentes" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
@@ -4478,7 +4509,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)' }}>
+      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: 'var(--navy)' }}>
         <div className="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl p-5 md:p-8 fade-in">
           <TopBar titulo="📋 Calificaciones de Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
 
