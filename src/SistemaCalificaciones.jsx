@@ -192,7 +192,7 @@ function ModalRenderer({ modal, closeModal }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className={`px-6 py-4 ${estilo.bg} flex items-center gap-3`}>
           <span className="text-2xl">{estilo.emoji}</span>
           <h3 className={`text-lg font-bold ${estilo.text}`}>
@@ -1640,7 +1640,7 @@ export default function SistemaCalificaciones() {
               </div>
             </div>
             <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,.25)', borderRadius: 'var(--r)', padding: '9px 16px', color: 'rgba(255,255,255,.7)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Inter,sans-serif' }}>
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,.25)', borderRadius: 'var(--r)', padding: '7px 14px', color: 'rgba(255,255,255,.6)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'Inter,sans-serif', alignSelf: 'flex-start' }}>
               ← Volver al login
             </button>
           </div>
@@ -1670,11 +1670,11 @@ export default function SistemaCalificaciones() {
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contraseña</label>
                   <input type="password" value={registro.data.password} placeholder="Mínimo 6 caracteres"
                     onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, password: e.target.value } }))}
-                    className="n-field-input" style={{ maxWidth: 320 }} />
+                    className="n-field-input" />
                 </div>
                 {/* Rol */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol en el sistema</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol en la institución</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Docente de Área Especial'}].map(({val,lbl}) => (
                       <div key={val} onClick={() => setRegistro(r => ({ ...r, data: { ...r.data, rol: val, materiasAsignadas: [] } }))}
@@ -1687,7 +1687,7 @@ export default function SistemaCalificaciones() {
                 {/* Materias */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {registro.data.rol === 'docente_grado' ? 'Materias curriculares a cargo' : 'Área(s) especial(es) que dictás'}
+                    {registro.data.rol === 'docente_grado' ? 'Asignaturas curriculares a cargo' : 'Área(s) especial(es) que dictás'}
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                     {materiasRegistro.map(m => {
@@ -1779,7 +1779,7 @@ export default function SistemaCalificaciones() {
               onError={e => { e.target.style.display='none'; }}
             />
             <div>
-              <h1 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.4, fontFamily: 'Outfit,sans-serif', marginBottom: 10 }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
+              <h1 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.5, fontFamily: 'Outfit,sans-serif', marginBottom: 12, letterSpacing: '0.01em' }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', lineHeight: 1.7, marginBottom: 14 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
               <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,.2)', margin: '0 auto 14px' }}></div>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,.75)', fontWeight: 600, marginBottom: 6 }}>Sistema de Calificaciones</p>
@@ -2130,6 +2130,11 @@ export default function SistemaCalificaciones() {
           if (materiaObj) { setVolverAGestion(true); setOrigenGestion({ tab: tab || 'grado' }); abrirMateria(materiaObj, g); }
         }}
         onVerActividad={(u) => setDocenteActividad(u)}
+        onAbrirMensajes={() => setShowModalMensajes(true)}
+        onAbrirBimestres={() => setShowNotifsBimestre(true)}
+        onAbrirModificaciones={() => setShowRegistroMods(true)}
+        onAbrirRecordatorio={() => setShowFechasBimestre(true)}
+        onAbrirSolicitudes={() => setShowModalSolicitudes(true)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
       {docenteActividad && (
@@ -2137,6 +2142,22 @@ export default function SistemaCalificaciones() {
           db={db} docente={docenteActividad} alumnosGlobales={alumnosGlobales}
           onClose={() => setDocenteActividad(null)} />
       )}
+      {showModalMensajes && (
+        <ModalMensajes db={db} usuario={usuario} authUser={authUser}
+          mensajes={mensajes} nombreMostrado={nombreMostrado}
+          onClose={() => setShowModalMensajes(false)} showConfirm={showConfirm} />
+      )}
+      {showNotifsBimestre && (
+        <ModalNotifsBimestre db={db} notifs={notifsBimestre} onClose={() => setShowNotifsBimestre(false)} />
+      )}
+      {showRegistroMods && (
+        <ModalRegistroModificaciones db={db} onClose={() => setShowRegistroMods(false)} />
+      )}
+      {showFechasBimestre && (
+        <ModalFechasBimestre db={db} usuario={usuario} mensajes={mensajes} onClose={() => setShowFechasBimestre(false)} />
+      )}
+      {showModalSolicitudes && <ModalSolicitudes />}
+      {modalCerrarSesion && <ModalCerrarSesion />}
     </>
     );
   }
@@ -2350,12 +2371,12 @@ export default function SistemaCalificaciones() {
             {/* CURRICULARES */}
             {curricularesFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Áreas Curriculares</p>
+                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Áreas Curriculares</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(curricularesFilt.length, 5)}, 1fr)`, gap: 10 }}>
                   {curricularesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
@@ -2366,12 +2387,12 @@ export default function SistemaCalificaciones() {
             {/* CONVIVENCIA */}
             {(isDocGrado || isAdmin) && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Convivencia</p>
-                <div style={{ display: 'flex' }}>
+                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Convivencia</p>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
                   {areas.convivencia.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 52px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
                     </button>
                   ))}
@@ -2382,12 +2403,12 @@ export default function SistemaCalificaciones() {
             {/* ESPECIALES */}
             {especielesFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Áreas Especiales</p>
+                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Áreas Especiales</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(especielesFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {especielesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
@@ -2398,12 +2419,12 @@ export default function SistemaCalificaciones() {
             {/* TALLERES */}
             {talleresFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>Talleres</p>
+                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Talleres</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(talleresFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {talleresFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
-                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                      className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                      <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
@@ -2548,7 +2569,7 @@ export default function SistemaCalificaciones() {
         <div className="w-full fade-in" style={{ padding: '0 0 32px 0' }}>
           {/* HEADER MATERIA */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
-            <div style={{ width: 38, height: 38, borderRadius: 9, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{materia.icon}</div>
+            <div style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{materia.icon}</div>
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>{materia.nombre}</h3>
               <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{gradoLabel(grado)} · {estActuales.length} estudiantes</p>
@@ -3061,7 +3082,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                 <th className="py-3 px-4 text-left text-xs font-bold text-white">Bimestre</th>
                 <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Inicio</th>
                 <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Cierre</th>
-                <th className="py-3 px-3 text-center text-xs font-bold text-white border-l border-purple-400">Días</th>
+                <th className="py-3 px-4 text-center text-xs font-bold text-white border-l border-purple-400" style={{ minWidth: 80 }}>Días</th>
               </tr>
             </thead>
             <tbody>
@@ -3084,7 +3105,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                     <td className="py-4 px-3 text-center font-bold" style={{ color: colores[i], borderRight: '1px solid #e5e7eb' }}>
                       {b.cierreStr}
                     </td>
-                    <td className="py-4 px-3 text-center font-black text-gray-700 text-base">
+                    <td className="py-4 px-4 text-center font-black text-gray-700 text-base" style={{ minWidth: 80 }}>
                       {b.dias}
                     </td>
                   </tr>
@@ -3099,7 +3120,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                 </td>
                 <td className="py-4 px-3 text-center font-semibold text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>07/12/2026</td>
                 <td className="py-4 px-3 text-center font-bold text-gray-500" style={{ borderRight: '1px solid #e5e7eb' }}>17/12/2026</td>
-                <td className="py-4 px-3 text-center font-black text-gray-600 text-base">8</td>
+                <td className="py-4 px-4 text-center font-black text-gray-600 text-base" style={{ minWidth: 80 }}>8</td>
               </tr>
             </tbody>
           </table>
@@ -4373,7 +4394,7 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 }
 
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
@@ -4447,13 +4468,15 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
           <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', margin: '8px 0' }}></div>
           <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,.3)', padding: '8px 18px 5px', textTransform: 'uppercase' }}>Sistema</p>
           {[
-            { icon: '✅', label: 'Bimestres completados' },
-            { icon: '📋', label: 'Modificaciones' },
-            { icon: '✉️', label: 'Mensajes' },
-            { icon: '📢', label: 'Enviar recordatorio' },
+            { icon: '✅', label: 'Bimestres completados', action: onAbrirBimestres },
+            { icon: '📋', label: 'Modificaciones', action: onAbrirModificaciones },
+            { icon: '✉️', label: 'Mensajes', action: onAbrirMensajes },
+            { icon: '📢', label: 'Enviar recordatorio', action: onAbrirRecordatorio },
           ].map(item => (
-            <button key={item.label}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'default', color: 'rgba(255,255,255,.5)', fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left' }}>
+            <button key={item.label} onClick={item.action}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left', transition: 'color .15s' }}
+              onMouseEnter={e => e.currentTarget.style.color='#fff'}
+              onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.65)'}>
               {item.icon} {item.label}
             </button>
           ))}
@@ -4565,8 +4588,8 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                           📁 Entregas
                         </button>
                         <button onClick={() => eliminarUsuario(u)} className="btn-primary"
-                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                          🗑
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          <Trash2 size={13} /> Eliminar
                         </button>
                       </div>
                     </div>
@@ -4693,8 +4716,8 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                 {todasLasEspeciales.map(m => (
                   <button key={m.nombre} onClick={() => cargarMateria(m)}
                     className="card-materia"
-                    style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                    style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
+                    <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                   </button>
                 ))}
@@ -4705,7 +4728,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
               {/* Header materia */}
               <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', marginBottom: 16, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 9, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{materiasSel.icon}</div>
+                  <div style={{ width: 48, height: 48, borderRadius: 10, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>{materiasSel.icon}</div>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>{materiasSel.nombre}</h3>
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{gradoLabel(gradoSel)} · {calificaciones.length} estudiantes</p>
