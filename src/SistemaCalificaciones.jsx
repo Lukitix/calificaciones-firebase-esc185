@@ -1891,7 +1891,6 @@ export default function SistemaCalificaciones() {
   );
   }
 
-  );
 
 
   if (pantalla === 'administracion') {
