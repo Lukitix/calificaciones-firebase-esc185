@@ -1604,7 +1604,167 @@ export default function SistemaCalificaciones() {
     <><style>{globalStyles}</style><Spinner texto="Verificando sesión..." /></>
   );
 
-  if (pantalla === 'login') return (
+  if (pantalla === 'login') {
+    // ── REGISTRO (pantalla completa, 2 paneles) ──
+    if (registro.show) return (
+      <>
+        <style>{globalStyles}</style>
+        <ModalRenderer modal={modal} closeModal={closeModal} />
+        <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
+          {/* Panel izq — info */}
+          <div style={{ width: '38%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', padding: '48px 40px', gap: 20, justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', marginBottom: 8 }}>¿Cómo funciona?</h2>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,.6)', lineHeight: 1.7 }}>
+                  Tu solicitud queda pendiente hasta que la directora la apruebe. Una vez confirmada, podés ingresar con tu correo y contraseña.
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  'Completá tus datos personales y elegí tu rol',
+                  'Seleccioná tus materias y grados a cargo',
+                  'La directora revisa y aprueba tu solicitud',
+                  'Ingresás con tu correo y contraseña',
+                ].map((txt, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(255,255,255,.15)', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
+                    <span style={{ fontSize: 13, color: 'rgba(255,255,255,.75)', fontWeight: 500, lineHeight: 1.5 }}>{txt}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: 'rgba(59,130,246,.15)', border: '1px solid rgba(59,130,246,.3)', borderRadius: 'var(--r)', padding: '12px 16px' }}>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,.7)', fontWeight: 500, lineHeight: 1.6 }}>
+                  ℹ️ Si ya tenés cuenta y olvidaste tu contraseña, volvé al login y usá la opción de recuperación por email.
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,.25)', borderRadius: 'var(--r)', padding: '9px 16px', color: 'rgba(255,255,255,.7)', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Inter,sans-serif' }}>
+              ← Volver al login
+            </button>
+          </div>
+          {/* Panel der — formulario */}
+          <div style={{ width: '62%', background: '#fff', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 680, padding: '40px 48px' }} className="fade-in">
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 4 }}>Solicitar acceso</h2>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>Completá el formulario. La directora aprobará tu solicitud.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Datos personales */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nombre completo</label>
+                    <input type="text" value={registro.data.nombre} placeholder="Apellido, Nombre(s)"
+                      onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, nombre: e.target.value } }))}
+                      onBlur={e => setRegistro(r => ({ ...r, data: { ...r.data, nombre: capitalizarNombre(e.target.value) } }))}
+                      className="n-field-input" />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Correo electrónico</label>
+                    <input type="email" value={registro.data.email} placeholder="tu@correo.com"
+                      onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, email: e.target.value } }))}
+                      className="n-field-input" />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contraseña</label>
+                  <input type="password" value={registro.data.password} placeholder="Mínimo 6 caracteres"
+                    onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, password: e.target.value } }))}
+                    className="n-field-input" style={{ maxWidth: 320 }} />
+                </div>
+                {/* Rol */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol en el sistema</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Docente de Área Especial'}].map(({val,lbl}) => (
+                      <div key={val} onClick={() => setRegistro(r => ({ ...r, data: { ...r.data, rol: val, materiasAsignadas: [] } }))}
+                        style={{ border: '1.5px solid', borderColor: registro.data.rol === val ? 'var(--indigo)' : 'var(--border)', borderRadius: 'var(--r)', padding: '12px 16px', cursor: 'pointer', background: registro.data.rol === val ? 'var(--violet-lt)' : '#fff', transition: 'all .15s' }}>
+                        <strong style={{ fontSize: 13, fontWeight: 700, color: registro.data.rol === val ? 'var(--indigo)' : 'var(--text)', display: 'block' }}>{lbl}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Materias */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {registro.data.rol === 'docente_grado' ? 'Materias curriculares a cargo' : 'Área(s) especial(es) que dictás'}
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                    {materiasRegistro.map(m => {
+                      const checked = registro.data.rol === 'docente_grado'
+                        ? registro.data.materiasAsignadas.includes(m.nombre)
+                        : registro.data.materiasAsignadas.some(ma => ma.nombre === m.nombre);
+                      return (
+                        <label key={m.nombre} onClick={() => toggleMateriaRegistro(m.nombre)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', border: '1.5px solid', borderColor: checked ? 'var(--navy)' : 'var(--border)', borderRadius: 'var(--r)', cursor: 'pointer', background: checked ? 'var(--navy-lt)' : '#fff', transition: 'all .15s' }}>
+                          <input type="checkbox" checked={checked} onChange={() => {}} style={{ accentColor: 'var(--navy)', width: 14, height: 14, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: checked ? 'var(--navy)' : 'var(--text)', fontWeight: checked ? 700 : 500 }}>{m.icon} {m.nombre}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Grados para docente de grado */}
+                {registro.data.rol === 'docente_grado' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados a cargo</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5 }}>
+                      {grados.map(g => {
+                        const sel = (registro.data.gradosAsignados || [registro.data.gradoAsignado]).includes(g);
+                        return (
+                          <button key={g} type="button"
+                            onClick={() => {
+                              const actual = registro.data.gradosAsignados || [registro.data.gradoAsignado].filter(Boolean);
+                              const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
+                              setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
+                            }}
+                            style={{ padding: '6px 4px', border: '1.5px solid', borderColor: sel ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sel ? 'var(--navy)' : '#fff', color: sel ? '#fff' : 'var(--muted)', fontFamily: 'Inter,sans-serif', transition: 'all .15s' }}>
+                            {gradoLabel(g)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Grados por materia para especial */}
+                {registro.data.rol === 'area_especial' && registro.data.materiasAsignadas.length > 0 && (
+                  <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 16 }}>
+                    <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 12, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados por materia</p>
+                    {registro.data.materiasAsignadas.map(ma => (
+                      <div key={ma.nombre} style={{ marginBottom: 14 }}>
+                        <p style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 8, fontSize: 13 }}>{ma.nombre}</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5 }}>
+                          {grados.map(g => (
+                            <button key={g} type="button" onClick={() => toggleGradoRegistro(ma.nombre, g)}
+                              style={{ padding: '6px 4px', border: '1.5px solid', borderColor: ma.grados.includes(g) ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: ma.grados.includes(g) ? 'var(--navy)' : '#fff', color: ma.grados.includes(g) ? '#fff' : 'var(--muted)', fontFamily: 'Inter,sans-serif' }}>
+                              {gradoLabel(g)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Botones */}
+                <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
+                  <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
+                    style={{ flex: 1, padding: '11px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    ← Cancelar
+                  </button>
+                  <button onClick={handleRegistro} disabled={registroCargando} className="btn-primary"
+                    style={{ flex: 2, padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: registroCargando ? 0.6 : 1, cursor: registroCargando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif' }}>
+                    {registroCargando ? 'Enviando solicitud...' : 'Enviar solicitud de acceso'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+
+    // ── LOGIN ──
+    return (
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
@@ -1619,10 +1779,11 @@ export default function SistemaCalificaciones() {
               onError={e => { e.target.style.display='none'; }}
             />
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.3, fontFamily: 'Outfit,sans-serif' }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginTop: 10, lineHeight: 1.8 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,.8)', fontWeight: 600, marginTop: 12 }}>Sistema de Calificaciones</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.35)', fontWeight: 700, letterSpacing: '0.07em', marginTop: 6 }}>CICLO LECTIVO 2026</p>
+              <h1 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.4, fontFamily: 'Outfit,sans-serif', marginBottom: 10 }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', lineHeight: 1.7, marginBottom: 14 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
+              <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,.2)', margin: '0 auto 14px' }}></div>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,.75)', fontWeight: 600, marginBottom: 6 }}>Sistema de Calificaciones</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', fontWeight: 700, letterSpacing: '0.08em' }}>CICLO LECTIVO 2026</p>
             </div>
           </div>
           <div></div>
@@ -1630,148 +1791,57 @@ export default function SistemaCalificaciones() {
         {/* Panel derecho — formulario */}
         <div style={{ width: '60%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: '100%', maxWidth: 420, padding: '52px 48px' }} className="fade-in">
-          {!registro.show ? (
-            <>
-              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 6 }}>Bienvenido/a</h2>
-              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>Ingresá tus credenciales para acceder al sistema.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Correo electrónico</label>
-                  <div style={{ position: 'relative' }}>
-                    <Mail style={{ position: 'absolute', left: 12, top: 11, color: 'var(--muted)' }} size={16} />
-                    <input type="email" value={loginForm.email}
-                      onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      placeholder="tu@correo.com"
-                      className="n-field-input" style={{ paddingLeft: 36 }} />
-                  </div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 6 }}>Bienvenido/a</h2>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28 }}>Ingresá tus credenciales para acceder al sistema.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Correo electrónico</label>
+                <div style={{ position: 'relative' }}>
+                  <Mail style={{ position: 'absolute', left: 12, top: 12, color: 'var(--muted)' }} size={16} />
+                  <input type="email" value={loginForm.email}
+                    onChange={e => setLoginForm({ ...loginForm, email: e.target.value })}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    placeholder="tu@correo.com"
+                    className="n-field-input" style={{ paddingLeft: 38 }} />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contraseña</label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock style={{ position: 'absolute', left: 12, top: 11, color: 'var(--muted)' }} size={16} />
-                    <input type={loginForm.verPass ? 'text' : 'password'} value={loginForm.pass}
-                      onChange={e => setLoginForm({ ...loginForm, pass: e.target.value })}
-                      onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                      placeholder="••••••••"
-                      className="n-field-input" style={{ paddingLeft: 36, paddingRight: 36 }} />
-                    <button onClick={() => setLoginForm({ ...loginForm, verPass: !loginForm.verPass })}
-                      style={{ position: 'absolute', right: 10, top: 9, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
-                      {loginForm.verPass ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <div onClick={() => setLoginForm(f => ({ ...f, recordarme: !f.recordarme }))}
-                    style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: loginForm.recordarme ? 'var(--navy)' : 'var(--border)', background: loginForm.recordarme ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', flexShrink: 0 }}>
-                    {loginForm.recordarme && <svg width="10" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span style={{ fontSize: 13, color: 'var(--slate)', fontWeight: 500 }}>Recordarme en este dispositivo</span>
-                </label>
-                <button onClick={handleLogin} disabled={loginCargando}
-                  className="btn-primary" style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 'var(--r)', padding: '11px 20px', fontSize: 14, fontWeight: 700, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loginCargando ? 0.6 : 1, cursor: loginCargando ? 'not-allowed' : 'pointer' }}>
-                  {loginCargando
-                    ? <div style={{ width: 22, height: 22, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    : 'Ingresar al sistema'}
-                </button>
-                <button onClick={() => setMostrarRecuperar(true)}
-                  style={{ fontSize: 12, color: 'var(--indigo)', fontWeight: 600, textAlign: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
-                  ¿Olvidaste tu contraseña?
-                </button>
               </div>
-              <button onClick={() => setRegistro({ ...registro, show: true })}
-                className="btn-primary" style={{ width: '100%', marginTop: 16, padding: '10px 20px', borderRadius: 'var(--r)', background: 'transparent', color: 'var(--navy)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                + Registrar nuevo usuario
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Contraseña</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock style={{ position: 'absolute', left: 12, top: 12, color: 'var(--muted)' }} size={16} />
+                  <input type={loginForm.verPass ? 'text' : 'password'} value={loginForm.pass}
+                    onChange={e => setLoginForm({ ...loginForm, pass: e.target.value })}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    placeholder="••••••••"
+                    className="n-field-input" style={{ paddingLeft: 38, paddingRight: 38 }} />
+                  <button onClick={() => setLoginForm({ ...loginForm, verPass: !loginForm.verPass })}
+                    style={{ position: 'absolute', right: 10, top: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                    {loginForm.verPass ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: -4 }}>
+                <div onClick={() => setLoginForm(f => ({ ...f, recordarme: !f.recordarme }))}
+                  style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: loginForm.recordarme ? 'var(--navy)' : 'var(--border)', background: loginForm.recordarme ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {loginForm.recordarme && <svg width="10" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--slate)', fontWeight: 500 }}>Recordarme en este dispositivo</span>
+              </label>
+              <button onClick={handleLogin} disabled={loginCargando} className="btn-primary"
+                style={{ background: 'var(--navy)', color: '#fff', border: 'none', borderRadius: 'var(--r)', padding: '12px 20px', fontSize: 14, fontWeight: 700, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: loginCargando ? 0.6 : 1, cursor: loginCargando ? 'not-allowed' : 'pointer' }}>
+                {loginCargando
+                  ? <div style={{ width: 22, height: 22, border: '3px solid rgba(255,255,255,0.4)', borderTop: '3px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  : 'Ingresar al sistema'}
               </button>
-            </>
-          ) : (
-            <>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 4 }}>Solicitar acceso</h2>
-              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Completá el formulario. La directora aprobará tu solicitud.</p>
-              <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {[
-                  { val: registro.data.nombre,   key: 'nombre',   ph: 'Apellido, Nombre(s)',                    type: 'text' },
-                  { val: registro.data.email,    key: 'email',    ph: 'Correo electrónico',                     type: 'email' },
-                  { val: registro.data.password, key: 'password', ph: 'Contraseña (mín. 6 caracteres)',         type: 'password' },
-                ].map(({ val, key, ph, type }) => (
-                  <input key={key} type={type} value={val} placeholder={ph}
-                    onChange={e => setRegistro(r => ({ ...r, data: { ...r.data, [key]: e.target.value } }))}
-                    onBlur={key === 'nombre' ? e => setRegistro(r => ({ ...r, data: { ...r.data, nombre: capitalizarNombre(e.target.value) } })) : undefined}
-                    className="n-field-input" />
-                ))}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Área Especial'}].map(({val,lbl}) => (
-                      <div key={val} onClick={() => setRegistro(r => ({ ...r, data: { ...r.data, rol: val, materiasAsignadas: [] } }))}
-                        style={{ border: '1.5px solid', borderColor: registro.data.rol === val ? 'var(--indigo)' : 'var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', cursor: 'pointer', background: registro.data.rol === val ? 'var(--violet-lt)' : '#fff' }}>
-                        <strong style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{lbl}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {registro.data.rol === 'docente_grado' && (
-                  <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12, background: 'var(--navy-lt)' }}>
-                    <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados a cargo</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
-                      {grados.map(g => {
-                        const sel = (registro.data.gradosAsignados || [registro.data.gradoAsignado]).includes(g);
-                        return (
-                          <label key={g} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={sel}
-                              onChange={() => {
-                                const actual = registro.data.gradosAsignados || [registro.data.gradoAsignado].filter(Boolean);
-                                const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
-                                setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
-                              }}
-                              style={{ accentColor: 'var(--navy)' }} />
-                            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{gradoLabel(g)}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12 }}>
-                  <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Materias asignadas</p>
-                  {materiasRegistro.map(m => (
-                    <label key={m.nombre} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', cursor: 'pointer', borderRadius: 6 }}>
-                      <input type="checkbox"
-                        checked={registro.data.rol === 'docente_grado' ? registro.data.materiasAsignadas.includes(m.nombre) : registro.data.materiasAsignadas.some(ma => ma.nombre === m.nombre)}
-                        onChange={() => toggleMateriaRegistro(m.nombre)} style={{ accentColor: 'var(--navy)', width: 15, height: 15 }} />
-                      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{m.icon} {m.nombre}</span>
-                    </label>
-                  ))}
-                </div>
-                {registro.data.rol === 'area_especial' && registro.data.materiasAsignadas.length > 0 && (
-                  <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: 12, background: 'var(--navy-lt)' }}>
-                    <p style={{ fontWeight: 700, color: 'var(--navy)', marginBottom: 8, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Grados por materia</p>
-                    {registro.data.materiasAsignadas.map(ma => (
-                      <div key={ma.nombre} style={{ marginBottom: 12 }}>
-                        <p style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 6, fontSize: 12 }}>{ma.nombre}</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4 }}>
-                          {grados.map(g => (
-                            <label key={g} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                              <input type="checkbox" checked={ma.grados.includes(g)} onChange={() => toggleGradoRegistro(ma.nombre, g)} style={{ accentColor: 'var(--navy)' }} />
-                              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{gradoLabel(g)}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
-                  style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={handleRegistro} disabled={registroCargando}
-                  className="btn-primary" style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: registroCargando ? 0.6 : 1, cursor: registroCargando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {registroCargando ? 'Enviando...' : 'Enviar solicitud de acceso'}
-                </button>
-              </div>
-            </>
-          )}
+              <button onClick={() => setMostrarRecuperar(true)}
+                style={{ fontSize: 13, color: 'var(--indigo)', fontWeight: 600, textAlign: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
+                ¿Olvidaste tu contraseña?
+              </button>
+              <button onClick={() => setRegistro({ ...registro, show: true })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontWeight: 500, textAlign: 'center', width: '100%', padding: '4px' }}>
+                ¿No tenés cuenta? <span style={{ color: 'var(--indigo)', fontWeight: 600 }}>Registrate y solicitá el acceso</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1779,7 +1849,7 @@ export default function SistemaCalificaciones() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
           <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 20px 60px rgba(0,0,0,.2)', width: '100%', maxWidth: 400, overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'var(--navy)', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'var(--navy)' }}>
               <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>🔑 Recuperar contraseña</h3>
               <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
@@ -1788,37 +1858,25 @@ export default function SistemaCalificaciones() {
               <p style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.6 }}>
                 Ingresá tu correo electrónico y te enviaremos un link para restablecer tu contraseña. El link expira en 1 hora.
               </p>
-              <input
-                type="email"
-                value={recuperarEmail}
-                onChange={e => setRecuperarEmail(e.target.value)}
-                placeholder="Tu correo electrónico"
-                className="n-field-input"
-                onKeyDown={e => e.key === 'Enter' && !recuperarCargando && handleRecuperar()}
-                autoFocus
-              />
+              <input type="email" value={recuperarEmail} onChange={e => setRecuperarEmail(e.target.value)}
+                placeholder="Tu correo electrónico" className="n-field-input"
+                onKeyDown={e => e.key === 'Enter' && !recuperarCargando && handleRecuperar()} autoFocus />
             </div>
             <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button
-                onClick={async () => {
+              <button onClick={async () => {
                   if (!recuperarEmail.trim()) return;
                   setRecuperarCargando(true);
                   try {
-                    const emailFirebase = recuperarEmail.trim().includes('@')
-                      ? recuperarEmail.trim()
-                      : `${recuperarEmail.trim()}@ep185.edu.ar`;
+                    const emailFirebase = recuperarEmail.trim().includes('@') ? recuperarEmail.trim() : `${recuperarEmail.trim()}@ep185.edu.ar`;
                     await sendPasswordResetEmail(auth, emailFirebase);
-                    setMostrarRecuperar(false);
-                    setRecuperarEmail('');
+                    setMostrarRecuperar(false); setRecuperarEmail('');
                     await showAlert(`✅ Enviamos el link de recuperación a ${emailFirebase}. Revisá tu bandeja de entrada y también spam. El link expira en 1 hora.`, 'success', 'Email enviado');
                   } catch(e) {
                     await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
-                  } finally {
-                    setRecuperarCargando(false);
-                  }
+                  } finally { setRecuperarCargando(false); }
                 }}
-                disabled={!recuperarEmail.trim() || recuperarCargando}
-                className="btn-primary" style={{ width: '100%', padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: (!recuperarEmail.trim() || recuperarCargando) ? 0.5 : 1, cursor: (!recuperarEmail.trim() || recuperarCargando) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                disabled={!recuperarEmail.trim() || recuperarCargando} className="btn-primary"
+                style={{ width: '100%', padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: (!recuperarEmail.trim() || recuperarCargando) ? 0.5 : 1, cursor: (!recuperarEmail.trim() || recuperarCargando) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {recuperarCargando ? 'Enviando...' : 'Enviar correo de recuperación'}
               </button>
               <button onClick={() => { setMostrarRecuperar(false); setRecuperarEmail(''); }}
@@ -1830,6 +1888,9 @@ export default function SistemaCalificaciones() {
         </div>
       )}
     </>
+  );
+  }
+
   );
 
 
@@ -2254,7 +2315,36 @@ export default function SistemaCalificaciones() {
               )}
               {isDocGrado && (
                 <button onClick={() => setPantalla('notas_especiales')}
-                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>📋 Calificaciones de Áreas Especiales</button>
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>📋 Áreas Especiales</button>
+              )}
+              {isDocGrado && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <button
+                    disabled={pdfUnificadoGenerando}
+                    onClick={async () => {
+                      const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
+                      setPdfUnificadoGenerando(true);
+                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                      finally { setPdfUnificadoGenerando(false); }
+                    }}
+                    className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--green-lt)', color: 'var(--green)', border: '1.5px solid #bbf7d0', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, opacity: pdfUnificadoGenerando ? 0.6 : 1 }}>
+                    <FileDown size={14} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
+                  </button>
+                  <InfoPDFUnificado />
+                </div>
+              )}
+              {isAdmin && (
+                <button
+                  disabled={pdfUnificadoGenerando}
+                  onClick={async () => {
+                    const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
+                    setPdfUnificadoGenerando(true);
+                    try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                    finally { setPdfUnificadoGenerando(false); }
+                  }}
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--green-lt)', color: 'var(--green)', border: '1.5px solid #bbf7d0', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, opacity: pdfUnificadoGenerando ? 0.6 : 1 }}>
+                  <FileDown size={14} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Dirección'}
+                </button>
               )}
             </div>
 
@@ -4287,6 +4377,8 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
+  const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
+  const [seccion, setSeccion] = useState('docentes');
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -4296,207 +4388,191 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
   }, [db]);
 
   const eliminarUsuario = async (u) => {
-    const ok = await showConfirm(
-      `¿Eliminás al docente "${u.nombre}" (${u.email})? Esta acción no se puede deshacer.`,
-      'Eliminar docente'
-    );
+    const ok = await showConfirm(`¿Eliminás al docente "${u.nombre}" (${u.email})? Esta acción no se puede deshacer.`, 'Eliminar docente');
     if (!ok) return;
     try {
       await deleteDoc(doc(db, 'usuarios', u.uid));
       await showAlert(`El docente "${u.nombre}" fue eliminado correctamente.`, 'success', 'Docente eliminado');
     } catch (error) {
-      console.error('Error al eliminar:', error);
       await showAlert('Hubo un error al eliminar el docente. Intentá de nuevo.', 'error');
     }
   };
 
   const ordenarUsuarios = (lista) => {
     return [...lista].sort((a, b) => {
-      // Docentes de grado primero, luego especiales
       if (a.rol === 'docente_grado' && b.rol !== 'docente_grado') return -1;
       if (a.rol !== 'docente_grado' && b.rol === 'docente_grado') return 1;
-      // Dentro de docentes de grado: por grado (1°A, 1°B... 7°E)
       if (a.rol === 'docente_grado' && b.rol === 'docente_grado') {
         return (a.gradoAsignado || '').localeCompare(b.gradoAsignado || '', 'es', { numeric: true });
       }
-      // Dentro de especiales: por nombre de primera materia asignada
-      // Dentro de especiales: alfabéticamente por nombre de la primera materia asignada
       const mA = a.materiasAsignadas?.[0]?.nombre || a.materiasAsignadas?.[0] || '';
       const mB = b.materiasAsignadas?.[0]?.nombre || b.materiasAsignadas?.[0] || '';
       return mA.localeCompare(mB, 'es');
     });
   };
 
-  const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
-
   const usuariosFiltrados = ordenarUsuarios(
-    busqueda.trim() === ''
-      ? usuarios
-      : usuarios.filter(u =>
-          u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-          u.email?.toLowerCase().includes(busqueda.toLowerCase())
-        )
+    busqueda.trim() === '' ? usuarios : usuarios.filter(u =>
+      u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      u.email?.toLowerCase().includes(busqueda.toLowerCase())
+    )
   ).filter(u => tabActiva === 'grado' ? u.rol === 'docente_grado' : u.rol === 'area_especial');
+
+  const navItems = [
+    { key: 'docentes', icon: '👥', label: 'Docentes', sub: 'gestion' },
+    { key: 'alumnos', icon: '📋', label: 'Alumnos', sub: 'gestion', action: () => onVerAlumnos('1°A', 'grado') },
+  ];
 
   return (
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
-        {/* Topbar */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="min-h-screen w-full flex" style={{ background: '#e2e8f0' }}>
+        {/* SIDEBAR */}
+        <div style={{ width: 220, background: 'var(--navy)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+          <div style={{ padding: '20px 18px 12px' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', fontFamily: 'Outfit,sans-serif' }}>Panel de Dirección</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', marginTop: 2 }}>Raquel Noemí Maciszonek</p>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', marginBottom: 8 }}></div>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,.3)', padding: '12px 18px 5px', textTransform: 'uppercase' }}>Gestión</p>
+          {[
+            { key: 'docentes', icon: '👥', label: 'Docentes' },
+            { key: 'alumnos', icon: '📋', label: 'Alumnos', onClick: () => { onVerAlumnos('1°A', 'grado'); } },
+          ].map(item => (
+            <button key={item.key} onClick={item.onClick || (() => setSeccion(item.key))}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: seccion === item.key ? 'rgba(255,255,255,.1)' : 'none', border: 'none', borderLeft: `3px solid ${seccion === item.key ? '#818cf8' : 'transparent'}`, cursor: 'pointer', color: seccion === item.key ? '#fff' : 'rgba(255,255,255,.6)', fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left' }}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', margin: '8px 0' }}></div>
+          <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,.3)', padding: '8px 18px 5px', textTransform: 'uppercase' }}>Sistema</p>
+          {[
+            { icon: '✅', label: 'Bimestres completados' },
+            { icon: '📋', label: 'Modificaciones' },
+            { icon: '✉️', label: 'Mensajes' },
+            { icon: '📢', label: 'Enviar recordatorio' },
+          ].map(item => (
+            <button key={item.label}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'default', color: 'rgba(255,255,255,.5)', fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left' }}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+          <div style={{ marginTop: 'auto', padding: '16px 18px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
             <button onClick={onInicio}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(255,255,255,.08)', border: 'none', color: 'rgba(255,255,255,.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif', marginBottom: 8 }}>
               <Home size={14} /> Inicio
             </button>
-            <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>👤 Gestión de Docentes</span>
+            <button onClick={onCerrarSesion}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(220,38,38,.15)', border: '1px solid rgba(220,38,38,.3)', color: '#fca5a5', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              <LogOut size={14} /> Cerrar sesión
+            </button>
           </div>
-          <button onClick={onCerrarSesion}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-            <LogOut size={14} /> Salir
-          </button>
         </div>
 
-        <div style={{ padding: '24px 28px' }} className="fade-in">
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {[['grado','🏫 Docentes de Grado'],['especial','🎨 Áreas Especiales']].map(([key, label]) => (
-              <button key={key} onClick={() => setTabActiva(key)}
-                style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', fontWeight: 700, fontSize: 14, border: '1.5px solid', borderColor: tabActiva === key ? 'var(--navy)' : 'var(--border)', background: tabActiva === key ? 'var(--navy)' : '#fff', color: tabActiva === key ? '#fff' : 'var(--slate)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
-                {label}
-              </button>
-            ))}
+        {/* CONTENIDO PRINCIPAL */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {/* Topbar */}
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '13px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20, boxShadow: 'var(--sh)' }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Gestión de Docentes</h2>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ position: 'relative' }}>
+                <Search style={{ position: 'absolute', left: 10, top: 10, color: 'var(--muted)' }} size={14} />
+                <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar docente..."
+                  style={{ paddingLeft: 30, paddingRight: busqueda ? 28 : 12, padding: '9px 12px 9px 30px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)', width: 220 }} />
+                {busqueda && <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 8, top: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
+              </div>
+            </div>
           </div>
 
-          {/* Buscador */}
-          <div style={{ position: 'relative', marginBottom: 20 }}>
-            <Search style={{ position: 'absolute', left: 12, top: 12, color: 'var(--muted)' }} size={16} />
-            <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              placeholder="Buscar docente por nombre o correo..."
-              style={{ width: '100%', paddingLeft: 36, paddingRight: 36, padding: '11px 14px 11px 36px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)', background: '#fff' }} />
-            {busqueda && (
-              <button onClick={() => setBusqueda('')}
-                style={{ position: 'absolute', right: 10, top: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
-                <X size={15} />
-              </button>
-            )}
-          </div>
-
-          {/* Tabla docentes */}
-          <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', background: 'var(--navy-lt)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Docentes registrados</h3>
-              <span style={{ background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
+          <div style={{ padding: '24px 28px' }} className="fade-in">
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {[['grado','🏫 Docentes de Grado'],['especial','🎨 Áreas Especiales']].map(([key, label]) => (
+                <button key={key} onClick={() => setTabActiva(key)}
+                  style={{ padding: '9px 20px', borderRadius: 'var(--r)', fontWeight: 700, fontSize: 13, border: '1.5px solid', borderColor: tabActiva === key ? 'var(--navy)' : 'var(--border)', background: tabActiva === key ? 'var(--navy)' : '#fff', color: tabActiva === key ? '#fff' : 'var(--slate)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                  {label}
+                </button>
+              ))}
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 14px' }}>
                 {usuariosFiltrados.length} {busqueda ? 'resultado(s)' : 'docentes'}
               </span>
             </div>
+
+            {/* Lista de docentes */}
             {usuariosFiltrados.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+              <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--muted)' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>{busqueda ? '🔍' : '👤'}</div>
                 <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{busqueda ? `Sin resultados para "${busqueda}"` : 'No hay docentes registrados'}</p>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr className="tabla-header">
-                      {['Nombre', 'Correo', 'Rol', 'Grado(s) / Materia(s)', 'Estado', 'Creado', 'Acciones'].map(h => (
-                        <th key={h} style={{ padding: '11px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usuariosFiltrados.map((u, i) => (
-                      <tr key={u.uid || i} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{u.nombre}</div>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', fontWeight: 600, background: '#f8fafc', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)' }}>
-                            📧 {u.email}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: u.rol === 'docente_grado' ? 'var(--blue-lt)' : 'var(--amber-lt)', color: u.rol === 'docente_grado' ? '#1d4ed8' : 'var(--amber)' }}>
-                            {rolLabel(u)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', maxWidth: 200 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {usuariosFiltrados.map((u, i) => {
+                  const inicial = (u.nombre || '?').charAt(0).toUpperCase();
+                  const avatarColors = [
+                    { bg: 'var(--violet-lt)', color: 'var(--violet)' },
+                    { bg: 'var(--green-lt)', color: 'var(--green)' },
+                    { bg: 'var(--amber-lt)', color: 'var(--amber)' },
+                    { bg: 'var(--blue-lt)', color: '#1d4ed8' },
+                  ];
+                  const ac = avatarColors[i % 4];
+                  const grados = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
+                  return (
+                    <div key={u.uid || i}
+                      style={{ display: 'flex', alignItems: 'flex-start', gap: 13, padding: '13px 16px', background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', transition: 'box-shadow .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow='var(--sh)'}
+                      onMouseLeave={e => e.currentTarget.style.boxShadow='none'}>
+                      {/* Avatar */}
+                      <div style={{ width: 38, height: 38, borderRadius: '50%', background: ac.bg, color: ac.color, fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'Outfit,sans-serif' }}>
+                        {inicial}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{u.nombre}</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
                           {u.rol === 'docente_grado'
-                            ? (() => {
-                                const gs = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
-                                return (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
-                                      {gs.map((g, j) => (
-                                        <ChipGradoAdmin key={j} grado={g} materia={u.materiasAsignadas?.[0] || ''}
-                                          tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
-                                      ))}
-                                    </div>
-                                    {u.materiasAsignadas?.length > 0 && (
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
-                                        {u.materiasAsignadas.map((m, i) => (
-                                          <span key={i} style={{ background: 'var(--blue-lt)', color: '#1d4ed8', padding: '2px 7px', borderRadius: 4, fontWeight: 700, fontSize: 11, display: 'inline-block' }}>{m}</span>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })()
-                            : u.rol === 'area_especial'
-                            ? (u.materiasAsignadas?.length > 0
-                              ? <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                                  {u.materiasAsignadas.map((ma, i) => (
-                                    <div key={i} style={{ textAlign: 'center' }}>
-                                      <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 12, display: 'inline-block', marginBottom: 3 }}>{ma.nombre}</span>
-                                      {ma.grados?.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
-                                          {ma.grados.map((g, j) => (
-                                            <ChipGradoAdmin key={j} grado={g} materia={ma.nombre}
-                                              tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
+                            ? grados.map((g, j) => (
+                                <div key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                  <ChipGradoAdmin grado={g} materia={u.materiasAsignadas?.[0] || ''}
+                                    tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
                                 </div>
-                              : <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 13 }}>Sin materias</span>)
-                            : <span style={{ color: 'var(--muted)' }}>—</span>}
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          {u.activo
-                            ? <span style={{ background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 10px' }}>✓ Activo</span>
-                            : <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 10px' }}>⏳ Pendiente</span>}
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {new Date(u.fechaCreacion).toLocaleDateString('es-AR')}
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center', minWidth: 100 }}>
-                            <button onClick={() => onEditarDocente({ ...u })} className="btn-primary"
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
-                              <Save size={13} /> Editar
-                            </button>
-                            <button onClick={() => eliminarUsuario(u)} className="btn-primary"
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
-                              <Trash2 size={13} /> Eliminar
-                            </button>
-                            <button onClick={() => onVerEntregas({ ...u })} className="btn-primary"
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
-                              📋 Entregas
-                            </button>
-                            <button onClick={() => onVerActividad({ ...u })} className="btn-primary"
-                              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--amber-lt)', color: 'var(--amber)', border: '1.5px solid #fde68a', fontSize: 12, fontWeight: 600, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
-                              📊 Actividad
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                              ))
+                            : u.materiasAsignadas?.map((ma, j) => (
+                                <span key={j} style={{ background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 4, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>{ma.nombre}</span>
+                              ))
+                          }
+                        </div>
+                      </div>
+                      {/* Estado */}
+                      <div style={{ flexShrink: 0, alignSelf: 'center' }}>
+                        {u.activo
+                          ? <span style={{ background: 'var(--green-lt)', color: 'var(--green)', border: '1px solid #bbf7d0', borderRadius: 20, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>✓ Activo</span>
+                          : <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 20, fontSize: 11, fontWeight: 700, padding: '3px 10px' }}>⏳ Pendiente</span>}
+                      </div>
+                      {/* Acciones */}
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignSelf: 'center' }}>
+                        <button onClick={() => onEditarDocente({ ...u })} className="btn-primary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          ✏️ Editar
+                        </button>
+                        <button onClick={() => onVerActividad({ ...u })} className="btn-primary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--amber-lt)', color: 'var(--amber)', border: '1.5px solid #fde68a', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          📊 Actividad
+                        </button>
+                        <button onClick={() => onVerEntregas({ ...u })} className="btn-primary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          📁 Entregas
+                        </button>
+                        <button onClick={() => eliminarUsuario(u)} className="btn-primary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          🗑
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -4506,6 +4582,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
     </>
   );
 }
+
 
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Calificaciones de Áreas Especiales (solo lectura para docentes de grado)
@@ -4567,140 +4644,178 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     <>
       <style>{globalStyles}</style>
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full p-2 md:p-6" style={{ background: '#e2e8f0' }}>
-        <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-md p-5 md:p-8 fade-in" style={{ border: '1px solid var(--border)' }}>
-          <TopBar titulo="📋 Calificaciones de Áreas Especiales" onInicio={onInicio} onCerrarSesion={onCerrarSesion} />
+      <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
+        {/* Topbar */}
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={onInicio}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              <Home size={14} /> Inicio
+            </button>
+            {materiasSel && (
+              <button onClick={() => setMateriasSel(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                ← Áreas
+              </button>
+            )}
+            <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>
+              📋 Calificaciones de Áreas Especiales
+              {materiasSel && <span style={{ color: 'var(--muted)', fontWeight: 500, fontSize: 13 }}> · {materiasSel.nombre}</span>}
+            </span>
+          </div>
+          <button onClick={onCerrarSesion}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+            <LogOut size={14} /> Salir
+          </button>
+        </div>
 
-          <div className="mb-5 flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-2xl px-5 py-4">
-            <span className="text-xl mt-0.5">👁️</span>
-            <p className="text-amber-800 font-semibold text-sm leading-relaxed">
-              Vista de <strong>solo lectura</strong>. Acá podés consultar las notas que cargaron los docentes de áreas especiales y talleres en tu grado (<strong>{gradoLabel(gradoSel)}</strong>) para completar los boletines de calificaciones de los alumnos.
+        <div style={{ padding: '20px 24px' }} className="fade-in">
+          {/* Banner solo lectura */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fefce8', border: '1px solid #fde68a', borderRadius: 'var(--r)', padding: '11px 16px', marginBottom: 16 }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>👁️</span>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#92400e', lineHeight: 1.5 }}>
+              Vista de <strong>solo lectura</strong>. Consultá las notas cargadas por los docentes especiales en tu grado (<strong>{gradoLabel(gradoSel)}</strong>) para completar los boletines.
             </p>
           </div>
 
+          {/* Selector de grado */}
           {gradosDisp.length > 1 && (
-            <div className="mb-5 bg-indigo-50 border-2 border-indigo-100 rounded-2xl p-4">
-              <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-2">Seleccioná el grado</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 'var(--r)', background: 'var(--navy-lt)', border: '1px solid var(--border)', marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginRight: 6 }}>Grado:</p>
               <ChipsGrado lista={gradosDisp} seleccionado={gradoSel} onChange={(g) => { setGradoSel(g); setMateriasSel(null); }} />
             </div>
           )}
 
           {!materiasSel ? (
             <>
-              <p className="font-bold text-gray-700 mb-4 text-sm uppercase tracking-wide">Seleccioná el área o taller:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 12 }}>Seleccioná el área o taller:</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
                 {todasLasEspeciales.map(m => (
                   <button key={m.nombre} onClick={() => cargarMateria(m)}
-                    className="card-materia rounded-2xl p-7 text-white flex flex-col items-center gap-3 shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${m.color1}, ${m.color2})` }}>
-                    <span className="text-5xl">{m.icon}</span>
-                    <span className="text-sm font-extrabold text-center leading-tight">{m.nombre}</span>
+                    className="card-materia"
+                    style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 12, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>{m.icon}</div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                   </button>
                 ))}
               </div>
             </>
           ) : (
             <>
-              {/* Header materia seleccionada */}
-              <div className="flex items-center gap-3 mb-5 pb-4 border-b-2 border-gray-100">
-                <button onClick={() => setMateriasSel(null)}
-                  className="btn-primary flex items-center gap-1 bg-gray-200 text-gray-700 px-3 py-2 rounded-xl font-bold text-sm">
-                  ← Volver
-                </button>
-                <h3 className="text-xl font-black text-gray-800 flex items-center gap-2">
-                  <span className="text-3xl">{materiasSel.icon}</span> {materiasSel.nombre}
-                  <Badge color="purple">{gradoLabel(gradoSel)}</Badge>
-                </h3>
-                {(() => {
-                  const docenteACargo = (todosUsuarios || []).find(u =>
-                    u.rol === 'area_especial' &&
-                    u.materiasAsignadas?.some(ma => (ma.nombre || ma) === materiasSel.nombre && ma.grados?.includes(gradoSel))
-                  );
-                  const nombreCargo = docenteACargo?.nombre || configuracion?.docente;
-                  return nombreCargo ? (
-                    <div className="inline-flex items-center gap-2 bg-purple-50 border-2 border-purple-100 px-3 py-1.5 rounded-xl">
-                      <span className="text-purple-600">👤</span>
-                      <span className="text-sm font-bold text-gray-800">Docente a cargo: <span className="text-purple-700">{nombreCargo}</span></span>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-
-              {cargando ? (
-                <div className="text-center py-12 text-gray-400"><p className="text-4xl mb-3">⏳</p><p className="font-bold">Cargando...</p></div>
-              ) : calificaciones.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  <p className="text-5xl mb-3">📭</p>
-                  <p className="font-bold text-lg">Sin calificaciones cargadas aún</p>
-                  <p className="text-sm">El/la docente de {materiasSel.nombre} todavía no registró notas para {gradoLabel(gradoSel)}.</p>
+              {/* Header materia */}
+              <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', marginBottom: 16, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 9, background: 'var(--navy-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{materiasSel.icon}</div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>{materiasSel.nombre}</h3>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{gradoLabel(gradoSel)} · {calificaciones.length} estudiantes</p>
+                  </div>
+                  {(() => {
+                    const docenteACargo = (todosUsuarios || []).find(u =>
+                      u.rol === 'area_especial' &&
+                      u.materiasAsignadas?.some(ma => (ma.nombre || ma) === materiasSel.nombre && ma.grados?.includes(gradoSel))
+                    );
+                    const nombreCargo = docenteACargo?.nombre || configuracion?.docente;
+                    return nombreCargo ? (
+                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--violet-lt)', border: '1px solid #ddd6fe', borderRadius: 6, padding: '5px 11px' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--violet)' }}>👤 {nombreCargo}</span>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
-              ) : (
-                <div className="overflow-x-auto rounded-2xl border-2 border-gray-100">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="tabla-header">
-                        <th className="p-3 text-left text-sm font-bold min-w-40 pl-4">Estudiante</th>
-                        <th className="p-3 text-center text-sm font-bold">D.N.I</th>
-                        {[1, 2].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
-                        <th className="p-3 text-center text-sm font-bold bg-purple-800">1° Cuat.</th>
-                        {[3, 4].map(b => <th key={b} className="p-2 text-center text-sm font-bold">{b}° Bimestre</th>)}
-                        <th className="p-3 text-center text-sm font-bold bg-purple-800">2° Cuat.</th>
-                        <th className="p-3 text-center text-sm font-bold bg-indigo-900">Prom. Final</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calificaciones.map((e, i) => {
-                        const b1 = e.bimestres?.[1]?.nota || '';
-                        const b2 = e.bimestres?.[2]?.nota || '';
-                        const b3 = e.bimestres?.[3]?.nota || '';
-                        const b4 = e.bimestres?.[4]?.nota || '';
-                        const c1 = calcCuat(b1, b2);
-                        const c2 = calcCuat(b3, b4);
-                        const pf = calcFinal(b1, b2, b3, b4);
-                        const primerCiclo = esPrimerCiclo(gradoSel);
-                        const fmtNota = (v) => v ? (primerCiclo ? abrevConceptual(v) : v) : '—';
-                        const fmtTexto = (v) => v ? (primerCiclo ? textoConceptual(v) : v) : '—';
 
-                        const CeldaLectura = ({ bim }) => {
-                          const notaBim = e.bimestres?.[bim]?.nota || '';
-                          const col = colorNota(notaBim);
+                {cargando ? (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                    <p style={{ fontSize: 32, marginBottom: 8 }}>⏳</p>
+                    <p style={{ fontWeight: 600 }}>Cargando...</p>
+                  </div>
+                ) : calificaciones.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                    <p style={{ fontSize: 40, marginBottom: 12 }}>📭</p>
+                    <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>Sin calificaciones cargadas aún</p>
+                    <p style={{ fontSize: 13, marginTop: 4 }}>El/la docente de {materiasSel.nombre} todavía no registró notas para {gradoLabel(gradoSel)}.</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <td colspan="2" style={{ background: 'var(--navy)', padding: '4px' }}></td>
+                          <td colspan="2" style={{ background: '#2a4a73', padding: '4px 10px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.75)', textAlign: 'center', letterSpacing: '0.07em', textTransform: 'uppercase', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° BIMESTRE</td>
+                          <td colspan="2" style={{ background: '#2a4a73', padding: '4px 10px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.75)', textAlign: 'center', letterSpacing: '0.07em', textTransform: 'uppercase', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>2° BIMESTRE</td>
+                          <td style={{ background: '#2e3a8a', padding: '4px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}></td>
+                          <td colspan="2" style={{ background: '#2a4a73', padding: '4px 10px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.75)', textAlign: 'center', letterSpacing: '0.07em', textTransform: 'uppercase', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>3° BIMESTRE</td>
+                          <td colspan="2" style={{ background: '#2a4a73', padding: '4px 10px', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,.75)', textAlign: 'center', letterSpacing: '0.07em', textTransform: 'uppercase', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>4° BIMESTRE</td>
+                          <td style={{ background: '#2e3a8a', padding: '4px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}></td>
+                          <td style={{ background: '#3b1d8a', padding: '4px', borderLeft: 'var(--bim-sep)' }}></td>
+                        </tr>
+                        <tr style={{ background: 'var(--navy)' }}>
+                          <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 155 }}>Estudiante</th>
+                          <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)' }}>Nota</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', borderRight: 'var(--bim-sep)' }}>Prom.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)' }}>Nota</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', borderRight: 'var(--bim-sep)' }}>Prom.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° Cuat.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)' }}>Nota</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', borderRight: 'var(--bim-sep)' }}>Prom.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)' }}>Nota</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', borderRight: 'var(--bim-sep)' }}>Prom.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>2° Cuat.</th>
+                          <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#3b1d8a', minWidth: 75, borderLeft: 'var(--bim-sep)' }}>Final</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calificaciones.map((e, i) => {
+                          const b1 = e.bimestres?.[1]?.nota || '';
+                          const b2 = e.bimestres?.[2]?.nota || '';
+                          const b3 = e.bimestres?.[3]?.nota || '';
+                          const b4 = e.bimestres?.[4]?.nota || '';
+                          const c1 = calcCuat(b1, b2);
+                          const c2 = calcCuat(b3, b4);
+                          const pf = calcFinal(b1, b2, b3, b4);
+                          const primerCiclo = esPrimerCiclo(gradoSel);
+                          const fmtNota = (v) => v ? (primerCiclo ? abrevConceptual(v) : v) : '—';
+                          const fmtTexto = (v) => v && v !== '-' ? (primerCiclo ? textoConceptual(v) : v) : '—';
+
+                          const CeldaNota = ({ val, isCuat, isFinal }) => {
+                            const col = colorNota(val);
+                            const bg = isFinal ? 'var(--violet)' : isCuat ? '#eef2ff' : (col?.bg || '#f8fafc');
+                            const color = isFinal ? '#fff' : isCuat ? 'var(--indigo)' : (col?.text || '#94a3b8');
+                            const border = isFinal ? 'var(--violet)' : isCuat ? '#c7d2fe' : (col?.bg || '#e2e8f0');
+                            return (
+                              <td style={{ padding: '8px 11px', textAlign: 'center', borderLeft: isCuat || isFinal ? 'var(--bim-sep)' : undefined, borderRight: isCuat ? 'var(--bim-sep)' : undefined }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 27, borderRadius: 5, fontSize: primerCiclo && val && val !== '-' ? 9 : 12, fontWeight: 700, background: bg, color, border: `1.5px solid ${border}` }}>
+                                  {isCuat || isFinal ? fmtTexto(val) : fmtNota(val)}
+                                </span>
+                              </td>
+                            );
+                          };
+
                           return (
-                            <td className="p-3 border-r border-gray-100 text-center">
-                              <div className="inline-flex items-center justify-center w-16 h-10 rounded-xl font-black border-2"
-                                style={{ fontSize: primerCiclo && notaBim ? '9px' : '14px', backgroundColor: col?.bg || '#f3f4f6', color: col?.text || '#9ca3af', borderColor: col?.bg || '#e5e7eb' }}>
-                                {fmtNota(notaBim)}
-                              </div>
-                            </td>
+                            <tr key={e.id || i} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '9px 12px', fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{e.nombre}</td>
+                              <td style={{ padding: '9px 12px', fontSize: 12, color: 'var(--muted)' }}>{e.dni || '-'}</td>
+                              <CeldaNota val={b1} />
+                              <CeldaNota val={b1} isCuat={true} />
+                              <CeldaNota val={b2} />
+                              <CeldaNota val={b2} isCuat={true} />
+                              <CeldaNota val={c1} isCuat={true} />
+                              <CeldaNota val={b3} />
+                              <CeldaNota val={b3} isCuat={true} />
+                              <CeldaNota val={b4} />
+                              <CeldaNota val={b4} isCuat={true} />
+                              <CeldaNota val={c2} isCuat={true} />
+                              <CeldaNota val={pf} isFinal={true} />
+                            </tr>
                           );
-                        };
-
-                        return (
-                          <tr key={e.id || i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                            <td className="p-3 font-bold text-gray-800 text-sm text-left pl-4">{e.nombre}</td>
-                            <td className="p-3 text-center"><Badge>{e.dni || '-'}</Badge></td>
-                            <CeldaLectura bim={1} />
-                            <CeldaLectura bim={2} />
-                            <td className="p-3 text-center bg-purple-50">
-                              <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                                style={{ fontSize: primerCiclo && c1 ? '9px' : '13px', backgroundColor: colorNota(c1)?.bg || '#ede9fe', color: colorNota(c1)?.text || '#581c87' }}>{fmtTexto(c1)}</span>
-                            </td>
-                            <CeldaLectura bim={3} />
-                            <CeldaLectura bim={4} />
-                            <td className="p-3 text-center bg-purple-50">
-                              <span className="inline-block px-3 py-1.5 rounded-lg font-black text-sm"
-                                style={{ fontSize: primerCiclo && c2 ? '9px' : '13px', backgroundColor: colorNota(c2)?.bg || '#ede9fe', color: colorNota(c2)?.text || '#581c87' }}>{fmtTexto(c2)}</span>
-                            </td>
-                            <td className="p-3 text-center">
-                              <span className="inline-block px-4 py-2 rounded-xl font-black text-base shadow"
-                                style={{ fontSize: primerCiclo && pf ? '10px' : '15px', backgroundColor: colorNota(pf)?.text || '#7c3aed', color: 'white' }}>{fmtTexto(pf)}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
