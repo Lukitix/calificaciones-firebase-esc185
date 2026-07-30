@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Home, Save, Plus, Trash2, LogOut, Lock, Eye, EyeOff, Search, X, Mail, CheckCircle, Lock as LockIcon, Unlock, FileDown } from 'lucide-react';
+import { Home, Save, Plus, Trash2, LogOut, Lock, Eye, EyeOff, Search, X, Mail, CheckCircle, Lock as LockIcon, Unlock, FileDown, Paperclip, FileText, Upload, Download, ChevronDown } from 'lucide-react';
 import { auth, db } from './firebase';
 import {
   createUserWithEmailAndPassword,
@@ -22,6 +22,7 @@ import {
   orderBy,
   limit
 } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -234,7 +235,7 @@ function ModalRenderer({ modal, closeModal }) {
 const globalStyles = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
-* { font-family: 'Inter', sans-serif; box-sizing: border-box; font-size: 15px; }
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; font-size: 16px; }
 h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
 :root {
   --navy: #1e3a5f; --navy2: #2d5282; --navy-lt: #eef3f9;
@@ -839,7 +840,9 @@ export default function SistemaCalificaciones() {
   const [showFechasBimestre, setShowFechasBimestre] = useState(false);
   const [menuAcciones, setMenuAcciones] = useState(false);
   const [showRegistroMods, setShowRegistroMods] = useState(false);
+  const [showInasistencias, setShowInasistencias] = useState(false);
   const [avisos, setAvisos] = useState([]);
+  const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
   const [showAvisos, setShowAvisos] = useState(false);
   const [docenteEditando, setDocenteEditando] = useState(null);
   const [docenteEntregas, setDocenteEntregas] = useState(null);
@@ -853,6 +856,16 @@ export default function SistemaCalificaciones() {
       setAvisos(snap.docs.map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)));
     });
+    return () => unsub();
+  }, [authUser?.uid, usuario?.rol]);
+
+  // Inasistencias no vistas — solo admin
+  useEffect(() => {
+    if (!authUser || !usuario || usuario.rol !== 'administrador') return;
+    const unsub = onSnapshot(
+      query(collection(db, 'inasistencias'), where('visto', '==', false)),
+      snap => setInasistenciasNoVistas(snap.size)
+    );
     return () => unsub();
   }, [authUser?.uid, usuario?.rol]);
 
@@ -1019,6 +1032,21 @@ export default function SistemaCalificaciones() {
         setDocenteNombre({ actual: '', guardado: d.docente || '' });
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
+      }
+      // Bloqueo automático si pasó 07/08/2026
+      if (authUser && usuario?.rol !== 'administrador') {
+        const ahora = new Date();
+        const LIMITE = new Date('2026-08-07T23:59:59');
+        if (ahora > LIMITE) {
+          const currentSnap = await getDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)));
+          const currentData = currentSnap.exists() ? currentSnap.data() : {};
+          const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
+          if (!bloq[1] || !bloq[2]) {
+            const nuevoBloq = { ...bloq, 1: true, 2: true };
+            await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevoBloq }, { merge: true });
+            if (!cancelado) setBimestresBlockeados(nuevoBloq);
+          }
+        }
       }
     };
     cargarConfig();
@@ -1344,6 +1372,24 @@ export default function SistemaCalificaciones() {
       return nuevos;
     });
   };
+
+  // ── BLOQUEO AUTOMÁTICO 07/08/2026 23:59 ──
+  const FECHA_LIMITE_CARGA = new Date('2026-08-07T23:59:59');
+  const aplicarBloqueoAutomatico = React.useCallback(async (gradoActual, materiaActual) => {
+    if (!authUser || usuario?.rol === 'administrador') return;
+    const ahora = new Date();
+    if (ahora <= FECHA_LIMITE_CARGA) return;
+    // Pasó la fecha límite — bloquear bimestres 1 y 2 si no están bloqueados
+    const ref2 = doc(db, 'bimestresBlockeados', `${authUser.uid}_${gradoActual}_${materiaActual}`);
+    const snap = await getDoc(ref2);
+    const data = snap.exists() ? snap.data() : {};
+    const cambios = {};
+    if (!data['1']) cambios['1'] = true;
+    if (!data['2']) cambios['2'] = true;
+    if (Object.keys(cambios).length > 0) {
+      await setDoc(ref2, { ...data, ...cambios }, { merge: true });
+    }
+  }, [authUser, usuario, db]);
 
   const toggleBloquearBimestre = async (bim) => {
     const bloqueando = !bimestresBlockeados[bim];
@@ -2048,9 +2094,9 @@ export default function SistemaCalificaciones() {
                       return a.nombre.localeCompare(b.nombre, 'es');
                     }).map((a, i) => (
                       <tr key={i} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>{i + 1}</td>
-                        <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{a.nombre}</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{a.dni}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '11px 14px', fontWeight: 700, color: 'var(--text)', fontSize: 15 }}>{a.nombre}</td>
+                        <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 14, color: 'var(--muted)' }}>{a.dni}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                           <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: (a.sexo||'V')==='V' ? '#dbeafe' : '#fce7f3', color: (a.sexo||'V')==='V' ? '#1d4ed8' : '#be185d' }}>
                             {(a.sexo || 'V') === 'V' ? '♂ V' : '♀ M'}
@@ -2135,6 +2181,7 @@ export default function SistemaCalificaciones() {
         onAbrirModificaciones={() => setShowRegistroMods(true)}
         onAbrirRecordatorio={() => setShowFechasBimestre(true)}
         onAbrirSolicitudes={() => setShowModalSolicitudes(true)}
+        onAbrirInasistencias={() => setShowInasistencias(true)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
       {docenteActividad && (
@@ -2158,6 +2205,12 @@ export default function SistemaCalificaciones() {
       )}
       {showModalSolicitudes && <ModalSolicitudes />}
       {modalCerrarSesion && <ModalCerrarSesion />}
+      {showInasistencias && (
+        <ModalInasistencias
+          db={db} usuario={usuario} authUser={authUser}
+          showAlert={showAlert} showConfirm={showConfirm}
+          onClose={() => setShowInasistencias(false)} />
+      )}
     </>
     );
   }
@@ -2199,7 +2252,7 @@ export default function SistemaCalificaciones() {
     const avisosNoLeidos = avisos.filter(a => !a.leidoPor?.[authUser?.uid]).length;
     const notifsNoLeidas = notifsBimestre.filter(n => !n.leida).length;
     const solicitudesCount = solicitudes.length;
-    const badgeAdmin = notifsNoLeidas + solicitudesCount;
+    const badgeAdmin = notifsNoLeidas + solicitudesCount + inasistenciasNoVistas;
     // Saludo por hora
     const hora = new Date().getHours();
     const saludo = hora < 12 ? 'Buenos días' : hora < 20 ? 'Buenas tardes' : 'Buenas noches';
@@ -2244,6 +2297,7 @@ export default function SistemaCalificaciones() {
                             { icon: '📢', label: 'Enviar recordatorio', action: () => { setMenuAcciones(false); setShowFechasBimestre(true); } },
                             { icon: '🔔', label: 'Solicitudes', action: () => { setMenuAcciones(false); setShowModalSolicitudes(true); }, badge: solicitudesCount },
                             { icon: '📋', label: 'Registro de Modificaciones', action: () => { setMenuAcciones(false); setShowRegistroMods(true); } },
+                          { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
                               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter,sans-serif' }}
@@ -2273,6 +2327,10 @@ export default function SistemaCalificaciones() {
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
                     📅 Bimestres
                   </button>
+                  <button onClick={() => setShowInasistencias(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    📋 Inasistencias
+                  </button>
                   <button onClick={() => setShowPerfil(true)}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
                     👤 Mi perfil
@@ -2291,7 +2349,7 @@ export default function SistemaCalificaciones() {
             {/* WELCOME BAR */}
             <div style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.rol === 'administrador' ? 'Raquel Noemí' : (usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente')}</h2>
+                <h2 style={{ fontSize: 19, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.rol === 'administrador' ? 'Raquel Noemí' : (usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente')}</h2>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{usuario?.rol === 'administrador' ? 'Directora' : rolLabel(usuario)}</p>
                 {isDocGrado && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 5, fontStyle: 'italic' }}>A continuación se listan tus espacios curriculares asignados para el ciclo lectivo 2026.</p>}
               </div>
@@ -2371,13 +2429,13 @@ export default function SistemaCalificaciones() {
             {/* CURRICULARES */}
             {curricularesFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Áreas Curriculares</p>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 14, fontFamily: 'Outfit,sans-serif' }}>Áreas Curriculares</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(curricularesFilt.length, 5)}, 1fr)`, gap: 10 }}>
                   {curricularesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
                       className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
                       <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2387,13 +2445,13 @@ export default function SistemaCalificaciones() {
             {/* CONVIVENCIA */}
             {(isDocGrado || isAdmin) && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Convivencia</p>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 14, fontFamily: 'Outfit,sans-serif' }}>Convivencia</p>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                   {areas.convivencia.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
                       className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 52px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
                       <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2403,13 +2461,13 @@ export default function SistemaCalificaciones() {
             {/* ESPECIALES */}
             {especielesFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Áreas Especiales</p>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 14, fontFamily: 'Outfit,sans-serif' }}>Áreas Especiales</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(especielesFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {especielesFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
                       className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
                       <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--blue-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2419,13 +2477,13 @@ export default function SistemaCalificaciones() {
             {/* TALLERES */}
             {talleresFilt.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <p style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 12, fontFamily: 'Outfit,sans-serif' }}>Talleres</p>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--navy)', marginBottom: 14, fontFamily: 'Outfit,sans-serif' }}>Talleres</p>
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(talleresFilt.length, 4)}, 1fr)`, gap: 10 }}>
                   {talleresFilt.map(m => (
                     <button key={m.nombre} onClick={() => abrirMateria(m)}
                       className="card-materia" style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '26px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, cursor: 'pointer' }}>
                       <div style={{ width: 68, height: 68, borderRadius: 14, background: 'var(--green-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>{m.icon}</div>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, textAlign: 'center' }}>{m.nombre}</span>
                     </button>
                   ))}
                 </div>
@@ -2478,6 +2536,12 @@ export default function SistemaCalificaciones() {
           <ModalRegistroModificaciones
             db={db} onClose={() => setShowRegistroMods(false)} />
         )}
+        {showInasistencias && (
+          <ModalInasistencias
+            db={db} usuario={usuario} authUser={authUser}
+            showAlert={showAlert} showConfirm={showConfirm}
+            onClose={() => setShowInasistencias(false)} />
+        )}
       </>
     );
   }
@@ -2521,7 +2585,7 @@ export default function SistemaCalificaciones() {
               <Home size={14} /> Inicio
             </button>
             <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{materia.nombre}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>{materia.nombre}</span>
             <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--violet-lt)', color: 'var(--violet)' }}>{gradoLabel(grado)}</span>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
@@ -2561,8 +2625,8 @@ export default function SistemaCalificaciones() {
               </button>
             )}
             <button onClick={() => setModalCerrarSesion(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
-              <LogOut size={14} /> Salir
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              <LogOut size={15} /> Salir
             </button>
           </div>
         </div>
@@ -2596,7 +2660,7 @@ export default function SistemaCalificaciones() {
           {!sinCriterios && (
           <div style={{ margin: '0 0 0 0', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Criterios de Evaluación</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Criterios de Evaluación</h3>
               <p style={{ fontSize: 11, color: 'var(--muted)' }}>Etiquetas para calificaciones por bimestre</p>
             </div>
             <div style={{ background: '#fff5f5', border: '1.5px solid #fca5a5', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -2669,7 +2733,7 @@ export default function SistemaCalificaciones() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr style={{ background: 'var(--navy)' }}>
-                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', width: 30 }}>#</th>
+                    <th style={{ padding: '10px 11px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', width: 30 }}>#</th>
                     <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 155 }}>Estudiante</th>
                     <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>
                     {[1, 2].map(b => {
@@ -2760,9 +2824,9 @@ export default function SistemaCalificaciones() {
                     };
                     return (
                       <tr key={e.id} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '8px 11px', textAlign: 'center', color: 'var(--muted)', fontSize: 11, fontWeight: 600 }}>{i + 1}</td>
-                        <td style={{ padding: '8px 11px', fontWeight: 600, color: 'var(--text)', fontSize: 12 }}>{e.nombre}</td>
-                        <td style={{ padding: '8px 11px', textAlign: 'center', fontSize: 11, color: 'var(--muted)' }}>{e.dni || '-'}</td>
+                        <td style={{ padding: '8px 11px', textAlign: 'center', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '9px 11px', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{e.nombre}</td>
+                        <td style={{ padding: '9px 11px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{e.dni || '-'}</td>
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
                         <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
@@ -2893,6 +2957,251 @@ export default function SistemaCalificaciones() {
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Registro de Modificaciones (admin)
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Inasistencias
+// ════════════════════════════════════════════════════════
+function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showConfirm }) {
+  const [tab, setTab] = useState('nueva');
+  const [form, setForm] = useState({ asunto: '', desde: '', hasta: '', observacion: '' });
+  const [archivos, setArchivos] = useState([]);
+  const [subiendo, setSubiendo] = useState(false);
+  const [inasistencias, setInasistencias] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const fileInputRef = useRef(null);
+  const isAdmin = usuario?.rol === 'administrador';
+
+  useEffect(() => {
+    const q = isAdmin
+      ? query(collection(db, 'inasistencias'), orderBy('fecha', 'desc'))
+      : query(collection(db, 'inasistencias'), where('uid', '==', authUser?.uid), orderBy('fecha', 'desc'));
+    const unsub = onSnapshot(q, snap => {
+      setInasistencias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setCargando(false);
+    });
+    return () => unsub();
+  }, [db, authUser, isAdmin]);
+
+  // Marcar como vista cuando admin abre una
+  const marcarVista = async (inas) => {
+    if (!isAdmin || inas.visto) return;
+    try { await updateDoc(doc(db, 'inasistencias', inas.id), { visto: true }); } catch(e) {}
+  };
+
+  const handleArchivos = (e) => {
+    const files = Array.from(e.target.files || []);
+    const validos = files.filter(f => ['image/jpeg','image/png','image/jpg','application/pdf'].includes(f.type));
+    if (validos.length !== files.length) showAlert('Solo se aceptan imágenes (JPG/PNG) y PDFs.', 'error');
+    setArchivos(prev => [...prev, ...validos].slice(0, 5)); // max 5 archivos
+  };
+
+  const quitarArchivo = (idx) => setArchivos(prev => prev.filter((_, i) => i !== idx));
+
+  const handleSubmit = async () => {
+    if (!form.asunto.trim()) return showAlert('El asunto es obligatorio.', 'error');
+    if (!form.desde || !form.hasta) return showAlert('Las fechas son obligatorias.', 'error');
+    if (new Date(form.desde) > new Date(form.hasta)) return showAlert('La fecha de inicio no puede ser posterior al fin.', 'error');
+    setSubiendo(true);
+    try {
+      const storage = getStorage();
+      const timestamp = Date.now();
+      const archivosSubidos = [];
+      for (const archivo of archivos) {
+        const storageRef = ref(storage, `inasistencias/${authUser.uid}/${timestamp}_${archivo.name}`);
+        await uploadBytes(storageRef, archivo);
+        const url = await getDownloadURL(storageRef);
+        archivosSubidos.push({ nombre: archivo.name, url, tipo: archivo.type });
+      }
+      await setDoc(doc(collection(db, 'inasistencias')), {
+        uid: authUser.uid,
+        nombreDocente: usuario.nombre,
+        asunto: form.asunto.trim(),
+        desde: form.desde,
+        hasta: form.hasta,
+        observacion: form.observacion.trim(),
+        archivos: archivosSubidos,
+        fecha: new Date().toISOString(),
+        visto: false,
+      });
+      setForm({ asunto: '', desde: '', hasta: '', observacion: '' });
+      setArchivos([]);
+      setTab('historial');
+      await showAlert('✅ Inasistencia enviada correctamente a dirección.', 'success', 'Enviado');
+    } catch(e) {
+      await showAlert('Error al enviar. Verificá tu conexión e intentá de nuevo.', 'error');
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const noVistas = inasistencias.filter(i => !i.visto).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.2)', width: '100%', maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        {/* Header */}
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>
+            📋 {isAdmin ? 'Inasistencias docentes' : 'Mis inasistencias'}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: '#f8fafc', flexShrink: 0 }}>
+          {(isAdmin ? [['historial', '📋 Todas las inasistencias']] : [['nueva', '➕ Nueva inasistencia'], ['historial', '📋 Mis inasistencias']]).map(([key, label]) => (
+            <button key={key} onClick={() => { setTab(key); if (key === 'historial' && isAdmin) inasistencias.filter(i => !i.visto).forEach(i => marcarVista(i)); }}
+              style={{ padding: '11px 20px', fontWeight: 700, fontSize: 14, border: 'none', borderBottom: tab === key ? '2px solid var(--navy)' : '2px solid transparent', background: 'none', color: tab === key ? 'var(--navy)' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Inter,sans-serif' }}>
+              {label}
+              {key === 'historial' && noVistas > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 800 }}>{noVistas}</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Contenido */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
+
+          {/* ── TAB NUEVA ── */}
+          {tab === 'nueva' && !isAdmin && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Asunto */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Asunto *</label>
+                <input type="text" value={form.asunto} placeholder="Ej: Licencia por enfermedad común, Licencia Art. 11..."
+                  onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
+                  className="n-field-input" />
+              </div>
+              {/* Fechas */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Desde *</label>
+                  <input type="date" value={form.desde} onChange={e => setForm(f => ({ ...f, desde: e.target.value }))} className="n-field-input" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta *</label>
+                  <input type="date" value={form.hasta} onChange={e => setForm(f => ({ ...f, hasta: e.target.value }))} className="n-field-input" />
+                </div>
+              </div>
+              {/* Observación */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observación (opcional)</label>
+                <textarea value={form.observacion} placeholder="Podés agregar detalles adicionales aquí..."
+                  onChange={e => setForm(f => ({ ...f, observacion: e.target.value }))}
+                  rows={3}
+                  style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontSize: 15, fontFamily: 'Inter,sans-serif', color: 'var(--text)', outline: 'none', resize: 'vertical', transition: 'border-color .15s' }}
+                  onFocus={e => e.target.style.borderColor='var(--indigo)'}
+                  onBlur={e => e.target.style.borderColor='var(--border)'} />
+              </div>
+              {/* Archivos */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Archivos adjuntos (JPG, PNG, PDF — máx. 5)</label>
+                <div onClick={() => fileInputRef.current?.click()}
+                  style={{ border: '2px dashed var(--border)', borderRadius: 'var(--r)', padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', transition: 'border-color .15s, background .15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor='var(--navy)'; e.currentTarget.style.background='var(--navy-lt)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='#f8fafc'; }}>
+                  <Upload size={28} style={{ color: 'var(--muted)', marginBottom: 8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--slate)', marginBottom: 4 }}>Hacé clic para adjuntar archivos</p>
+                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>O arrastrá y soltá acá · JPG, PNG, PDF</p>
+                  <input ref={fileInputRef} type="file" multiple accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={handleArchivos} style={{ display: 'none' }} />
+                </div>
+                {archivos.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {archivos.map((f, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--navy-lt)', border: '1px solid var(--border)', borderRadius: 'var(--r)' }}>
+                        <FileText size={16} style={{ color: 'var(--navy)', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)} KB</span>
+                        <button onClick={() => quitarArchivo(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', display: 'flex' }}><X size={15} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Botón enviar */}
+              <button onClick={handleSubmit} disabled={subiendo} className="btn-primary"
+                style={{ padding: '12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: subiendo ? 0.6 : 1, cursor: subiendo ? 'not-allowed' : 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                {subiendo
+                  ? <><div style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,.4)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} /> Enviando...</>
+                  : <><Paperclip size={17} /> Enviar inasistencia a dirección</>}
+              </button>
+            </div>
+          )}
+
+          {/* ── TAB HISTORIAL ── */}
+          {tab === 'historial' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {cargando ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
+                  <div style={{ width: 36, height: 36, border: '4px solid var(--border)', borderTop: '4px solid var(--navy)', borderRadius: '50%', animation: 'spin .8s linear infinite', margin: '0 auto 12px' }} />
+                  <p style={{ fontSize: 14 }}>Cargando...</p>
+                </div>
+              ) : inasistencias.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+                  <p style={{ fontSize: 40, marginBottom: 12 }}>📋</p>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
+                    {isAdmin ? 'No hay inasistencias cargadas aún' : 'Todavía no cargaste ninguna inasistencia'}
+                  </p>
+                </div>
+              ) : (
+                inasistencias.map((inas, i) => (
+                  <div key={inas.id}
+                    onClick={() => marcarVista(inas)}
+                    style={{ border: '1.5px solid', borderColor: (!inas.visto && isAdmin) ? '#fcd34d' : 'var(--border)', borderRadius: 'var(--r)', padding: '14px 16px', background: (!inas.visto && isAdmin) ? '#fefce8' : '#fff', transition: 'box-shadow .15s' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow='var(--sh)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow='none'}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        {isAdmin && <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 3 }}>{inas.nombreDocente}</p>}
+                        <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>{inas.asunto}</p>
+                        <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>
+                          📅 {new Date(inas.desde + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          {inas.hasta !== inas.desde && <> → {new Date(inas.hasta + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</>}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+                          {new Date(inas.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </span>
+                        {isAdmin
+                          ? <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: inas.visto ? 'var(--green-lt)' : 'var(--amber-lt)', color: inas.visto ? 'var(--green)' : 'var(--amber)' }}>
+                              {inas.visto ? '✓ Vista' : '⏳ Sin revisar'}
+                            </span>
+                          : <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: inas.visto ? 'var(--green-lt)' : 'var(--blue-lt)', color: inas.visto ? 'var(--green)' : '#1d4ed8' }}>
+                              {inas.visto ? '✓ Revisada por dirección' : '📨 Enviada'}
+                            </span>}
+                      </div>
+                    </div>
+                    {inas.observacion && (
+                      <p style={{ fontSize: 13, color: 'var(--slate)', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 11px', marginBottom: 10, lineHeight: 1.5 }}>
+                        {inas.observacion}
+                      </p>
+                    )}
+                    {inas.archivos?.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {inas.archivos.map((a, j) => (
+                          <a key={j} href={a.url} target="_blank" rel="noopener noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 6, background: 'var(--navy-lt)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 600, color: 'var(--navy)', textDecoration: 'none', transition: 'background .15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background='#d4e4f7'}
+                            onMouseLeave={e => e.currentTarget.style.background='var(--navy-lt)'}>
+                            {a.tipo === 'application/pdf' ? <FileText size={14} /> : <Paperclip size={14} />}
+                            {a.nombre}
+                            <Download size={13} style={{ color: 'var(--muted)' }} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalRegistroModificaciones({ db, onClose }) {
   const [logs, setLogs] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -4394,11 +4703,20 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 }
 
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, onAbrirInasistencias, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
   const [seccion, setSeccion] = useState('docentes');
+  const [inasistenciasNoVistasGU, setInasistenciasNoVistasGU] = useState(0);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'inasistencias'), where('visto', '==', false)),
+      snap => setInasistenciasNoVistasGU(snap.size)
+    );
+    return () => unsub();
+  }, [db]);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -4472,12 +4790,14 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
             { icon: '📋', label: 'Modificaciones', action: onAbrirModificaciones },
             { icon: '✉️', label: 'Mensajes', action: onAbrirMensajes },
             { icon: '📢', label: 'Enviar recordatorio', action: onAbrirRecordatorio },
+            { icon: '📋', label: 'Inasistencias', action: onAbrirInasistencias, badge: inasistenciasNoVistasGU },
           ].map(item => (
             <button key={item.label} onClick={item.action}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left', transition: 'color .15s' }}
               onMouseEnter={e => e.currentTarget.style.color='#fff'}
               onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.65)'}>
               {item.icon} {item.label}
+              {item.badge > 0 && <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{item.badge}</span>}
             </button>
           ))}
           <div style={{ marginTop: 'auto', padding: '16px 18px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
