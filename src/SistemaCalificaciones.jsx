@@ -3390,7 +3390,6 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 680, animation: 'modalEntrada 0.2s ease-out' }}>
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
           <h3 className="text-lg font-bold text-white">📅 Bimestres Ciclo Lectivo 2026</h3>
