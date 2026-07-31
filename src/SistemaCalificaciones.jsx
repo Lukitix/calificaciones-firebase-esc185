@@ -3069,9 +3069,11 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Motivo de inasistencia *</label>
                 <input type="text" value={form.asunto} placeholder=""
                   onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
-                  className="n-field-input" />
+                  className="n-field-input"
+                  style={{ fontSize: 15, padding: '11px 14px', borderRadius: 'var(--r)' }} />
               </div>
               {/* Un solo día */}
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px', fontStyle: 'italic' }}>Si la inasistencia es de un solo día, tildá la siguiente opción:</p>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 14px', background: form.unSoloDia ? 'var(--navy-lt)' : '#f8fafc', border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', borderRadius: 'var(--r)', transition: 'all .15s' }}>
                 <div onClick={() => setForm(f => ({ ...f, unSoloDia: !f.unSoloDia, hasta: !f.unSoloDia ? f.desde : f.hasta }))}
                   style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', background: form.unSoloDia ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
@@ -3095,10 +3097,10 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
               {/* Observación */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observación (opcional)</label>
-                <textarea value={form.observacion} placeholder="Podés agregar detalles adicionales aquí..."
+                <textarea value={form.observacion} placeholder="Podés agregar detalles adicionales acá..."
                   onChange={e => setForm(f => ({ ...f, observacion: e.target.value }))}
-                  rows={3}
-                  style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontSize: 15, fontFamily: 'DM Sans,sans-serif', color: 'var(--text)', outline: 'none', resize: 'vertical', transition: 'border-color .15s' }}
+                  rows={4}
+                  style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '12px 14px', fontSize: 15, fontFamily: 'DM Sans,sans-serif', color: 'var(--text)', outline: 'none', resize: 'vertical', transition: 'border-color .15s', lineHeight: 1.6, width: '100%', boxSizing: 'border-box' }}
                   onFocus={e => e.target.style.borderColor='var(--indigo)'}
                   onBlur={e => e.target.style.borderColor='var(--border)'} />
               </div>
@@ -3387,7 +3389,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 680, animation: 'modalEntrada 0.2s ease-out' }}>
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
@@ -3411,7 +3413,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                 return (
                   <tr key={b.bim} className={activo ? 'bg-indigo-50' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                     style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb' }}>
+                    <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb', maxWidth: 220 }}>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: colores[i] }} />
                         <span className="font-bold text-gray-800">{b.bim}° Bimestre</span>
@@ -3431,7 +3433,7 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
                 );
               })}
               <tr className="bg-gray-50" style={{ borderTop: '2px solid #e5e7eb' }}>
-                <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb' }}>
+                <td className="py-4 px-4" style={{ borderRight: '1px solid #e5e7eb', maxWidth: 220 }}>
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full flex-shrink-0 bg-gray-400" />
                     <span className="font-semibold text-gray-600 text-sm">Fortalecimiento de trayectorias, evaluación y promoción</span>
