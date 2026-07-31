@@ -193,7 +193,7 @@ function ModalRenderer({ modal, closeModal }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }} style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className={`px-6 py-4 ${estilo.bg} flex items-center gap-3`}>
           <span className="text-2xl">{estilo.emoji}</span>
           <h3 className={`text-lg font-bold ${estilo.text}`}>
@@ -233,9 +233,9 @@ function ModalRenderer({ modal, closeModal }) {
 
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 const globalStyles = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Outfit:wght@600;700;800&display=swap');
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
-* { font-family: 'Inter', sans-serif; box-sizing: border-box; font-size: 16px; }
+* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; font-size: 16px; }
 h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
 :root {
   --navy: #1e3a5f; --navy2: #2d5282; --navy-lt: #eef3f9;
@@ -273,7 +273,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
 ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-.nota-input { width: 44px; height: 34px; padding: 2px; border: 1.5px solid var(--border); border-radius: 6px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text); background: #f8fafc; transition: border-color 0.15s, background 0.15s; font-family: 'Inter', sans-serif; }
+.nota-input { width: 44px; height: 34px; padding: 2px; border: 1.5px solid var(--border); border-radius: 6px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text); background: #f8fafc; transition: border-color 0.15s, background 0.15s; font-family: 'DM Sans', sans-serif; }
 .nota-input:focus { outline: none; border-color: var(--indigo); background: #fff; }
 .tabla-header { background: var(--navy); color: white; }
 .tabla-row { transition: background-color 0.15s ease; }
@@ -284,7 +284,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.04); }
 .toast-visible { animation: toastIn 0.25s ease-out both; }
-.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'Inter', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
+.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
 .n-field-input:focus { border-color: var(--indigo); }
 `;
 
@@ -755,7 +755,7 @@ function CriterioChip({ nombre, bloqueado, onEliminar, onRenombrar }) {
           onChange={e => setTexto(e.target.value)}
           onBlur={confirmar}
           onKeyDown={e => { if (e.key === 'Enter') confirmar(); if (e.key === 'Escape') { setTexto(nombre); setEditando(false); } }}
-          style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', background: '#fff', border: '1px solid var(--indigo)', borderRadius: 4, padding: '0 4px', outline: 'none', width: 100, fontFamily: 'Inter,sans-serif' }} />
+          style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', background: '#fff', border: '1px solid var(--indigo)', borderRadius: 4, padding: '0 4px', outline: 'none', width: 100, fontFamily: 'DM Sans,sans-serif' }} />
       ) : (
         <span style={{ fontSize: 11, fontWeight: 600, color: bloqueado ? 'var(--muted)' : 'var(--text)' }}>{nombre}</span>
       )}
@@ -1686,7 +1686,7 @@ export default function SistemaCalificaciones() {
               </div>
             </div>
             <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
-              style={{ background: 'none', border: '1px solid rgba(255,255,255,.25)', borderRadius: 'var(--r)', padding: '7px 14px', color: 'rgba(255,255,255,.6)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'Inter,sans-serif', alignSelf: 'flex-start' }}>
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,.25)', borderRadius: 'var(--r)', padding: '7px 14px', color: 'rgba(255,255,255,.6)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'DM Sans,sans-serif', alignSelf: 'flex-start' }}>
               ← Volver al login
             </button>
           </div>
@@ -1764,7 +1764,7 @@ export default function SistemaCalificaciones() {
                               const nuevo = actual.includes(g) ? actual.filter(x => x !== g) : [...actual, g];
                               setRegistro(r => ({ ...r, data: { ...r.data, gradosAsignados: nuevo } }));
                             }}
-                            style={{ padding: '6px 4px', border: '1.5px solid', borderColor: sel ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sel ? 'var(--navy)' : '#fff', color: sel ? '#fff' : 'var(--muted)', fontFamily: 'Inter,sans-serif', transition: 'all .15s' }}>
+                            style={{ padding: '6px 4px', border: '1.5px solid', borderColor: sel ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sel ? 'var(--navy)' : '#fff', color: sel ? '#fff' : 'var(--muted)', fontFamily: 'DM Sans,sans-serif', transition: 'all .15s' }}>
                             {gradoLabel(g)}
                           </button>
                         );
@@ -1782,7 +1782,7 @@ export default function SistemaCalificaciones() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 5 }}>
                           {grados.map(g => (
                             <button key={g} type="button" onClick={() => toggleGradoRegistro(ma.nombre, g)}
-                              style={{ padding: '6px 4px', border: '1.5px solid', borderColor: ma.grados.includes(g) ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: ma.grados.includes(g) ? 'var(--navy)' : '#fff', color: ma.grados.includes(g) ? '#fff' : 'var(--muted)', fontFamily: 'Inter,sans-serif' }}>
+                              style={{ padding: '6px 4px', border: '1.5px solid', borderColor: ma.grados.includes(g) ? 'var(--navy)' : 'var(--border)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: ma.grados.includes(g) ? 'var(--navy)' : '#fff', color: ma.grados.includes(g) ? '#fff' : 'var(--muted)', fontFamily: 'DM Sans,sans-serif' }}>
                               {gradoLabel(g)}
                             </button>
                           ))}
@@ -1794,11 +1794,11 @@ export default function SistemaCalificaciones() {
                 {/* Botones */}
                 <div style={{ display: 'flex', gap: 10, paddingTop: 8 }}>
                   <button onClick={() => setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', materiasAsignadas: [] } })}
-                    style={{ flex: 1, padding: '11px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ flex: 1, padding: '11px', borderRadius: 'var(--r)', background: 'transparent', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     ← Cancelar
                   </button>
                   <button onClick={handleRegistro} disabled={registroCargando} className="btn-primary"
-                    style={{ flex: 2, padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: registroCargando ? 0.6 : 1, cursor: registroCargando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ flex: 2, padding: '11px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, opacity: registroCargando ? 0.6 : 1, cursor: registroCargando ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans,sans-serif' }}>
                     {registroCargando ? 'Enviando solicitud...' : 'Enviar solicitud de acceso'}
                   </button>
                 </div>
@@ -1993,12 +1993,12 @@ export default function SistemaCalificaciones() {
                   onChange={e => setAlumnoForm({ ...alumnoForm, nombre: e.target.value })}
                   onBlur={e => setAlumnoForm(f => ({ ...f, nombre: capitalizarNombre(e.target.value) }))}
                   placeholder="Ej: García, María José"
-                  style={{ flex: 1, minWidth: 200, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                  style={{ flex: 1, minWidth: 200, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 <input type="text" value={alumnoForm.dni}
                   onChange={e => setAlumnoForm({ ...alumnoForm, dni: e.target.value })}
                   onKeyDown={e => e.key === 'Enter' && agregarAlumno()}
                   placeholder="D.N.I N°..."
-                  style={{ width: 160, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                  style={{ width: 160, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: '#f8fafc', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '6px 12px' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginRight: 4 }}>Sexo:</span>
                   {['V', 'M'].map(s => (
@@ -2029,7 +2029,7 @@ export default function SistemaCalificaciones() {
                 <input type="text" value={busquedaDNI}
                   onChange={e => { setBusquedaDNI(e.target.value); setResultadoBusqueda(null); }}
                   placeholder="Nombre(s) o D.N.I N°..."
-                  style={{ width: '100%', paddingLeft: 36, paddingRight: 36, padding: '10px 14px 10px 36px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                  style={{ width: '100%', paddingLeft: 36, paddingRight: 36, padding: '10px 14px 10px 36px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 14, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 {busquedaDNI && (
                   <button onClick={() => { setBusquedaDNI(''); setResultadoBusqueda(null); }}
                     style={{ position: 'absolute', right: 10, top: 11, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
@@ -2282,7 +2282,7 @@ export default function SistemaCalificaciones() {
                 <>
                   <div style={{ position: 'relative' }}>
                     <button onClick={() => setMenuAcciones(v => !v)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                       ⚙️ Acciones
                       {badgeAdmin > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{badgeAdmin}</span>}
                       <span style={{ fontSize: 10, color: 'var(--muted)' }}>{menuAcciones ? '▲' : '▼'}</span>
@@ -2300,7 +2300,7 @@ export default function SistemaCalificaciones() {
                           { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
-                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter,sans-serif' }}
+                              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans,sans-serif' }}
                               onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
                               onMouseLeave={e => e.currentTarget.style.background='none'}>
                               <span style={{ fontSize: 16 }}>{icon}</span>
@@ -2316,29 +2316,29 @@ export default function SistemaCalificaciones() {
               ) : (
                 <>
                   <button onClick={() => setShowModalMensajes(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     ✉️ Mensajes {noLeidos > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{noLeidos}</span>}
                   </button>
                   <button onClick={() => setShowAvisos(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     🔔 Avisos {avisosNoLeidos > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>{avisosNoLeidos}</span>}
                   </button>
                   <button onClick={() => setShowFechasBimestre(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     📅 Bimestres
                   </button>
                   <button onClick={() => setShowInasistencias(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     📋 Inasistencias
                   </button>
                   <button onClick={() => setShowPerfil(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                     👤 Mi perfil
                   </button>
                 </>
               )}
               <button onClick={() => setModalCerrarSesion(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 <LogOut size={14} /> Cerrar sesión
               </button>
             </div>
@@ -2581,7 +2581,7 @@ export default function SistemaCalificaciones() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
               <Home size={14} /> Inicio
             </button>
             <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
@@ -2620,12 +2620,12 @@ export default function SistemaCalificaciones() {
             )}
             {esPrimerCiclo(grado) && (
               <button onClick={() => setShowEscala(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 📊 Escala
               </button>
             )}
             <button onClick={() => setModalCerrarSesion(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
               <LogOut size={15} /> Salir
             </button>
           </div>
@@ -2648,7 +2648,7 @@ export default function SistemaCalificaciones() {
           {volverAGestion && usuario?.rol === 'administrador' && (
             <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
               <button onClick={() => { setVolverAGestion(false); setPantalla('gestion_usuarios'); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'var(--green-lt)', color: 'var(--green)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'var(--green-lt)', color: 'var(--green)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 ← Volver a Gestión de Docentes
               </button>
             </div>
@@ -2680,14 +2680,14 @@ export default function SistemaCalificaciones() {
                     <div style={{ display: 'flex', gap: 5 }}>
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
                         <button onClick={() => agregarCriterio(bim)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                           <Plus size={12} /> Agregar
                         </button>
                       )}
                       {usuario?.rol !== 'administrador' && (
                         <button onClick={() => toggleBloquearBimestre(bim)}
                           title={bimestresBlockeados[bim] ? 'Reabrir bimestre' : 'Marcar completo'}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: bimestresBlockeados[bim] ? 'var(--green-lt)' : '#f1f5f9', color: bimestresBlockeados[bim] ? 'var(--green)' : 'var(--slate)', border: '1.5px solid', borderColor: bimestresBlockeados[bim] ? '#86efac' : 'var(--border)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: bimestresBlockeados[bim] ? 'var(--green-lt)' : '#f1f5f9', color: bimestresBlockeados[bim] ? 'var(--green)' : 'var(--slate)', border: '1.5px solid', borderColor: bimestresBlockeados[bim] ? '#86efac' : 'var(--border)', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                           {bimestresBlockeados[bim] ? <LockIcon size={12} /> : <Unlock size={12} />}
                           {bimestresBlockeados[bim] ? 'Completo' : '✓ Marcar'}
                         </button>
@@ -2726,7 +2726,7 @@ export default function SistemaCalificaciones() {
                   type="text" value={busquedaAlumno}
                   onChange={e => setBusquedaAlumno(e.target.value)}
                   placeholder="Buscar alumno por nombre o DNI..."
-                  style={{ flex: 1, maxWidth: 320, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)' }} />
+                  style={{ flex: 1, maxWidth: 320, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
               </div>
             <div style={{ overflowX: 'auto' }}>
@@ -2962,7 +2962,7 @@ export default function SistemaCalificaciones() {
 // ════════════════════════════════════════════════════════
 function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showConfirm }) {
   const [tab, setTab] = useState('nueva');
-  const [form, setForm] = useState({ asunto: '', desde: '', hasta: '', observacion: '' });
+  const [form, setForm] = useState({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false });
   const [archivos, setArchivos] = useState([]);
   const [subiendo, setSubiendo] = useState(false);
   const [inasistencias, setInasistencias] = useState([]);
@@ -2989,8 +2989,8 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
 
   const handleArchivos = (e) => {
     const files = Array.from(e.target.files || []);
-    const validos = files.filter(f => ['image/jpeg','image/png','image/jpg','application/pdf'].includes(f.type));
-    if (validos.length !== files.length) showAlert('Solo se aceptan imágenes (JPG/PNG) y PDFs.', 'error');
+    const validos = files.filter(f => f.type === 'application/pdf');
+    if (validos.length !== files.length) showAlert('Solo se aceptan archivos PDF.', 'error');
     setArchivos(prev => [...prev, ...validos].slice(0, 5)); // max 5 archivos
   };
 
@@ -3022,7 +3022,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
         fecha: new Date().toISOString(),
         visto: false,
       });
-      setForm({ asunto: '', desde: '', hasta: '', observacion: '' });
+      setForm({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false });
       setArchivos([]);
       setTab('historial');
       await showAlert('✅ Inasistencia enviada correctamente a dirección.', 'success', 'Enviado');
@@ -3051,7 +3051,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: '#f8fafc', flexShrink: 0 }}>
           {(isAdmin ? [['historial', '📋 Todas las inasistencias']] : [['nueva', '➕ Nueva inasistencia'], ['historial', '📋 Mis inasistencias']]).map(([key, label]) => (
             <button key={key} onClick={() => { setTab(key); if (key === 'historial' && isAdmin) inasistencias.filter(i => !i.visto).forEach(i => marcarVista(i)); }}
-              style={{ padding: '11px 20px', fontWeight: 700, fontSize: 14, border: 'none', borderBottom: tab === key ? '2px solid var(--navy)' : '2px solid transparent', background: 'none', color: tab === key ? 'var(--navy)' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'Inter,sans-serif' }}>
+              style={{ padding: '11px 20px', fontWeight: 700, fontSize: 14, border: 'none', borderBottom: tab === key ? '2px solid var(--navy)' : '2px solid transparent', background: 'none', color: tab === key ? 'var(--navy)' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'DM Sans,sans-serif' }}>
               {label}
               {key === 'historial' && noVistas > 0 && <span style={{ background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 800 }}>{noVistas}</span>}
             </button>
@@ -3066,21 +3066,31 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {/* Asunto */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Asunto *</label>
-                <input type="text" value={form.asunto} placeholder="Ej: Licencia por enfermedad común, Licencia Art. 11..."
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Motivo de inasistencia *</label>
+                <input type="text" value={form.asunto} placeholder=""
                   onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
                   className="n-field-input" />
               </div>
+              {/* Un solo día */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 14px', background: form.unSoloDia ? 'var(--navy-lt)' : '#f8fafc', border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', borderRadius: 'var(--r)', transition: 'all .15s' }}>
+                <div onClick={() => setForm(f => ({ ...f, unSoloDia: !f.unSoloDia, hasta: !f.unSoloDia ? f.desde : f.hasta }))}
+                  style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', background: form.unSoloDia ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+                  {form.unSoloDia && <svg width="10" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span style={{ fontSize: 14, color: form.unSoloDia ? 'var(--navy)' : 'var(--slate)', fontWeight: form.unSoloDia ? 600 : 400 }}>Inasistencia de un solo día</span>
+              </label>
               {/* Fechas */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: form.unSoloDia ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Desde *</label>
-                  <input type="date" value={form.desde} onChange={e => setForm(f => ({ ...f, desde: e.target.value }))} className="n-field-input" />
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{form.unSoloDia ? 'Fecha *' : 'Desde *'}</label>
+                  <input type="date" value={form.desde} onChange={e => setForm(f => ({ ...f, desde: e.target.value, hasta: f.unSoloDia ? e.target.value : f.hasta }))} className="n-field-input" />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta *</label>
-                  <input type="date" value={form.hasta} onChange={e => setForm(f => ({ ...f, hasta: e.target.value }))} className="n-field-input" />
-                </div>
+                {!form.unSoloDia && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Hasta *</label>
+                    <input type="date" value={form.hasta} onChange={e => setForm(f => ({ ...f, hasta: e.target.value }))} className="n-field-input" />
+                  </div>
+                )}
               </div>
               {/* Observación */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -3088,21 +3098,21 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                 <textarea value={form.observacion} placeholder="Podés agregar detalles adicionales aquí..."
                   onChange={e => setForm(f => ({ ...f, observacion: e.target.value }))}
                   rows={3}
-                  style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontSize: 15, fontFamily: 'Inter,sans-serif', color: 'var(--text)', outline: 'none', resize: 'vertical', transition: 'border-color .15s' }}
+                  style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--r)', padding: '10px 14px', fontSize: 15, fontFamily: 'DM Sans,sans-serif', color: 'var(--text)', outline: 'none', resize: 'vertical', transition: 'border-color .15s' }}
                   onFocus={e => e.target.style.borderColor='var(--indigo)'}
                   onBlur={e => e.target.style.borderColor='var(--border)'} />
               </div>
               {/* Archivos */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Archivos adjuntos (JPG, PNG, PDF — máx. 5)</label>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Archivos adjuntos PDF (máx. 5)</label>
                 <div onClick={() => fileInputRef.current?.click()}
                   style={{ border: '2px dashed var(--border)', borderRadius: 'var(--r)', padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#f8fafc', transition: 'border-color .15s, background .15s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor='var(--navy)'; e.currentTarget.style.background='var(--navy-lt)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='#f8fafc'; }}>
                   <Upload size={28} style={{ color: 'var(--muted)', marginBottom: 8 }} />
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--slate)', marginBottom: 4 }}>Hacé clic para adjuntar archivos</p>
-                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>O arrastrá y soltá acá · JPG, PNG, PDF</p>
-                  <input ref={fileInputRef} type="file" multiple accept=".jpg,.jpeg,.png,.pdf"
+                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>O arrastrá y soltá acá · Solo PDF</p>
+                  <input ref={fileInputRef} type="file" multiple accept=".pdf"
                     onChange={handleArchivos} style={{ display: 'none' }} />
                 </div>
                 {archivos.length > 0 && (
@@ -3120,7 +3130,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
               </div>
               {/* Botón enviar */}
               <button onClick={handleSubmit} disabled={subiendo} className="btn-primary"
-                style={{ padding: '12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: subiendo ? 0.6 : 1, cursor: subiendo ? 'not-allowed' : 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                style={{ padding: '12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: subiendo ? 0.6 : 1, cursor: subiendo ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 {subiendo
                   ? <><div style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,.4)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} /> Enviando...</>
                   : <><Paperclip size={17} /> Enviar inasistencia a dirección</>}
@@ -4506,19 +4516,19 @@ function ChipGradoAdmin({ grado, materia, tabActiva, onVerAlumnos, onVerCalifica
   return (
     <div className="relative inline-block" ref={ref}>
       <button onClick={() => setOpen(v => !v)}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--navy-lt)', color: 'var(--navy)', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--navy-lt)', color: 'var(--navy)', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
         {gradoLabel(grado)} <span style={{ fontSize: 9 }}>▾</span>
       </button>
       {open && (
         <div style={{ position: 'absolute', left: 0, top: '100%', marginTop: 4, zIndex: 50, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--r)', boxShadow: 'var(--sh-md)', overflow: 'hidden', minWidth: 160, animation: 'fadeIn 0.1s ease-out' }}>
           <button onClick={() => { setOpen(false); onVerAlumnos(grado, tabActiva); }}
-            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}
+            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}
             onMouseEnter={e => e.currentTarget.style.background='var(--navy-lt)'}
             onMouseLeave={e => e.currentTarget.style.background='none'}>
             👥 Ver alumnos
           </button>
           <button onClick={() => { setOpen(false); onVerCalificaciones(grado, materia, tabActiva); }}
-            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}
+            style={{ width: '100%', textAlign: 'left', padding: '9px 13px', fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}
             onMouseEnter={e => e.currentTarget.style.background='var(--violet-lt)'}
             onMouseLeave={e => e.currentTarget.style.background='none'}>
             📊 Ver calificaciones
@@ -4779,7 +4789,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
             { key: 'alumnos', icon: '📋', label: 'Alumnos', onClick: () => { onVerAlumnos('1°A', 'grado'); } },
           ].map(item => (
             <button key={item.key} onClick={item.onClick || (() => setSeccion(item.key))}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: seccion === item.key ? 'rgba(255,255,255,.1)' : 'none', border: 'none', borderLeft: `3px solid ${seccion === item.key ? '#818cf8' : 'transparent'}`, cursor: 'pointer', color: seccion === item.key ? '#fff' : 'rgba(255,255,255,.6)', fontSize: 13, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left' }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: seccion === item.key ? 'rgba(255,255,255,.1)' : 'none', border: 'none', borderLeft: `3px solid ${seccion === item.key ? '#818cf8' : 'transparent'}`, cursor: 'pointer', color: seccion === item.key ? '#fff' : 'rgba(255,255,255,.6)', fontSize: 13, fontWeight: 600, fontFamily: 'DM Sans,sans-serif', textAlign: 'left' }}>
               {item.icon} {item.label}
             </button>
           ))}
@@ -4793,7 +4803,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
             { icon: '📋', label: 'Inasistencias', action: onAbrirInasistencias, badge: inasistenciasNoVistasGU },
           ].map(item => (
             <button key={item.label} onClick={item.action}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 600, fontFamily: 'Inter,sans-serif', textAlign: 'left', transition: 'color .15s' }}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 600, fontFamily: 'DM Sans,sans-serif', textAlign: 'left', transition: 'color .15s' }}
               onMouseEnter={e => e.currentTarget.style.color='#fff'}
               onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,.65)'}>
               {item.icon} {item.label}
@@ -4802,11 +4812,11 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
           ))}
           <div style={{ marginTop: 'auto', padding: '16px 18px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
             <button onClick={onInicio}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(255,255,255,.08)', border: 'none', color: 'rgba(255,255,255,.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif', marginBottom: 8 }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(255,255,255,.08)', border: 'none', color: 'rgba(255,255,255,.7)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif', marginBottom: 8 }}>
               <Home size={14} /> Inicio
             </button>
             <button onClick={onCerrarSesion}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(220,38,38,.15)', border: '1px solid rgba(220,38,38,.3)', color: '#fca5a5', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 'var(--r)', background: 'rgba(220,38,38,.15)', border: '1px solid rgba(220,38,38,.3)', color: '#fca5a5', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
               <LogOut size={14} /> Cerrar sesión
             </button>
           </div>
@@ -4823,7 +4833,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
               <div style={{ position: 'relative' }}>
                 <Search style={{ position: 'absolute', left: 10, top: 10, color: 'var(--muted)' }} size={14} />
                 <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar docente..."
-                  style={{ paddingLeft: 30, paddingRight: busqueda ? 28 : 12, padding: '9px 12px 9px 30px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, fontFamily: 'Inter,sans-serif', outline: 'none', color: 'var(--text)', width: 220 }} />
+                  style={{ paddingLeft: 30, paddingRight: busqueda ? 28 : 12, padding: '9px 12px 9px 30px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)', width: 220 }} />
                 {busqueda && <button onClick={() => setBusqueda('')} style={{ position: 'absolute', right: 8, top: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
               </div>
             </div>
@@ -4834,7 +4844,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               {[['grado','🏫 Docentes de Grado'],['especial','🎨 Áreas Especiales']].map(([key, label]) => (
                 <button key={key} onClick={() => setTabActiva(key)}
-                  style={{ padding: '9px 20px', borderRadius: 'var(--r)', fontWeight: 700, fontSize: 13, border: '1.5px solid', borderColor: tabActiva === key ? 'var(--navy)' : 'var(--border)', background: tabActiva === key ? 'var(--navy)' : '#fff', color: tabActiva === key ? '#fff' : 'var(--slate)', cursor: 'pointer', fontFamily: 'Inter,sans-serif' }}>
+                  style={{ padding: '9px 20px', borderRadius: 'var(--r)', fontWeight: 700, fontSize: 13, border: '1.5px solid', borderColor: tabActiva === key ? 'var(--navy)' : 'var(--border)', background: tabActiva === key ? 'var(--navy)' : '#fff', color: tabActiva === key ? '#fff' : 'var(--slate)', cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                   {label}
                 </button>
               ))}
