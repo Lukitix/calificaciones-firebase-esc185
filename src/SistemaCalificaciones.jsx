@@ -1722,7 +1722,7 @@ export default function SistemaCalificaciones() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rol en la institución</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Docente de Área Especial'}].map(({val,lbl}) => (
+                    {[{val:'docente_grado',lbl:'Docente de Grado'},{val:'area_especial',lbl:'Docente de Área Especial / Taller'}].map(({val,lbl}) => (
                       <div key={val} onClick={() => setRegistro(r => ({ ...r, data: { ...r.data, rol: val, materiasAsignadas: [] } }))}
                         style={{ border: '1.5px solid', borderColor: registro.data.rol === val ? 'var(--indigo)' : 'var(--border)', borderRadius: 'var(--r)', padding: '12px 16px', cursor: 'pointer', background: registro.data.rol === val ? 'var(--violet-lt)' : '#fff', transition: 'all .15s' }}>
                         <strong style={{ fontSize: 13, fontWeight: 700, color: registro.data.rol === val ? 'var(--indigo)' : 'var(--text)', display: 'block' }}>{lbl}</strong>
@@ -1735,7 +1735,7 @@ export default function SistemaCalificaciones() {
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {registro.data.rol === 'docente_grado' ? 'Asignaturas curriculares a cargo' : 'Área(s) especial(es) que dictás'}
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 6 }}>
                     {materiasRegistro.map(m => {
                       const checked = registro.data.rol === 'docente_grado'
                         ? registro.data.materiasAsignadas.includes(m.nombre)
@@ -1883,10 +1883,13 @@ export default function SistemaCalificaciones() {
                 style={{ fontSize: 13, color: 'var(--indigo)', fontWeight: 600, textAlign: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
                 ¿Olvidaste tu contraseña?
               </button>
-              <button onClick={() => setRegistro({ ...registro, show: true })}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontWeight: 500, textAlign: 'center', width: '100%', padding: '4px' }}>
-                ¿No tenés cuenta? <span style={{ color: 'var(--indigo)', fontWeight: 600 }}>Registrate y solicitá el acceso</span>
-              </button>
+              <p style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500, textAlign: 'center', margin: 0 }}>
+                ¿No tenés cuenta?{' '}
+                <button onClick={() => setRegistro({ ...registro, show: true })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--indigo)', fontWeight: 600, padding: 0, textDecoration: 'underline', fontFamily: 'DM Sans, sans-serif' }}>
+                  Registrate acá
+                </button>
+              </p>
             </div>
           </div>
         </div>
@@ -2367,7 +2370,7 @@ export default function SistemaCalificaciones() {
             {/* RECORDATORIO BIMESTRE */}
             {(() => {
               const rec = getRecordatorioBimestre();
-              if (!rec) return null;
+              if (!rec || isAdmin) return null;
               return (
                 <div style={{ marginBottom: 20, background: 'var(--amber-lt)', border: '1.5px solid #fcd34d', borderRadius: 'var(--r)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>⏰</span>
@@ -2665,7 +2668,7 @@ export default function SistemaCalificaciones() {
             </div>
             <div style={{ background: '#fff5f5', border: '1.5px solid #fca5a5', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <span style={{ color: 'var(--red)', fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠️</span>
-              <p style={{ fontSize: 11, fontWeight: 600, color: '#b91c1c', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#b91c1c', lineHeight: 1.6 }}>
                 <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la asignatura (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta o actitud</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
               </p>
             </div>
@@ -3069,18 +3072,20 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Motivo de inasistencia *</label>
                 <input type="text" value={form.asunto} placeholder=""
                   onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
-                  className="n-field-input"
-                  style={{ fontSize: 15, padding: '11px 14px', borderRadius: 'var(--r)' }} />
+                  style={{ fontSize: 15, padding: '12px 14px', borderRadius: 'var(--r)', border: '2px solid var(--navy)', background: '#fff', width: '100%', outline: 'none', fontFamily: 'DM Sans, sans-serif', color: 'var(--text)', boxSizing: 'border-box', transition: 'border-color .15s' }}
+                  onFocus={e => e.target.style.borderColor='var(--indigo)'}
+                  onBlur={e => e.target.style.borderColor='var(--navy)'} />
               </div>
               {/* Un solo día */}
               <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px', fontStyle: 'italic' }}>Si la inasistencia es de un solo día, tildá la siguiente opción:</p>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 14px', background: form.unSoloDia ? 'var(--navy-lt)' : '#f8fafc', border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', borderRadius: 'var(--r)', transition: 'all .15s' }}>
                 <div onClick={() => setForm(f => ({ ...f, unSoloDia: !f.unSoloDia, hasta: !f.unSoloDia ? f.desde : f.hasta }))}
-                  style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: form.unSoloDia ? 'var(--navy)' : 'var(--border)', background: form.unSoloDia ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+                  style={{ width: 18, height: 18, borderRadius: 4, border: '1.5px solid', borderColor: 'var(--navy)', background: form.unSoloDia ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
                   {form.unSoloDia && <svg width="10" height="8" viewBox="0 0 11 8" fill="none"><path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <span style={{ fontSize: 14, color: form.unSoloDia ? 'var(--navy)' : 'var(--slate)', fontWeight: form.unSoloDia ? 600 : 400 }}>Inasistencia de un solo día</span>
               </label>
+              {!form.unSoloDia && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0', fontStyle: 'italic' }}>Si la inasistencia es por varios días, completá las fechas desde/hasta.</p>}
               {/* Fechas */}
               <div style={{ display: 'grid', gridTemplateColumns: form.unSoloDia ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -3135,7 +3140,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                 style={{ padding: '12px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: subiendo ? 0.6 : 1, cursor: subiendo ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 {subiendo
                   ? <><div style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,.4)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin .8s linear infinite' }} /> Enviando...</>
-                  : <><Paperclip size={17} /> Enviar inasistencia a dirección</>}
+                  : <><Paperclip size={17} /> Enviar inasistencia a Dirección</>}
               </button>
             </div>
           )}
@@ -4882,21 +4887,40 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         {inicial}
                       </div>
                       {/* Info */}
+                      {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{u.nombre}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
                           {u.rol === 'docente_grado'
                             ? grados.map((g, j) => (
-                                <div key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                  <ChipGradoAdmin grado={g} materia={u.materiasAsignadas?.[0] || ''}
-                                    tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
-                                </div>
+                                <ChipGradoAdmin key={j} grado={g} materia={u.materiasAsignadas?.[0] || ''}
+                                  tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
                               ))
                             : u.materiasAsignadas?.map((ma, j) => (
                                 <span key={j} style={{ background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 4, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>{ma.nombre}</span>
                               ))
                           }
                         </div>
+                        {/* Materias para docente de grado */}
+                        {u.rol === 'docente_grado' && u.materiasAsignadas?.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                            {u.materiasAsignadas.map((m, i) => (
+                              <span key={i} style={{ background: 'var(--blue-lt)', color: '#1d4ed8', padding: '2px 7px', borderRadius: 4, fontWeight: 600, fontSize: 11 }}>{m}</span>
+                            ))}
+                          </div>
+                        )}
+                        {/* Grados para área especial */}
+                        {u.rol === 'area_especial' && u.materiasAsignadas?.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+                            {u.materiasAsignadas.flatMap((ma, i) =>
+                              (ma.grados || []).map((g, j) => (
+                                <ChipGradoAdmin key={`${i}-${j}`} grado={g} materia={ma.nombre}
+                                  tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
                       </div>
                       {/* Estado */}
                       <div style={{ flexShrink: 0, alignSelf: 'center' }}>
