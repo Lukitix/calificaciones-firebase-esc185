@@ -4887,7 +4887,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         {inicial}
                       </div>
                       {/* Info */}
-                      {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{u.nombre}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
@@ -4920,7 +4919,6 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                             )}
                           </div>
                         )}
-                      </div>
                       </div>
                       {/* Estado */}
                       <div style={{ flexShrink: 0, alignSelf: 'center' }}>
