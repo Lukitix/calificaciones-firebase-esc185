@@ -246,23 +246,30 @@ function ModalRenderer({ modal, closeModal }) {
 // ─── TÍTULO DE PESTAÑA DINÁMICO ──────────────────────────────────────────────
 function useTituloPestana(pantalla, materia, grado) {
   useEffect(() => {
-    const base = 'Esc. N° 185';
-    if (pantalla === 'login') {
-      document.title = base;
+    const sistema = 'Sistema de Calificaciones';
+    let titulos = [];
+    if (pantalla === 'login' || pantalla === 'cargando') {
+      titulos = [sistema, 'Esc. Provincial N° 185'];
     } else if (pantalla === 'inicio') {
-      document.title = `Inicio · ${base}`;
+      titulos = [`Inicio — ${sistema}`, 'Esc. Provincial N° 185'];
     } else if (pantalla === 'calificaciones' && materia && grado) {
-      document.title = `${materia.nombre} · ${gradoLabel(grado)} · ${base}`;
+      titulos = [`${materia.nombre} · ${gradoLabel(grado)}`, sistema];
     } else if (pantalla === 'administracion') {
-      document.title = `Gestión de Alumnos · ${base}`;
+      titulos = [`Gestión de Alumnos`, sistema];
     } else if (pantalla === 'gestion_usuarios') {
-      document.title = `Gestión de Docentes · ${base}`;
+      titulos = [`Gestión de Docentes`, sistema];
     } else if (pantalla === 'notas_especiales') {
-      document.title = `Áreas Especiales · ${base}`;
+      titulos = [`Áreas Especiales`, sistema];
     } else {
-      document.title = base;
+      titulos = [sistema, 'Esc. Provincial N° 185'];
     }
-    return () => { document.title = base; };
+    let idx = 0;
+    document.title = titulos[0];
+    const interval = setInterval(() => {
+      idx = (idx + 1) % titulos.length;
+      document.title = titulos[idx];
+    }, 3000);
+    return () => { clearInterval(interval); document.title = sistema; };
   }, [pantalla, materia, grado]);
 }
 
@@ -1164,19 +1171,20 @@ export default function SistemaCalificaciones() {
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
-      // Bloqueo automático si pasó 07/08/2026
+      // Bloqueo automático silencioso por fecha
       if (authUser && usuario?.rol !== 'administrador') {
         const ahora = new Date();
-        const LIMITE = new Date('2026-08-07T23:59:59');
-        if (ahora > LIMITE) {
-          const currentSnap = await getDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)));
-          const currentData = currentSnap.exists() ? currentSnap.data() : {};
-          const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
-          if (!bloq[1] || !bloq[2]) {
-            const nuevoBloq = { ...bloq, 1: true, 2: true };
-            await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevoBloq }, { merge: true });
-            if (!cancelado) setBimestresBlockeados(nuevoBloq);
-          }
+        const configKey = safeKey(`${materia.nombre}_${grado}`);
+        const currentSnap = await getDoc(doc(db, 'configuracion', configKey));
+        const currentData = currentSnap.exists() ? currentSnap.data() : {};
+        const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
+        const cambios = { ...bloq };
+        let hubo = false;
+        if (ahora > new Date('2026-05-13T23:59:59') && !bloq[1]) { cambios[1] = true; hubo = true; }
+        if (ahora > new Date('2026-08-07T23:59:59') && !bloq[2]) { cambios[2] = true; hubo = true; }
+        if (hubo) {
+          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios }, { merge: true });
+          if (!cancelado) setBimestresBlockeados(cambios);
         }
       }
     };
@@ -1508,23 +1516,11 @@ export default function SistemaCalificaciones() {
   // ── TÍTULO DE PESTAÑA ──
   useTituloPestana(pantalla, materia, grado);
 
-  // ── BLOQUEO AUTOMÁTICO 07/08/2026 23:59 ──
-  const FECHA_LIMITE_CARGA = new Date('2026-08-07T23:59:59');
-  const aplicarBloqueoAutomatico = React.useCallback(async (gradoActual, materiaActual) => {
-    if (!authUser || usuario?.rol === 'administrador') return;
-    const ahora = new Date();
-    if (ahora <= FECHA_LIMITE_CARGA) return;
-    // Pasó la fecha límite — bloquear bimestres 1 y 2 si no están bloqueados
-    const ref2 = doc(db, 'bimestresBlockeados', `${authUser.uid}_${gradoActual}_${materiaActual}`);
-    const snap = await getDoc(ref2);
-    const data = snap.exists() ? snap.data() : {};
-    const cambios = {};
-    if (!data['1']) cambios['1'] = true;
-    if (!data['2']) cambios['2'] = true;
-    if (Object.keys(cambios).length > 0) {
-      await setDoc(ref2, { ...data, ...cambios }, { merge: true });
-    }
-  }, [authUser, usuario, db]);
+  // ── BLOQUEO AUTOMÁTICO POR FECHA ──
+  // 1° Bimestre: silencioso desde 13/05/2026 23:59
+  // 2° Bimestre: silencioso desde 07/08/2026 23:59
+  const LIMITE_BIM1 = new Date('2026-05-13T23:59:59');
+  const LIMITE_BIM2 = new Date('2026-08-07T23:59:59');
 
   const toggleBloquearBimestre = async (bim) => {
     const bloqueando = !bimestresBlockeados[bim];
@@ -2516,7 +2512,27 @@ export default function SistemaCalificaciones() {
             {/* RECORDATORIO BIMESTRE */}
             {(() => {
               const rec = getRecordatorioBimestre();
-              if (!rec || isAdmin) return null;
+              if (isAdmin) return null;
+              // Aviso especial 2° bimestre hasta 07/08
+              const ahora = new Date();
+              const limite2 = new Date('2026-08-07T23:59:59');
+              const hoy = new Date(ahora.toDateString());
+              const limiteDay = new Date('2026-08-07');
+              const diffDias = Math.ceil((limiteDay - hoy) / 86400000);
+              if (ahora <= limite2 && diffDias <= 14 && diffDias >= 0) {
+                return (
+                  <div style={{ marginBottom: 20, background: 'var(--amber-lt)', border: '1.5px solid #fcd34d', borderRadius: 'var(--r)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>📅</span>
+                    <div>
+                      <p style={{ fontWeight: 700, color: 'var(--amber)', fontSize: 13 }}>
+                        {diffDias === 0 ? '⚠️ ¡Hoy es el último día para cargar notas del 2° Bimestre!' : `Las calificaciones del 2° Bimestre podrán cargarse hasta el Viernes 07/08 inclusive.`}
+                      </p>
+                      {diffDias > 0 && <p style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginTop: 2 }}>Quedan {diffDias} día{diffDias !== 1 ? 's' : ''} para completar la carga.</p>}
+                    </div>
+                  </div>
+                );
+              }
+              if (!rec) return null;
               return (
                 <div style={{ marginBottom: 20, background: 'var(--amber-lt)', border: '1.5px solid #fcd34d', borderRadius: 'var(--r)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 20 }}>⏰</span>
@@ -2845,7 +2861,7 @@ export default function SistemaCalificaciones() {
                           await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criteriosPorBimestre: nuevos }, { merge: true });
                         }}
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
-                          📋 Copiar del {bim - 1}°
+                          📋 Repetir criterios del {bim - 1}° Bimestre
                         </button>
                       )}
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
@@ -2889,7 +2905,26 @@ export default function SistemaCalificaciones() {
             <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No hay estudiantes registrados</p><p style={{ fontSize: 13, marginTop: 4 }}>Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <>
-              {/* Barra búsqueda */}
+              {/* Banner alumnos sin nota en bimestre cerrado */}
+              {(() => {
+                const bimsCerrados = [1,2,3,4].filter(b => bimestresBlockeados[b]);
+                const sinNotaCerrado = estActuales.filter(e =>
+                  bimsCerrados.some(b => {
+                    const crits = criteriosPorBimestre[b] || [];
+                    return crits.length > 0 && crits.every((_, idx2) => !e.bimestres?.[b]?.[`n${idx2+1}`]);
+                  })
+                );
+                if (sinNotaCerrado.length === 0) return null;
+                return (
+                  <div style={{ margin: '0', padding: '10px 24px', background: '#fffbeb', borderBottom: '1.5px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>
+                      <strong>{sinNotaCerrado.length} alumno{sinNotaCerrado.length > 1 ? 's' : ''}</strong> sin nota en bimestre{bimsCerrados.length > 1 ? 's' : ''} cerrado{bimsCerrados.length > 1 ? 's' : ''}: {sinNotaCerrado.map(e => e.nombre.split(',')[0]).join(', ')}. Solicitá la apertura a Dirección.
+                    </p>
+                  </div>
+                );
+              })()}
+            {/* Barra búsqueda */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 24px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
                 <Search size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
                 <input
@@ -2948,9 +2983,15 @@ export default function SistemaCalificaciones() {
                       const crits = criteriosPorBimestreEfectivo[bim] || [];
                       const bloqueado = bimestresBlockeados[bim];
                       const notaBim = e.bimestres?.[bim]?.nota || '';
+                      // Detectar alumno nuevo sin nota en bimestre cerrado
+                      const esNuevoSinNota = bloqueado && !notaBim && crits.every(cr => {
+                        const idx2 = crits.indexOf(cr);
+                        return !e.bimestres?.[bim]?.[`n${idx2+1}`];
+                      });
                       return (
-                        <td style={{ padding: '8px 11px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px', background: bloqueado ? '#fef2f2' : 'inherit' }}>
-                          {bloqueado && <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--red)', fontWeight: 700, marginBottom: 4 }}>🔒</div>}
+                        <td style={{ padding: '8px 11px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px', background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
+                          {bloqueado && !esNuevoSinNota && <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--red)', fontWeight: 700, marginBottom: 4 }}>🔒</div>}
+                          {esNuevoSinNota && <div title="Alumno agregado después del cierre. Solicitá la apertura a Dirección." style={{ textAlign: 'center', fontSize: 10, color: 'var(--amber)', fontWeight: 700, marginBottom: 4, cursor: 'help' }}>⚠️ Sin nota</div>}
                           <div className="flex gap-1.5 items-end justify-center flex-wrap">
                             {crits.length === 0 ? (
                               <span className="text-xs font-bold text-gray-500 italic bg-gray-100 px-2 py-1 rounded-lg border border-gray-200">Sin criterios</span>
