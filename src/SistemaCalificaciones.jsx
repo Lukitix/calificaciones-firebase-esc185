@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Home, Save, Plus, Trash2, LogOut, Lock, Eye, EyeOff, Search, X, Mail, CheckCircle, Lock as LockIcon, Unlock, FileDown, Paperclip, FileText, Upload, Download, ChevronDown } from 'lucide-react';
 import { auth, db } from './firebase';
+
+// ── CACHÉ OFFLINE ──
+try {
+  enableIndexedDbPersistence(db).catch(err => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Offline persistence solo funciona en una pestaña a la vez.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Este navegador no soporta persistencia offline.');
+    }
+  });
+} catch(e) {}
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -20,7 +31,8 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
+  enableIndexedDbPersistence
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import jsPDF from 'jspdf';
@@ -231,6 +243,29 @@ function ModalRenderer({ modal, closeModal }) {
   );
 }
 
+// ─── TÍTULO DE PESTAÑA DINÁMICO ──────────────────────────────────────────────
+function useTituloPestana(pantalla, materia, grado) {
+  useEffect(() => {
+    const base = 'Esc. N° 185';
+    if (pantalla === 'login') {
+      document.title = base;
+    } else if (pantalla === 'inicio') {
+      document.title = `Inicio · ${base}`;
+    } else if (pantalla === 'calificaciones' && materia && grado) {
+      document.title = `${materia.nombre} · ${gradoLabel(grado)} · ${base}`;
+    } else if (pantalla === 'administracion') {
+      document.title = `Gestión de Alumnos · ${base}`;
+    } else if (pantalla === 'gestion_usuarios') {
+      document.title = `Gestión de Docentes · ${base}`;
+    } else if (pantalla === 'notas_especiales') {
+      document.title = `Áreas Especiales · ${base}`;
+    } else {
+      document.title = base;
+    }
+    return () => { document.title = base; };
+  }, [pantalla, materia, grado]);
+}
+
 // ─── ESTILOS GLOBALES ────────────────────────────────────────────────────────
 const globalStyles = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Outfit:wght@600;700;800&display=swap');
@@ -260,6 +295,7 @@ h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(16px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes toastOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(0.95); } }
 .fade-in { animation: fadeIn 0.25s ease-out both; }
+.page-transition { animation: fadeInUp 0.22s ease-out both; }
 .card-materia { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; animation: fadeInUp 0.3s ease-out both; }
 .card-materia:hover { transform: translateY(-2px); box-shadow: var(--sh-md); border-color: var(--navy) !important; }
 .card-materia:nth-child(1) { animation-delay: 0.03s; } .card-materia:nth-child(2) { animation-delay: 0.06s; }
@@ -284,6 +320,32 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.04); }
 .toast-visible { animation: toastIn 0.25s ease-out both; }
+.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
+.n-field-input:focus { border-color: var(--indigo); }
+@media (max-width: 768px) {
+  .topbar-actions { flex-wrap: wrap; gap: 4px !important; }
+  .topbar-actions button { padding: 6px 10px !important; font-size: 11px !important; }
+  .cards-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .cards-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+  .welcome-bar { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .tabla-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sidebar-admin { display: none !important; }
+  .modal-wide { max-width: 95vw !important; margin: 8px !important; }
+  .registro-layout { flex-direction: column !important; }
+  .registro-left { width: 100% !important; max-height: 200px; overflow: hidden; }
+  .registro-right { width: 100% !important; }
+  .login-layout { flex-direction: column !important; }
+  .login-left { width: 100% !important; padding: 24px !important; }
+  .login-right { width: 100% !important; padding: 24px !important; }
+  .login-img { width: 120px !important; height: 120px !important; }
+  .nota-input { width: 38px !important; height: 32px !important; font-size: 12px !important; }
+  .chip-materia-text { font-size: 12px !important; }
+  .materia-icon { width: 52px !important; height: 52px !important; font-size: 28px !important; }
+}
+@media (max-width: 480px) {
+  .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .topbar-title { font-size: 13px !important; }
+}
 .n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
 .n-field-input:focus { border-color: var(--indigo); }
 `;
@@ -334,6 +396,54 @@ function Badge({ children, color = 'purple' }) {
   };
   const c = colores[color] || colores.purple;
   return <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.text }}>{children}</span>;
+}
+
+// ── INDICADOR DE CONEXIÓN ──
+function IndicadorConexion() {
+  const [online, setOnline] = React.useState(navigator.onLine);
+  const [mostrar, setMostrar] = React.useState(false);
+  const timerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleOnline = () => {
+      setOnline(true);
+      setMostrar(true);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setMostrar(false), 3000);
+    };
+    const handleOffline = () => {
+      setOnline(false);
+      setMostrar(true);
+      clearTimeout(timerRef.current);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  if (!mostrar && online) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: 'var(--green-lt)', border: '1px solid #bbf7d0' }}>
+      <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)' }} />
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>En línea</span>
+    </div>
+  );
+  if (!online) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: 'var(--red-lt)', border: '1px solid #fecaca', animation: 'fadeIn .3s ease-out' }}>
+      <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--red)' }} />
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)' }}>Sin conexión</span>
+    </div>
+  );
+  if (mostrar && online) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, background: 'var(--green-lt)', border: '1px solid #bbf7d0', animation: 'fadeIn .3s ease-out' }}>
+      <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)' }} />
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--green)' }}>Conectado</span>
+    </div>
+  );
+  return null;
 }
 
 function Spinner({ texto = 'Cargando...' }) {
@@ -420,7 +530,20 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
           ref={inputRef}
           type="text" inputMode="decimal" className="nota-input"
           style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', backgroundColor: local ? (colorNota(local)?.bg || '') : '', color: local ? (colorNota(local)?.text || '#374151') : '#374151' }}
-          value={local} onChange={handleChange} onBlur={handleBlur} onFocus={() => setFocused(true)} />
+          value={local} onChange={handleChange} onBlur={handleBlur} onFocus={() => setFocused(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab' || e.key === 'Enter') {
+              e.preventDefault();
+              handleBlur({ target: { value: local } });
+              const inputs = Array.from(document.querySelectorAll('.nota-input:not([disabled])'));
+              const idx = inputs.indexOf(e.target);
+              if (idx !== -1) {
+                const next = e.shiftKey ? inputs[idx - 1] : inputs[idx + 1];
+                if (next) { setTimeout(() => { next.focus(); next.select(); }, 50); }
+              }
+            }
+            if (e.key === 'Escape') { setLocal(value || ''); setFocused(false); e.target.blur(); }
+          }} />
       )}
       <button type="button"
         onMouseDown={e => { e.preventDefault(); step(-1); }}
@@ -840,7 +963,9 @@ export default function SistemaCalificaciones() {
   const [showFechasBimestre, setShowFechasBimestre] = useState(false);
   const [menuAcciones, setMenuAcciones] = useState(false);
   const [showRegistroMods, setShowRegistroMods] = useState(false);
+  const [savedCells, setSavedCells] = useState({});
   const [showInasistencias, setShowInasistencias] = useState(false);
+  const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
   const [avisos, setAvisos] = useState([]);
   const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
   const [showAvisos, setShowAvisos] = useState(false);
@@ -894,6 +1019,12 @@ export default function SistemaCalificaciones() {
   // ── Auth state ──
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser && pantalla !== 'login' && pantalla !== 'cargando') {
+        setSessionExpiredMsg(true);
+        setPantalla('login');
+        setTimeout(() => setSessionExpiredMsg(false), 5000);
+        return;
+      }
       if (firebaseUser) {
         setAuthUser(firebaseUser);
         const snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
@@ -1351,7 +1482,8 @@ export default function SistemaCalificaciones() {
       });
       nuevos[key] = lista;
       setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true })
-        .then(() => showToast());
+        .then(() => { showToast(); setSavedCells(prev => ({ ...prev, [`${id}_${bimestre}`]: true })); setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500); })
+        .catch(() => showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error'));
       return nuevos;
     });
   };
@@ -1372,6 +1504,9 @@ export default function SistemaCalificaciones() {
       return nuevos;
     });
   };
+
+  // ── TÍTULO DE PESTAÑA ──
+  useTituloPestana(pantalla, materia, grado);
 
   // ── BLOQUEO AUTOMÁTICO 07/08/2026 23:59 ──
   const FECHA_LIMITE_CARGA = new Date('2026-08-07T23:59:59');
@@ -1646,6 +1781,14 @@ export default function SistemaCalificaciones() {
   // RENDERS POR PANTALLA
   // ════════════════════════════════════════════════════════
 
+  // ── TOAST SESIÓN EXPIRADA ──
+  const SessionExpiredToast = () => sessionExpiredMsg ? (
+    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'var(--navy)', color: '#fff', borderRadius: 'var(--r)', padding: '12px 24px', boxShadow: '0 8px 24px rgba(0,0,0,.3)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 600, animation: 'toastIn 0.3s ease-out', fontFamily: 'DM Sans, sans-serif', maxWidth: 420, textAlign: 'center' }}>
+      <span style={{ fontSize: 20 }}>⏰</span>
+      <span>Tu sesión expiró por inactividad. Volvé a ingresar — <strong>tus datos están guardados.</strong></span>
+    </div>
+  ) : null;
+
   if (pantalla === 'cargando') return (
     <><style>{globalStyles}</style><Spinner texto="Verificando sesión..." /></>
   );
@@ -1656,7 +1799,7 @@ export default function SistemaCalificaciones() {
       <>
         <style>{globalStyles}</style>
         <ModalRenderer modal={modal} closeModal={closeModal} />
-        <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
+        <div className="min-h-screen w-full flex login-layout" style={{ background: 'var(--navy)' }}>
           {/* Panel izq — info */}
           <div style={{ width: '38%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', padding: '48px 40px', gap: 20, justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1813,10 +1956,12 @@ export default function SistemaCalificaciones() {
     return (
     <>
       <style>{globalStyles}</style>
+      <SessionExpiredToast />
+      <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg" />
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
         {/* Panel izquierdo — marca */}
-        <div style={{ width: '40%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px' }}>
+        <div style={{ width: '40%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
             <img
               src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
@@ -2280,7 +2425,7 @@ export default function SistemaCalificaciones() {
               <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Sistema de Calificaciones</span>
             </div>
-            <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+            <div className="topbar-actions" style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
               {isAdmin ? (
                 <>
                   <div style={{ position: 'relative' }}>
@@ -2340,6 +2485,7 @@ export default function SistemaCalificaciones() {
                   </button>
                 </>
               )}
+              <IndicadorConexion />
               <button onClick={() => setModalCerrarSesion(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid #fecaca', background: 'var(--red-lt)', color: 'var(--red)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
                 <LogOut size={14} /> Cerrar sesión
@@ -2348,7 +2494,7 @@ export default function SistemaCalificaciones() {
           </div>
 
           {/* CONTENIDO */}
-          <div style={{ padding: '28px 28px', maxWidth: '100%' }} className="fade-in">
+          <div style={{ padding: '28px 28px', maxWidth: '100%' }} className="page-transition">
             {/* WELCOME BAR */}
             <div style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
@@ -2588,8 +2734,13 @@ export default function SistemaCalificaciones() {
               <Home size={14} /> Inicio
             </button>
             <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)' }}>{materia.nombre}</span>
-            <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--violet-lt)', color: 'var(--violet)' }}>{gradoLabel(grado)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
+              <span style={{ cursor: 'pointer', color: 'var(--navy)', fontWeight: 600 }} onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}>Inicio</span>
+              <span>›</span>
+              <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{gradoLabel(grado)}</span>
+              <span>›</span>
+              <span style={{ color: 'var(--navy)', fontWeight: 700 }}>{materia.nombre}</span>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
             {usuario?.rol !== 'administrador' && (
@@ -2639,7 +2790,13 @@ export default function SistemaCalificaciones() {
             <div style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{materia.icon}</div>
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>{materia.nombre}</h3>
-              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{gradoLabel(grado)} · {estActuales.length} estudiantes</p>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+              {gradoLabel(grado)} · {estActuales.length} estudiantes
+              {(() => {
+                const sinNota = estActuales.filter(e => !e.bimestres?.[1]?.nota && !e.bimestres?.[2]?.nota && !e.bimestres?.[3]?.nota && !e.bimestres?.[4]?.nota).length;
+                return sinNota > 0 ? <span style={{ marginLeft: 8, background: 'var(--amber-lt)', color: 'var(--amber)', border: '1px solid #fde68a', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px' }}>{sinNota} sin nota</span> : null;
+              })()}
+            </p>
             </div>
             {usuario?.rol !== 'administrador' && (nombreMostrado(usuario) || docenteNombre.guardado) && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: 'var(--violet-lt)', border: '1px solid #ddd6fe', borderRadius: 6, padding: '5px 11px' }}>
@@ -2681,6 +2838,16 @@ export default function SistemaCalificaciones() {
                       {bimestresBlockeados[bim] && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'var(--green-lt)', padding: '1px 7px', borderRadius: 20 }}>✅ Completo</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 5 }}>
+                      {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && bim > 1 && (criteriosPorBimestre[bim - 1] || []).length > 0 && (criteriosPorBimestre[bim] || []).length === 0 && (
+                        <button onClick={async () => {
+                          const origen = criteriosPorBimestre[bim - 1] || [];
+                          const nuevos = { ...criteriosPorBimestre, [bim]: [...origen] };
+                          await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criteriosPorBimestre: nuevos }, { merge: true });
+                        }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+                          📋 Copiar del {bim - 1}°
+                        </button>
+                      )}
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
                         <button onClick={() => agregarCriterio(bim)}
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
@@ -2732,7 +2899,7 @@ export default function SistemaCalificaciones() {
                   style={{ flex: 1, maxWidth: 320, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
               </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="tabla-wrapper" style={{ overflowX: 'auto' }}>
               <table className="w-full border-collapse">
                 <thead>
                   <tr style={{ background: 'var(--navy)' }}>
@@ -2970,6 +3137,8 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
   const [subiendo, setSubiendo] = useState(false);
   const [inasistencias, setInasistencias] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [filtroDocente, setFiltroDocente] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
   const fileInputRef = useRef(null);
   const isAdmin = usuario?.rol === 'administrador';
 
@@ -3148,6 +3317,25 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
           {/* ── TAB HISTORIAL ── */}
           {tab === 'historial' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Filtros para admin */}
+              {isAdmin && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--navy-lt)', borderRadius: 'var(--r)', border: '1px solid var(--border)' }}>
+                  <div style={{ flex: 1, minWidth: 160, position: 'relative' }}>
+                    <Search size={13} style={{ position: 'absolute', left: 9, top: 10, color: 'var(--muted)' }} />
+                    <input type="text" placeholder="Filtrar por docente..."
+                      value={filtroDocente || ''} onChange={e => setFiltroDocente(e.target.value)}
+                      style={{ width: '100%', paddingLeft: 28, padding: '8px 10px 8px 28px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, fontFamily: 'DM Sans, sans-serif', outline: 'none', background: '#fff', color: 'var(--text)' }} />
+                  </div>
+                  <input type="date" value={filtroFecha || ''} onChange={e => setFiltroFecha(e.target.value)}
+                    style={{ padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, fontFamily: 'DM Sans, sans-serif', outline: 'none', background: '#fff', color: 'var(--text)' }} />
+                  {(filtroDocente || filtroFecha) && (
+                    <button onClick={() => { setFiltroDocente(''); setFiltroFecha(''); }}
+                      style={{ padding: '8px 12px', borderRadius: 'var(--r)', background: '#f1f5f9', border: '1px solid var(--border)', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: 'var(--slate)', fontFamily: 'DM Sans, sans-serif' }}>
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+              )}
               {cargando ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
                   <div style={{ width: 36, height: 36, border: '4px solid var(--border)', borderTop: '4px solid var(--navy)', borderRadius: '50%', animation: 'spin .8s linear infinite', margin: '0 auto 12px' }} />
@@ -3161,7 +3349,14 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                   </p>
                 </div>
               ) : (
-                inasistencias.map((inas, i) => (
+                inasistencias
+                .filter(inas => {
+                  if (filtroDocente && !inas.nombreDocente?.toLowerCase().includes(filtroDocente.toLowerCase())) return false;
+                  if (filtroFecha && inas.desde > filtroFecha) return false;
+                  if (filtroFecha && inas.hasta < filtroFecha) return false;
+                  return true;
+                })
+                .map((inas, i) => (
                   <div key={inas.id}
                     onClick={() => marcarVista(inas)}
                     style={{ border: '1.5px solid', borderColor: (!inas.visto && isAdmin) ? '#fcd34d' : 'var(--border)', borderRadius: 'var(--r)', padding: '14px 16px', background: (!inas.visto && isAdmin) ? '#fefce8' : '#fff', transition: 'box-shadow .15s' }}
@@ -3174,6 +3369,10 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                         <p style={{ fontSize: 13, color: 'var(--slate)', marginTop: 3 }}>
                           📅 {new Date(inas.desde + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
                           {inas.hasta !== inas.desde && <> → {new Date(inas.hasta + 'T12:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}</>}
+                          {(() => {
+                            const dias = Math.round((new Date(inas.hasta) - new Date(inas.desde)) / 86400000) + 1;
+                            return <span style={{ marginLeft: 8, background: 'var(--navy-lt)', color: 'var(--navy)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>{dias} día{dias !== 1 ? 's' : ''}</span>;
+                          })()}
                         </p>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
