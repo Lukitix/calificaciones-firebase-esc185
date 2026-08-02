@@ -2336,6 +2336,7 @@ export default function SistemaCalificaciones() {
         onAbrirRecordatorio={() => setShowFechasBimestre(true)}
         onAbrirSolicitudes={() => setShowModalSolicitudes(true)}
         onAbrirInasistencias={() => setShowInasistencias(true)}
+        onAbrirSinNotas={() => setShowSinNotas(true)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
       {docenteActividad && (
@@ -2452,7 +2453,7 @@ export default function SistemaCalificaciones() {
                             { icon: '🔔', label: 'Solicitudes', action: () => { setMenuAcciones(false); setShowModalSolicitudes(true); }, badge: solicitudesCount },
                             { icon: '📋', label: 'Registro de Modificaciones', action: () => { setMenuAcciones(false); setShowRegistroMods(true); } },
                           { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
-                          { icon: '📊', label: 'Ver quién no cargó notas', action: () => { setMenuAcciones(false); setShowSinNotas(true); } },
+                          { icon: '📊', label: 'Notas Incompletas', action: () => { setMenuAcciones(false); setShowSinNotas(true); } },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
                               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans,sans-serif' }}
@@ -3876,32 +3877,50 @@ function ModalSinNotas({ db, todosUsuarios, alumnosGlobales, onClose }) {
       const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
       const resultado = [];
       for (const doc2 of docentes) {
-        const grados = doc2.rol === 'docente_grado'
-          ? (doc2.gradosAsignados?.length > 0 ? doc2.gradosAsignados : [doc2.gradoAsignado].filter(Boolean))
-          : [];
-        const materias = doc2.rol === 'docente_grado'
-          ? (doc2.materiasAsignadas || [])
-          : (doc2.materiasAsignadas?.map(m => m.nombre || m) || []);
         const pendientes = [];
-        for (const grado of grados) {
-          const alumnos = alumnosGlobales[grado] || [];
-          if (alumnos.length === 0) continue;
-          for (const mat of materias) {
-            const fsKey = mat.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
-            try {
-              const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-              const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
-              const sinNota = alumnos.filter(a => {
-                const est = estudiantes.find(e => e.id === a.id || e.dni === a.dni);
-                return !est || (!est.bimestres?.[2]?.nota);
-              });
-              if (sinNota.length > 0) {
-                pendientes.push({ materia: mat, grado, cantidad: sinNota.length, total: alumnos.length });
-              }
-            } catch(e) {}
+        if (doc2.rol === 'docente_grado') {
+          // Docente de grado — verificar sus materias en sus grados
+          const grados = doc2.gradosAsignados?.length > 0 ? doc2.gradosAsignados : [doc2.gradoAsignado].filter(Boolean);
+          const materias = doc2.materiasAsignadas || [];
+          for (const grado of grados) {
+            const alumnos = alumnosGlobales[grado] || [];
+            if (alumnos.length === 0) continue;
+            for (const mat of materias) {
+              const fsKey = mat.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
+              try {
+                const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
+                const sinNota = alumnos.filter(a => {
+                  const est = estudiantes.find(e => e.id === a.id || e.dni === a.dni);
+                  return !est || !est.bimestres?.[2]?.nota;
+                });
+                if (sinNota.length > 0) pendientes.push({ materia: mat, grado, cantidad: sinNota.length, total: alumnos.length });
+              } catch(e) {}
+            }
+          }
+        } else if (doc2.rol === 'area_especial') {
+          // Docente de área especial — cada materia tiene sus propios grados
+          const materiasEsp = doc2.materiasAsignadas || [];
+          for (const ma of materiasEsp) {
+            const nombreMat = ma.nombre || ma;
+            const gradosMat = ma.grados || [];
+            for (const grado of gradosMat) {
+              const alumnos = alumnosGlobales[grado] || [];
+              if (alumnos.length === 0) continue;
+              const fsKey = nombreMat.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
+              try {
+                const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
+                const sinNota = alumnos.filter(a => {
+                  const est = estudiantes.find(e => e.id === a.id || e.dni === a.dni);
+                  return !est || !est.bimestres?.[2]?.nota;
+                });
+                if (sinNota.length > 0) pendientes.push({ materia: nombreMat, grado, cantidad: sinNota.length, total: alumnos.length });
+              } catch(e) {}
+            }
           }
         }
-        if (pendientes.length > 0) resultado.push({ docente: doc2.nombre, pendientes });
+        if (pendientes.length > 0) resultado.push({ docente: doc2.nombre, rol: doc2.rol, pendientes });
       }
       setDatos(resultado);
       setCargando(false);
@@ -3938,6 +3957,9 @@ function ModalSinNotas({ db, todosUsuarios, alumnosGlobales, onClose }) {
                   <div style={{ padding: '10px 14px', borderBottom: '1px solid #fde68a', background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 16 }}>⚠️</span>
                     <p style={{ fontWeight: 700, fontSize: 14, color: '#92400e' }}>{d.docente}</p>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: d.rol === 'area_especial' ? 'var(--amber-lt)' : 'var(--blue-lt)', color: d.rol === 'area_especial' ? 'var(--amber)' : '#1d4ed8', border: '1px solid', borderColor: d.rol === 'area_especial' ? '#fde68a' : '#bfdbfe' }}>
+                      {d.rol === 'area_especial' ? 'Área Especial' : 'Grado'}
+                    </span>
                     <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--amber)', background: '#fff', border: '1px solid #fde68a', borderRadius: 20, padding: '2px 9px' }}>{d.pendientes.length} materia{d.pendientes.length > 1 ? 's' : ''} incompleta{d.pendientes.length > 1 ? 's' : ''}</span>
                   </div>
                   <div style={{ padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -5153,7 +5175,7 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 }
 
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, onAbrirInasistencias, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, onAbrirInasistencias, onAbrirSinNotas, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
@@ -5241,6 +5263,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
             { icon: '✉️', label: 'Mensajes', action: onAbrirMensajes },
             { icon: '📢', label: 'Enviar recordatorio', action: onAbrirRecordatorio },
             { icon: '📋', label: 'Inasistencias', action: onAbrirInasistencias, badge: inasistenciasNoVistasGU },
+            { icon: '📊', label: 'Notas Incompletas', action: onAbrirSinNotas },
           ].map(item => (
             <button key={item.label} onClick={item.action}
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 18px', background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', color: 'rgba(255,255,255,.65)', fontSize: 12, fontWeight: 600, fontFamily: 'DM Sans,sans-serif', textAlign: 'left', transition: 'color .15s' }}
