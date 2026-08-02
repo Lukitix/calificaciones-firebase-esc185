@@ -971,7 +971,9 @@ export default function SistemaCalificaciones() {
   const [menuAcciones, setMenuAcciones] = useState(false);
   const [showRegistroMods, setShowRegistroMods] = useState(false);
   const [savedCells, setSavedCells] = useState({});
+  const [autoBloqueoMsg, setAutoBloqueoMsg] = useState(false);
   const [showInasistencias, setShowInasistencias] = useState(false);
+  const [showSinNotas, setShowSinNotas] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
   const [avisos, setAvisos] = useState([]);
   const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
@@ -1026,25 +1028,30 @@ export default function SistemaCalificaciones() {
   // ── Auth state ──
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser && pantalla !== 'login' && pantalla !== 'cargando') {
-        setSessionExpiredMsg(true);
-        setPantalla('login');
-        setTimeout(() => setSessionExpiredMsg(false), 5000);
-        return;
-      }
-      if (firebaseUser) {
-        setAuthUser(firebaseUser);
-        const snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
-        if (snap.exists()) {
-          setUsuario(snap.data());
-          setPantalla('inicio');
-          resetInactividad();
-        } else {
-          await signOut(auth);
+      if (!firebaseUser) {
+        // Esperar 2.5s para descartar null transitorio durante renovación de token
+        await new Promise(r => setTimeout(r, 2500));
+        const current = auth.currentUser;
+        if (!current) {
+          if (pantalla !== 'login' && pantalla !== 'cargando') {
+            setSessionExpiredMsg(true);
+            setTimeout(() => setSessionExpiredMsg(false), 6000);
+          }
+          setAuthUser(null);
+          setUsuario(null);
           setPantalla('login');
         }
+        return;
+      }
+      setAuthUser(firebaseUser);
+      const snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
+      if (snap.exists()) {
+        setUsuario(snap.data());
+        setPantalla('inicio');
+        resetInactividad();
       } else {
-        setAuthUser(null); setUsuario(null); setPantalla('login');
+        await signOut(auth);
+        setPantalla('login');
       }
     });
     const eventos = ['mousedown', 'keypress', 'scroll', 'touchstart'];
@@ -1184,7 +1191,11 @@ export default function SistemaCalificaciones() {
         if (ahora > new Date('2026-08-07T23:59:59') && !bloq[2]) { cambios[2] = true; hubo = true; }
         if (hubo) {
           await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios }, { merge: true });
-          if (!cancelado) setBimestresBlockeados(cambios);
+          if (!cancelado) {
+            setBimestresBlockeados(cambios);
+            setAutoBloqueoMsg(true);
+            setTimeout(() => setAutoBloqueoMsg(false), 8000);
+          }
         }
       }
     };
@@ -1207,7 +1218,7 @@ export default function SistemaCalificaciones() {
       const userData = userDoc.data();
       if (!userData.activo && userData.rol !== 'administrador') {
         await signOut(auth);
-        await showAlert('Tu cuenta aún no fue aprobada por el Administrador.', 'info', 'Cuenta pendiente');
+        await showAlert('Tu cuenta está pendiente de aprobación por la Directora.', 'info', 'Cuenta pendiente');
         return;
       }
       // Guardar o limpiar email según "recordarme"
@@ -1218,7 +1229,7 @@ export default function SistemaCalificaciones() {
       }
       // No resetear el form aquí — Firebase Auth dispara onAuthStateChanged que cambia la pantalla
     } catch {
-      await showAlert('Correo o contraseña incorrectos.', 'error', 'Acceso denegado');
+      await showAlert('Correo o contraseña incorrectos. Verificá tus datos.', 'error', 'Acceso denegado');
     } finally {
       setLoginCargando(false);
     }
@@ -1247,7 +1258,6 @@ export default function SistemaCalificaciones() {
     }
     if (d.rol === 'area_especial') {
       if (!d.materiasAsignadas || d.materiasAsignadas.length === 0) {
-        await showAlert('Debés seleccionar al menos una materia antes de registrarte.', 'warning', '⚠️ Materia requerida'); return;
       }
       const tieneGrados = d.materiasAsignadas.some(ma => ma.grados && ma.grados.length > 0);
       if (!tieneGrados) {
@@ -1317,12 +1327,12 @@ export default function SistemaCalificaciones() {
       await setDoc(doc(db, 'usuarios', cred.user.uid), perfil);
       await signOut(auth);
       setRegistro({ show: false, data: { nombre: '', email: '', password: '', rol: 'docente_grado', gradoAsignado: '1°A', gradosAsignados: [], materiasAsignadas: [] } });
-      await showAlert('Registro enviado. Esperá a que el Administrador apruebe tu cuenta para poder ingresar.', 'success', '¡Recibido!');
+      await showAlert('¡Solicitud enviada! La Directora revisará tu solicitud y habilitará tu acceso.', 'success', '¡Recibido!');
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         await showAlert('Ya existe una cuenta con ese correo.', 'error', 'Correo duplicado');
       } else {
-        await showAlert('Error al registrar: ' + err.message, 'error');
+        await showAlert('Ocurrió un error al registrar. Intentá de nuevo.' + err.message, 'error');
       }
     } finally {
       setRegistroCargando(false);
@@ -2339,7 +2349,7 @@ export default function SistemaCalificaciones() {
           onClose={() => setShowModalMensajes(false)} showConfirm={showConfirm} />
       )}
       {showNotifsBimestre && (
-        <ModalNotifsBimestre db={db} notifs={notifsBimestre} onClose={() => setShowNotifsBimestre(false)} />
+        <ModalNotifsBimestre db={db} notifs={notifsBimestre} onClose={() => setShowNotifsBimestre(false)} showConfirm={showConfirm} showAlert={showAlert} />
       )}
       {showRegistroMods && (
         <ModalRegistroModificaciones db={db} onClose={() => setShowRegistroMods(false)} />
@@ -2442,6 +2452,7 @@ export default function SistemaCalificaciones() {
                             { icon: '🔔', label: 'Solicitudes', action: () => { setMenuAcciones(false); setShowModalSolicitudes(true); }, badge: solicitudesCount },
                             { icon: '📋', label: 'Registro de Modificaciones', action: () => { setMenuAcciones(false); setShowRegistroMods(true); } },
                           { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
+                          { icon: '📊', label: 'Ver quién no cargó notas', action: () => { setMenuAcciones(false); setShowSinNotas(true); } },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
                               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans,sans-serif' }}
@@ -2699,13 +2710,19 @@ export default function SistemaCalificaciones() {
         )}
         {showRegistroMods && (
           <ModalRegistroModificaciones
-            db={db} onClose={() => setShowRegistroMods(false)} />
+            db={db} onClose={() => setShowRegistroMods(false)}
+            showConfirm={showConfirm} showAlert={showAlert} />
         )}
         {showInasistencias && (
           <ModalInasistencias
             db={db} usuario={usuario} authUser={authUser}
             showAlert={showAlert} showConfirm={showConfirm}
             onClose={() => setShowInasistencias(false)} />
+        )}
+        {showSinNotas && (
+          <ModalSinNotas
+            db={db} todosUsuarios={todosUsuarios} alumnosGlobales={alumnosGlobales}
+            onClose={() => setShowSinNotas(false)} />
         )}
       </>
     );
@@ -2801,6 +2818,15 @@ export default function SistemaCalificaciones() {
           </div>
         </div>
         <div className="w-full fade-in" style={{ padding: '0 0 32px 0' }}>
+          {/* MENSAJE BLOQUEO AUTOMÁTICO */}
+          {autoBloqueoMsg && (
+            <div style={{ padding: '10px 24px', background: '#eff6ff', borderBottom: '1.5px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeIn .3s ease-out' }}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>🔒</span>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#1e40af', lineHeight: 1.5 }}>
+                El plazo de carga venció. Los bimestres 1° y 2° están cerrados. Si necesitás modificar notas, avisá a Dirección.
+              </p>
+            </div>
+          )}
           {/* HEADER MATERIA */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
             <div style={{ width: 46, height: 46, borderRadius: 10, background: 'var(--violet-lt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{materia.icon}</div>
@@ -3238,7 +3264,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
       setForm({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false });
       setArchivos([]);
       setTab('historial');
-      await showAlert('✅ Inasistencia enviada correctamente a dirección.', 'success', 'Enviado');
+      await showAlert('✅ Inasistencia enviada correctamente a Dirección.', 'success', 'Enviado');
     } catch(e) {
       await showAlert('Error al enviar. Verificá tu conexión e intentá de nuevo.', 'error');
     } finally {
@@ -3459,10 +3485,12 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
   );
 }
 
-function ModalRegistroModificaciones({ db, onClose }) {
+function ModalRegistroModificaciones({ db, onClose, showConfirm, showAlert }) {
   const [logs, setLogs] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtroDocente, setFiltroDocente] = useState('');
+  const [paginaLogs, setPaginaLogs] = useState(0);
+  const LOGS_PAGE = 20;
 
   useEffect(() => {
     const q = query(
@@ -3489,9 +3517,25 @@ function ModalRegistroModificaciones({ db, onClose }) {
           style={{ background: 'linear-gradient(135deg, #ea580c, #dc2626)' }}>
           <div>
             <h3 className="text-lg font-bold text-white">📋 Registro de Modificaciones</h3>
-            <p className="text-xs text-orange-100 font-semibold">Últimas 150 modificaciones de notas</p>
+            <p className="text-xs text-orange-100 font-semibold">Últimas modificaciones de notas</p>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={async () => {
+              if (!showConfirm) return;
+              const ok = await showConfirm("¿Eliminás todos los logs de más de 60 días? Esta acción no se puede deshacer.", "Limpiar logs antiguos");
+              if (!ok) return;
+              const limite = new Date();
+              limite.setDate(limite.getDate() - 60);
+              const q = query(collection(db, "logs"), where("fecha", "<", limite.toISOString()));
+              const snap = await getDocs(q);
+              await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "logs", d.id))));
+              await showAlert(`✅ Se eliminaron ${snap.docs.length} registros de más de 60 días.`, "success", "Limpieza completada");
+            }}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: "var(--r)", background: "rgba(255,255,255,.15)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              🗑 Limpiar +60 días
+            </button>
+            <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
+          </div>
         </div>
 
         <div className="px-5 py-3 border-b bg-gray-50">
@@ -3512,7 +3556,7 @@ function ModalRegistroModificaciones({ db, onClose }) {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {logsFiltrados.map(log => (
+              {logsFiltrados.slice(paginaLogs * LOGS_PAGE, (paginaLogs + 1) * LOGS_PAGE).map(log => (
                 <div key={log.id} className="px-5 py-3 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
@@ -3542,6 +3586,19 @@ function ModalRegistroModificaciones({ db, onClose }) {
           )}
         </div>
 
+        {Math.ceil(logsFiltrados.length / LOGS_PAGE) > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderTop: '1px solid var(--border)', background: '#f8fafc' }}>
+            <button onClick={() => setPaginaLogs(p => Math.max(0, p - 1))} disabled={paginaLogs === 0}
+              style={{ padding: '5px 14px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: '#fff', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: paginaLogs === 0 ? 'not-allowed' : 'pointer', opacity: paginaLogs === 0 ? 0.4 : 1 }}>
+              ← Anterior
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{paginaLogs + 1} / {Math.ceil(logsFiltrados.length / LOGS_PAGE)} · {logsFiltrados.length} registros</span>
+            <button onClick={() => setPaginaLogs(p => Math.min(Math.ceil(logsFiltrados.length / LOGS_PAGE) - 1, p + 1))} disabled={paginaLogs >= Math.ceil(logsFiltrados.length / LOGS_PAGE) - 1}
+              style={{ padding: '5px 14px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: '#fff', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: paginaLogs >= Math.ceil(logsFiltrados.length / LOGS_PAGE) - 1 ? 'not-allowed' : 'pointer', opacity: paginaLogs >= Math.ceil(logsFiltrados.length / LOGS_PAGE) - 1 ? 0.4 : 1 }}>
+              Siguiente →
+            </button>
+          </div>
+        )}
         <div className="px-5 py-3 border-t bg-gray-50">
           <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
         </div>
@@ -3712,7 +3769,9 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Notificaciones Bimestres Completados
 // ════════════════════════════════════════════════════════
-function ModalNotifsBimestre({ db, notifs, onClose }) {
+function ModalNotifsBimestre({ db, notifs, onClose, showConfirm, showAlert }) {
+  const PAGE_SIZE = 20;
+  const [pagina, setPagina] = useState(0);
   const noLeidas = notifs.filter(n => !n.leida).length;
 
   const marcarTodasLeidas = async () => {
@@ -3724,34 +3783,56 @@ function ModalNotifsBimestre({ db, notifs, onClose }) {
     await deleteDoc(doc(db, 'notificacionesBimestre', id));
   };
 
-  // Marcar como leídas al abrir
+  const archivarBim1 = async () => {
+    if (!showConfirm) return;
+    const bim1 = notifs.filter(n => n.mensaje?.includes('1°') || n.mensaje?.includes('1er') || n.bimestre === 1);
+    if (bim1.length === 0) { await showAlert('No hay notificaciones del 1° Bimestre para archivar.', 'info'); return; }
+    const ok = await showConfirm(`¿Eliminás las ${bim1.length} notificaciones del 1° Bimestre? Ya están procesadas.`, 'Archivar 1° Bimestre');
+    if (!ok) return;
+    await Promise.all(bim1.map(n => deleteDoc(doc(db, 'notificacionesBimestre', n.id))));
+    await showAlert(`✅ Se archivaron ${bim1.length} notificaciones del 1° Bimestre.`, 'success');
+  };
+
   useEffect(() => { if (noLeidas > 0) marcarTodasLeidas(); }, []);
+
+  const total = notifs.length;
+  const paginas = Math.ceil(total / PAGE_SIZE);
+  const visibles = notifs.slice(pagina * PAGE_SIZE, (pagina + 1) * PAGE_SIZE);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
-        <div className="bg-green-50 px-6 py-4 flex items-center justify-between border-b">
-          <h3 className="text-lg font-bold text-green-800">✅ Bimestres Completados</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>✅ Bimestres Completados</h3>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>{total} notificaciones · página {pagina + 1} de {Math.max(paginas, 1)}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={archivarBim1}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 'var(--r)', background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.25)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+              🗂 Archivar 1° Bim.
+            </button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={22} /></button>
+          </div>
         </div>
-        <div className="max-h-[65vh] overflow-y-auto">
+        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
           {notifs.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
-              <p className="text-4xl mb-2">📭</p>
-              <p className="font-bold">Sin notificaciones aún</p>
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>📭</p>
+              <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>Sin notificaciones aún</p>
             </div>
           ) : (
-            <div className="p-4 space-y-2">
-              {notifs.map(n => (
-                <div key={n.id} className={`flex items-start justify-between gap-3 px-4 py-3 rounded-xl border ${n.leida ? 'bg-gray-50 border-gray-100' : 'bg-green-50 border-green-200'}`}>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800">{n.mensaje}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{n.fechaCorta}</p>
+            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {visibles.map(n => (
+                <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, padding: '10px 14px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: n.leida ? 'var(--border)' : '#bbf7d0', background: n.leida ? '#f8fafc' : 'var(--green-lt)' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{n.mensaje}</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{n.fechaCorta}</p>
                   </div>
                   <button onClick={() => eliminarNotif(n.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', flexShrink: 0 }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -3759,8 +3840,121 @@ function ModalNotifsBimestre({ db, notifs, onClose }) {
             </div>
           )}
         </div>
-        <div className="px-5 py-4 border-t bg-gray-50">
-          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-all">Cerrar</button>
+        {/* Paginación */}
+        {paginas > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderTop: '1px solid var(--border)', background: '#f8fafc' }}>
+            <button onClick={() => setPagina(p => Math.max(0, p - 1))} disabled={pagina === 0}
+              style={{ padding: '5px 14px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: '#fff', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: pagina === 0 ? 'not-allowed' : 'pointer', opacity: pagina === 0 ? 0.4 : 1 }}>
+              ← Anterior
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{pagina + 1} / {paginas}</span>
+            <button onClick={() => setPagina(p => Math.min(paginas - 1, p + 1))} disabled={pagina >= paginas - 1}
+              style={{ padding: '5px 14px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: '#fff', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: pagina >= paginas - 1 ? 'not-allowed' : 'pointer', opacity: pagina >= paginas - 1 ? 0.4 : 1 }}>
+              Siguiente →
+            </button>
+          </div>
+        )}
+        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)', background: '#f8fafc' }}>
+          <button onClick={onClose} style={{ width: '100%', padding: '9px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Vista rápida docentes sin notas (admin)
+// ════════════════════════════════════════════════════════
+function ModalSinNotas({ db, todosUsuarios, alumnosGlobales, onClose }) {
+  const [datos, setDatos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    const cargar = async () => {
+      setCargando(true);
+      const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
+      const resultado = [];
+      for (const doc2 of docentes) {
+        const grados = doc2.rol === 'docente_grado'
+          ? (doc2.gradosAsignados?.length > 0 ? doc2.gradosAsignados : [doc2.gradoAsignado].filter(Boolean))
+          : [];
+        const materias = doc2.rol === 'docente_grado'
+          ? (doc2.materiasAsignadas || [])
+          : (doc2.materiasAsignadas?.map(m => m.nombre || m) || []);
+        const pendientes = [];
+        for (const grado of grados) {
+          const alumnos = alumnosGlobales[grado] || [];
+          if (alumnos.length === 0) continue;
+          for (const mat of materias) {
+            const fsKey = mat.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
+            try {
+              const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+              const estudiantes = snap.exists() ? (snap.data().estudiantes || []) : [];
+              const sinNota = alumnos.filter(a => {
+                const est = estudiantes.find(e => e.id === a.id || e.dni === a.dni);
+                return !est || (!est.bimestres?.[2]?.nota);
+              });
+              if (sinNota.length > 0) {
+                pendientes.push({ materia: mat, grado, cantidad: sinNota.length, total: alumnos.length });
+              }
+            } catch(e) {}
+          }
+        }
+        if (pendientes.length > 0) resultado.push({ docente: doc2.nombre, pendientes });
+      }
+      setDatos(resultado);
+      setCargando(false);
+    };
+    cargar();
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.2)', width: '100%', maxWidth: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📊 Notas incompletas — 2° Bimestre</h3>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Docentes con alumnos sin nota cargada</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px 20px' }}>
+          {cargando ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+              <div style={{ width: 36, height: 36, border: '4px solid var(--border)', borderTop: '4px solid var(--navy)', borderRadius: '50%', animation: 'spin .8s linear infinite', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: 14, fontWeight: 600 }}>Verificando notas...</p>
+            </div>
+          ) : datos.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>✅</p>
+              <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>¡Todos los docentes tienen las notas completas!</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {datos.map((d, i) => (
+                <div key={i} style={{ border: '1.5px solid #fde68a', borderRadius: 'var(--r)', background: '#fffbeb', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #fde68a', background: 'var(--amber-lt)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>⚠️</span>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: '#92400e' }}>{d.docente}</p>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--amber)', background: '#fff', border: '1px solid #fde68a', borderRadius: 20, padding: '2px 9px' }}>{d.pendientes.length} materia{d.pendientes.length > 1 ? 's' : ''} incompleta{d.pendientes.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <div style={{ padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {d.pendientes.map((p, j) => (
+                      <div key={j} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, background: '#fff', border: '1px solid #fde68a', fontSize: 12, fontWeight: 600, color: '#92400e' }}>
+                        {p.materia} · {gradoLabel(p.grado)}
+                        <span style={{ background: 'var(--amber-lt)', color: 'var(--amber)', borderRadius: 10, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{p.cantidad}/{p.total} sin nota</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: '#f8fafc', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ width: '100%', padding: '9px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cerrar</button>
         </div>
       </div>
     </div>
