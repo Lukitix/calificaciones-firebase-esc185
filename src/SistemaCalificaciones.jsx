@@ -1134,14 +1134,26 @@ export default function SistemaCalificaciones() {
     return () => unsub();
   }, [authUser, materia, grado]);
 
-  // ── Sincronizar alumnos ──
+  // ── Sincronizar alumnos (SOLO cuando cambian alumnos o materia/grado, NO cuando cambian notas) ──
+  const estudiantesRef = React.useRef({});
+  useEffect(() => {
+    estudiantesRef.current = estudiantes;
+  }, [estudiantes]);
+
   useEffect(() => {
     if (!materia || !alumnosGlobales[grado]) return;
     const key = `${materia.nombre}-${grado}`;
     const alumnosDelGrado = alumnosGlobales[grado] || [];
-    const estudiantesActuales = estudiantes[key];
-    // Si aún no cargaron los datos de Firestore, no sincronizar
+    // Usar ref para leer estudiantes SIN ser dependencia del effect
+    const estudiantesActuales = estudiantesRef.current[key];
+    // Si aún no cargaron los datos de Firestore, esperar
     if (estudiantesActuales === undefined) return;
+    // Solo sincronizar si hay alumnos NUEVOS que no están en Firestore
+    const alumnosNuevos = alumnosDelGrado.filter(alumno =>
+      !estudiantesActuales.find(e => e.dni === alumno.dni)
+    );
+    if (alumnosNuevos.length === 0) return; // No hay cambios, no tocar Firestore
+    // Agregar solo los alumnos nuevos, preservar los existentes con sus notas
     const estudiantesActualizados = alumnosDelGrado.map(alumno => {
       const existente = estudiantesActuales.find(e => e.dni === alumno.dni);
       if (existente) return asegurarEstructuraEstudiante(existente);
@@ -1155,11 +1167,9 @@ export default function SistemaCalificaciones() {
         }
       };
     });
-    if (JSON.stringify(estudiantesActuales) !== JSON.stringify(estudiantesActualizados)) {
-      setDoc(doc(db, 'calificaciones', safeKey(`${materia.nombre}_${grado}`)), { estudiantes: estudiantesActualizados }, { merge: true });
-    }
+    setDoc(doc(db, 'calificaciones', safeKey(`${materia.nombre}_${grado}`)), { estudiantes: estudiantesActualizados }, { merge: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grado, materia, alumnosGlobales, estudiantes]);
+  }, [grado, materia, alumnosGlobales]);
 
   // ── Cargar configuración (criterios, candados, docente) — siempre que cambie materia o grado ──
   useEffect(() => {
@@ -1475,8 +1485,15 @@ export default function SistemaCalificaciones() {
         const valorAnterior = est.bimestres?.[bimestre]?.[campo] || '';
         const nuevoBim = { ...est.bimestres[bimestre], [campo]: valor };
         if (campo.startsWith('n')) {
-          const notas = ['n1','n2','n3','n4','n5'].map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
-          nuevoBim.nota = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : '';
+          // Calcular promedio solo con los criterios que están siendo usados en este bimestre
+          const critsUsados = criteriosPorBimestre[bimestre] || [];
+          const claves = critsUsados.length > 0
+            ? critsUsados.map((_, i) => `n${i+1}`)
+            : ['n1','n2','n3','n4','n5'];
+          const notas = claves.map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
+          nuevoBim.nota = notas.length > 0
+            ? (Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100).toFixed(2)
+            : '';
         }
         // Registrar cambio si hay diferencia real
         if (valor !== valorAnterior && campo.startsWith('n') && (valor || valorAnterior)) {
