@@ -65,7 +65,7 @@ const areas = {
     { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
     { nombre: 'Taller de Danza', color1: '#ec4899', color2: '#be123c', icon: '💃' },
-    { nombre: 'Taller de Tecnología', color1: '#0369a1', color2: '#075985', icon: '💻' },
+    { nombre: 'Taller de Tecnología', color1: '#0369a1', color2: '#075985', icon: '🛠️' },
   ]
 };
 
@@ -3340,7 +3340,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
                     { key: 'otro', label: 'Otro' },
                   ].map(({ key, label }) => (
                     <div key={key}>
-                      <label onClick={() => setForm(f => ({ ...f, motivoCheck: key, asunto: key !== 'otro' && key !== 'licencia' ? label : f.asunto }))}
+                      <label onClick={() => setForm(f => ({ ...f, motivoCheck: key, asunto: '' }))}
                         style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '11px 16px', borderRadius: 'var(--r)', border: '2px solid', borderColor: form.motivoCheck === key ? 'var(--navy)' : 'var(--border)', background: form.motivoCheck === key ? 'var(--navy-lt)' : '#fff', transition: 'all .15s' }}>
                         <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid', borderColor: form.motivoCheck === key ? 'var(--navy)' : '#cbd5e1', background: form.motivoCheck === key ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
                           {form.motivoCheck === key && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />}
