@@ -65,6 +65,7 @@ const areas = {
     { nombre: 'Taller de Música', color1: '#6d28d9', color2: '#4c1d95', icon: '🎼' },
     { nombre: 'Taller de Plástica', color1: '#be185d', color2: '#9d174d', icon: '🖌️' },
     { nombre: 'Taller de Danza', color1: '#ec4899', color2: '#be123c', icon: '💃' },
+    { nombre: 'Taller de Tecnología', color1: '#0369a1', color2: '#075985', icon: '💻' },
   ]
 };
 
@@ -277,7 +278,7 @@ function useTituloPestana(pantalla, materia, grado) {
 const globalStyles = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Outfit:wght@600;700;800&display=swap');
 html, body, #root { margin: 0 !important; padding: 0 !important; width: 100% !important; min-height: 100% !important; overflow-x: hidden; }
-* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; font-size: 16px; }
+* { font-family: 'DM Sans', sans-serif; box-sizing: border-box; font-size: 17px; line-height: 1.5; }
 h1,h2,h3,h4,h5 { font-family: 'Outfit', sans-serif; }
 :root {
   --navy: #1e3a5f; --navy2: #2d5282; --navy-lt: #eef3f9;
@@ -327,7 +328,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .chip-grado { transition: all 0.15s ease; }
 .chip-grado:hover { transform: scale(1.04); }
 .toast-visible { animation: toastIn 0.25s ease-out both; }
-.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
+.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; font-size: 16px; }
 .n-field-input:focus { border-color: var(--indigo); }
 @media (max-width: 768px) {
   .topbar-actions { flex-wrap: wrap; gap: 4px !important; }
@@ -353,7 +354,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
   .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
   .topbar-title { font-size: 13px !important; }
 }
-.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; }
+.n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; font-size: 16px; }
 .n-field-input:focus { border-color: var(--indigo); }
 `;
 
@@ -2527,7 +2528,7 @@ export default function SistemaCalificaciones() {
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{usuario?.rol === 'administrador' ? 'Directora' : rolLabel(usuario)}</p>
                 {isDocGrado && <p style={{ fontSize: 11, color: 'rgba(255,255,255,.4)', marginTop: 5, fontStyle: 'italic' }}>A continuación se listan tus espacios curriculares asignados para el ciclo lectivo 2026.</p>}
               </div>
-              {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 20px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre · cierra {bimActivo.hasta.toLocaleDateString('es-AR',{day:'2-digit',month:'long'})}</span>}
+              {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 20px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre en curso</span>}
             </div>
 
             {/* SELECTOR DE GRADO para docentes con múltiples grados */}
@@ -3217,7 +3218,7 @@ export default function SistemaCalificaciones() {
 // ════════════════════════════════════════════════════════
 function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showConfirm }) {
   const [tab, setTab] = useState('nueva');
-  const [form, setForm] = useState({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false });
+  const [form, setForm] = useState({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false, motivoCheck: '' });
   const [archivos, setArchivos] = useState([]);
   const [subiendo, setSubiendo] = useState(false);
   const [inasistencias, setInasistencias] = useState([]);
@@ -3254,7 +3255,8 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
   const quitarArchivo = (idx) => setArchivos(prev => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = async () => {
-    if (!form.asunto.trim()) return showAlert('El asunto es obligatorio.', 'error');
+    if (!form.motivoCheck) return showAlert('Seleccioná el motivo de inasistencia.', 'error');
+      if ((form.motivoCheck === 'licencia' || form.motivoCheck === 'otro') && !form.asunto.trim()) return showAlert('Completá el detalle del motivo.', 'error');
     if (!form.desde || !form.hasta) return showAlert('Las fechas son obligatorias.', 'error');
     if (new Date(form.desde) > new Date(form.hasta)) return showAlert('La fecha de inicio no puede ser posterior al fin.', 'error');
     setSubiendo(true);
@@ -3268,10 +3270,14 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
         const url = await getDownloadURL(storageRef);
         archivosSubidos.push({ nombre: archivo.name, url, tipo: archivo.type });
       }
+      const motivoLabels = { enfermedad: 'Enfermedad común', licencia: 'Licencia médica', capacitacion: 'Capacitación / Jornada institucional', tramite: 'Trámite personal', paro: 'Adhesión a Paro Docente', otro: 'Otro' };
+      const motivoTexto = motivoLabels[form.motivoCheck] || form.motivoCheck;
+      const detalleTexto = (form.motivoCheck === 'licencia' || form.motivoCheck === 'otro') && form.asunto?.trim() ? ` — ${form.asunto.trim()}` : '';
       await setDoc(doc(collection(db, 'inasistencias')), {
         uid: authUser.uid,
         nombreDocente: usuario.nombre,
-        asunto: form.asunto.trim(),
+        asunto: `${motivoTexto}${detalleTexto}`,
+        motivoCheck: form.motivoCheck,
         desde: form.desde,
         hasta: form.hasta,
         observacion: form.observacion.trim(),
@@ -3279,7 +3285,7 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
         fecha: new Date().toISOString(),
         visto: false,
       });
-      setForm({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false });
+      setForm({ asunto: '', desde: '', hasta: '', observacion: '', unSoloDia: false, motivoCheck: '' });
       setArchivos([]);
       setTab('historial');
       await showAlert('✅ Inasistencia enviada correctamente a Dirección.', 'success', 'Enviado');
@@ -3294,8 +3300,8 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.2)', width: '100%', maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}>
+      <div style={{ background: '#f8fafc', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.3)', width: '100%', maxWidth: 780, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
         {/* Header */}
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <h3 style={{ fontSize: 16, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>
@@ -3321,14 +3327,43 @@ function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showCon
           {/* ── TAB NUEVA ── */}
           {tab === 'nueva' && !isAdmin && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Asunto */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Motivo de inasistencia *</label>
-                <input type="text" value={form.asunto} placeholder=""
-                  onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
-                  style={{ fontSize: 15, padding: '12px 14px', borderRadius: 'var(--r)', border: '2px solid var(--navy)', background: '#fff', width: '100%', outline: 'none', fontFamily: 'DM Sans, sans-serif', color: 'var(--text)', boxSizing: 'border-box', transition: 'border-color .15s' }}
-                  onFocus={e => e.target.style.borderColor='var(--indigo)'}
-                  onBlur={e => e.target.style.borderColor='var(--navy)'} />
+              {/* Motivo — checks */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Motivo de inasistencia *</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[
+                    { key: 'enfermedad', label: 'Enfermedad común' },
+                    { key: 'licencia', label: 'Licencia médica (con certificado)' },
+                    { key: 'capacitacion', label: 'Capacitación / Jornada institucional' },
+                    { key: 'tramite', label: 'Trámite personal' },
+                    { key: 'paro', label: 'Adhesión a Paro Docente' },
+                    { key: 'otro', label: 'Otro' },
+                  ].map(({ key, label }) => (
+                    <div key={key}>
+                      <label onClick={() => setForm(f => ({ ...f, motivoCheck: key, asunto: key !== 'otro' && key !== 'licencia' ? label : f.asunto }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '11px 16px', borderRadius: 'var(--r)', border: '2px solid', borderColor: form.motivoCheck === key ? 'var(--navy)' : 'var(--border)', background: form.motivoCheck === key ? 'var(--navy-lt)' : '#fff', transition: 'all .15s' }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid', borderColor: form.motivoCheck === key ? 'var(--navy)' : '#cbd5e1', background: form.motivoCheck === key ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+                          {form.motivoCheck === key && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#fff' }} />}
+                        </div>
+                        <span style={{ fontSize: 15, fontWeight: form.motivoCheck === key ? 700 : 500, color: form.motivoCheck === key ? 'var(--navy)' : 'var(--text)' }}>{label}</span>
+                      </label>
+                      {/* Campo libre para Licencia */}
+                      {key === 'licencia' && form.motivoCheck === 'licencia' && (
+                        <input type="text" placeholder="N° / Tipo de licencia"
+                          value={form.asunto || ''}
+                          onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
+                          style={{ marginTop: 6, marginLeft: 50, width: 'calc(100% - 50px)', padding: '10px 14px', border: '1.5px solid var(--navy)', borderRadius: 'var(--r)', fontSize: 15, fontFamily: 'DM Sans, sans-serif', outline: 'none', color: 'var(--text)', background: '#fff', boxSizing: 'border-box' }} />
+                      )}
+                      {/* Campo libre para Otro */}
+                      {key === 'otro' && form.motivoCheck === 'otro' && (
+                        <input type="text" placeholder="Describí el motivo"
+                          value={form.asunto || ''}
+                          onChange={e => setForm(f => ({ ...f, asunto: e.target.value }))}
+                          style={{ marginTop: 6, marginLeft: 50, width: 'calc(100% - 50px)', padding: '10px 14px', border: '1.5px solid var(--navy)', borderRadius: 'var(--r)', fontSize: 15, fontFamily: 'DM Sans, sans-serif', outline: 'none', color: 'var(--text)', background: '#fff', boxSizing: 'border-box' }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
               {/* Un solo día */}
               <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px', fontStyle: 'italic' }}>Si la inasistencia es de un solo día, tildá la siguiente opción:</p>
@@ -3820,7 +3855,7 @@ function ModalNotifsBimestre({ db, notifs, onClose, showConfirm, showAlert }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -3948,7 +3983,7 @@ function ModalSinNotas({ db, todosUsuarios, alumnosGlobales, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.2)', width: '100%', maxWidth: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.2)', width: '100%', maxWidth: 760, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📊 Notas incompletas — 2° Bimestre</h3>
@@ -4054,7 +4089,7 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-purple-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-purple-800">👤 Mi Perfil</h3>
@@ -4317,7 +4352,7 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-blue-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-blue-800">✉️ Mensajes</h3>
