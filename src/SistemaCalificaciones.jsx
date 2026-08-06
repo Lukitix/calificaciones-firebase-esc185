@@ -1440,6 +1440,53 @@ export default function SistemaCalificaciones() {
     await setDoc(doc(db, 'datos', 'alumnosGlobales'), {
       ...alumnosGlobales, [gradoActual]: (alumnosGlobales[gradoActual] || []).filter(a => a.dni !== alumno.dni)
     });
+    // Eliminar al alumno de TODAS las materias (curriculares, especiales, talleres, convivencia)
+    const todasLasMaterias = [
+      ...areas.curriculares,
+      ...areas.especiales,
+      ...areas.talleres,
+      ...areas.convivencia,
+    ];
+    for (const mat of todasLasMaterias) {
+      const fsKey = safeKey(`${mat.nombre}_${gradoActual}`);
+      try {
+        const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+        if (!snap.exists()) continue;
+        const estudiantesActuales = snap.data().estudiantes || [];
+        const sinAlumno = estudiantesActuales.filter(e => e.dni !== alumno.dni);
+        if (sinAlumno.length < estudiantesActuales.length) {
+          await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: sinAlumno }, { merge: true });
+        }
+      } catch(e) {
+        console.error(`Error eliminando alumno de ${mat.nombre}:`, e);
+      }
+    }
+    // También eliminar de materias de áreas especiales que tienen grados propios
+    try {
+      const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+      const docentesEspeciales = usuariosSnap.docs
+        .map(d => ({ uid: d.id, ...d.data() }))
+        .filter(u => u.rol === 'area_especial');
+      for (const doc2 of docentesEspeciales) {
+        for (const ma of (doc2.materiasAsignadas || [])) {
+          const nombreMat = ma.nombre || ma;
+          const gradosMat = ma.grados || [];
+          if (!gradosMat.includes(gradoActual)) continue;
+          const fsKey = safeKey(`${nombreMat}_${gradoActual}`);
+          try {
+            const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+            if (!snap.exists()) continue;
+            const estudiantesActuales = snap.data().estudiantes || [];
+            const sinAlumno = estudiantesActuales.filter(e => e.dni !== alumno.dni);
+            if (sinAlumno.length < estudiantesActuales.length) {
+              await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: sinAlumno }, { merge: true });
+            }
+          } catch(e) {}
+        }
+      }
+    } catch(e) {
+      console.error('Error eliminando de materias especiales:', e);
+    }
   };
 
   const eliminarRegistroBaja = async (baja) => {
