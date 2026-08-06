@@ -2345,7 +2345,58 @@ export default function SistemaCalificaciones() {
               <div style={{ background: '#fff', border: '1.5px solid #fecaca', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', background: 'var(--red-lt)', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--red)', fontFamily: 'Outfit,sans-serif' }}>📋 Registro de Bajas · {gradoLabel(gradoActual)}</h3>
-                  <span style={{ background: '#fff', color: 'var(--red)', border: '1px solid #fecaca', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>{bajas.filter(b => b.grado === gradoActual).length} baja(s)</span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      onClick={async () => {
+                        const bajasDelGrado = bajas.filter(b => b.grado === gradoActual);
+                        if (bajasDelGrado.length === 0) return;
+                        const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia];
+                        let total = 0;
+                        for (const mat of todasMaterias) {
+                          const fsKey = safeKey(`${mat.nombre}_${gradoActual}`);
+                          try {
+                            const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                            if (!snap.exists()) continue;
+                            const estudiantes = snap.data().estudiantes || [];
+                            const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
+                            if (filtrados.length < estudiantes.length) {
+                              total += estudiantes.length - filtrados.length;
+                              await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
+                            }
+                          } catch(e) {}
+                        }
+                        // También áreas especiales con grados propios
+                        try {
+                          const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+                          const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
+                          for (const u of especiales) {
+                            for (const ma of (u.materiasAsignadas || [])) {
+                              if (!(ma.grados || []).includes(gradoActual)) continue;
+                              const fsKey = safeKey(`${ma.nombre}_${gradoActual}`);
+                              try {
+                                const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                                if (!snap.exists()) continue;
+                                const estudiantes = snap.data().estudiantes || [];
+                                const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
+                                if (filtrados.length < estudiantes.length) {
+                                  total += estudiantes.length - filtrados.length;
+                                  await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
+                                }
+                              } catch(e) {}
+                            }
+                          }
+                        } catch(e) {}
+                        await showAlert(total > 0
+                          ? `✅ Sincronización completada. Se eliminaron ${total} registro(s) de alumnos dados de baja en las materias de ${gradoLabel(gradoActual)}.`
+                          : `✅ Todo sincronizado. No había registros pendientes de eliminar en ${gradoLabel(gradoActual)}.`,
+                          'success', 'Sincronización completada');
+                      }}
+                      className="btn-primary"
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      🔄 Sincronizar bajas
+                    </button>
+                    <span style={{ background: '#fff', color: 'var(--red)', border: '1px solid #fecaca', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>{bajas.filter(b => b.grado === gradoActual).length} baja(s)</span>
+                  </div>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
