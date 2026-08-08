@@ -1405,8 +1405,66 @@ export default function SistemaCalificaciones() {
       if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
         await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
       }
-      nuevos[gradoActual].push({ nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' });
+      const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' };
+      nuevos[gradoActual].push(alumnoNuevo);
       await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
+
+      // Propagar alumno nuevo a TODAS las materias del grado
+      // SOLO lo agrega si no existe — nunca toca notas existentes
+      const estructuraVacia = {
+        id: `${alumnoNuevo.dni}_${Date.now()}`,
+        nombre: alumnoNuevo.nombre,
+        dni: alumnoNuevo.dni,
+        sexo: alumnoNuevo.sexo,
+        bimestres: {
+          1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+          4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+        }
+      };
+      const todasMaterias = [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
+      await Promise.all(todasMaterias.map(async (m) => {
+        const key = safeKey(`${m.nombre}_${gradoActual}`);
+        try {
+          const snap = await getDoc(doc(db, 'calificaciones', key));
+          const estudiantesActuales = snap.exists() ? (snap.data().estudiantes || []) : [];
+          // Si ya existe con ese DNI, no tocar nada
+          if (estudiantesActuales.some(e => e.dni === alumnoNuevo.dni)) return;
+          // Agregar al final, preservando todos los datos existentes
+          await setDoc(doc(db, 'calificaciones', key),
+            { estudiantes: [...estudiantesActuales, estructuraVacia] },
+            { merge: true }
+          );
+        } catch(e) {
+          console.error(`Error agregando alumno a ${m.nombre}:`, e);
+        }
+      }));
+
+      // También propagar a materias de docentes de área especial con grados propios
+      try {
+        const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+        const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
+        for (const u of especiales) {
+          for (const ma of (u.materiasAsignadas || [])) {
+            const nombreMat = ma.nombre || ma;
+            const gradosMat = ma.grados || [];
+            if (!gradosMat.includes(gradoActual)) continue;
+            const key = safeKey(`${nombreMat}_${gradoActual}`);
+            try {
+              const snap = await getDoc(doc(db, 'calificaciones', key));
+              const estudiantesActuales = snap.exists() ? (snap.data().estudiantes || []) : [];
+              if (estudiantesActuales.some(e => e.dni === alumnoNuevo.dni)) continue;
+              await setDoc(doc(db, 'calificaciones', key),
+                { estudiantes: [...estudiantesActuales, { ...estructuraVacia, id: `${alumnoNuevo.dni}_${Date.now()}_esp` }] },
+                { merge: true }
+              );
+            } catch(e) {}
+          }
+        }
+      } catch(e) {
+        console.error('Error propagando a áreas especiales:', e);
+      }
     }
     setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null });
   };
