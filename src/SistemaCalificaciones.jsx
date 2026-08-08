@@ -975,7 +975,15 @@ export default function SistemaCalificaciones() {
   const [autoBloqueoMsg, setAutoBloqueoMsg] = useState(false);
   const [showInasistencias, setShowInasistencias] = useState(false);
   const [showSinNotas, setShowSinNotas] = useState(false);
+  const [showDesbloqueoMasivo, setShowDesbloqueoMasivo] = useState(false);
+  const [showFechasBloqueo, setShowFechasBloqueo] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
+  const [fechasBloqueo, setFechasBloqueo] = useState({
+    bim1: '2026-05-13T23:59:59',
+    bim2: '2026-08-08T23:59:59',
+    bim3: null,
+    bim4: null,
+  });
   const [avisos, setAvisos] = useState([]);
   const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
   const [showAvisos, setShowAvisos] = useState(false);
@@ -1198,8 +1206,10 @@ export default function SistemaCalificaciones() {
         const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
         const cambios = { ...bloq };
         let hubo = false;
-        if (ahora > new Date('2026-05-13T23:59:59') && !bloq[1]) { cambios[1] = true; hubo = true; }
-        if (ahora > new Date('2026-08-07T23:59:59') && !bloq[2]) { cambios[2] = true; hubo = true; }
+        if (fechasBloqueo.bim1 && ahora > new Date(fechasBloqueo.bim1) && !bloq[1]) { cambios[1] = true; hubo = true; }
+        if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2) && !bloq[2]) { cambios[2] = true; hubo = true; }
+        if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3) && !bloq[3]) { cambios[3] = true; hubo = true; }
+        if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4) && !bloq[4]) { cambios[4] = true; hubo = true; }
         if (hubo) {
           await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios }, { merge: true });
           if (!cancelado) {
@@ -1705,7 +1715,7 @@ export default function SistemaCalificaciones() {
   // 1° Bimestre: silencioso desde 13/05/2026 23:59
   // 2° Bimestre: silencioso desde 07/08/2026 23:59
   const LIMITE_BIM1 = new Date('2026-05-13T23:59:59');
-  const LIMITE_BIM2 = new Date('2026-08-07T23:59:59');
+  const LIMITE_BIM2 = new Date('2026-08-08T23:59:59');
 
   const toggleBloquearBimestre = async (bim) => {
     const bloqueando = !bimestresBlockeados[bim];
@@ -2745,6 +2755,8 @@ export default function SistemaCalificaciones() {
                             { icon: '📋', label: 'Registro de Modificaciones', action: () => { setMenuAcciones(false); setShowRegistroMods(true); } },
                           { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
                           { icon: '📊', label: 'Notas Incompletas', action: () => { setMenuAcciones(false); setShowSinNotas(true); } },
+                          { icon: '🔓', label: 'Desbloqueo masivo', action: () => { setMenuAcciones(false); setShowDesbloqueoMasivo(true); } },
+                          { icon: '📅', label: 'Fechas de bloqueo', action: () => { setMenuAcciones(false); setShowFechasBloqueo(true); } },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
                               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', borderBottom: '1px solid #f8fafc', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans,sans-serif' }}
@@ -2833,7 +2845,7 @@ export default function SistemaCalificaciones() {
               if (isAdmin) return null;
               // Aviso especial 2° bimestre hasta 07/08
               const ahora = new Date();
-              const limite2 = new Date('2026-08-07T23:59:59');
+              const limite2 = fechasBloqueo.bim2 ? new Date(fechasBloqueo.bim2) : new Date('2026-08-08T23:59:59');
               const hoy = new Date(ahora.toDateString());
               const limiteDay = new Date('2026-08-07');
               const diffDias = Math.ceil((limiteDay - hoy) / 86400000);
@@ -2843,7 +2855,7 @@ export default function SistemaCalificaciones() {
                     <span style={{ fontSize: 20 }}>📅</span>
                     <div>
                       <p style={{ fontWeight: 700, color: 'var(--amber)', fontSize: 13 }}>
-                        {diffDias === 0 ? '⚠️ ¡Hoy es el último día para cargar notas del 2° Bimestre!' : `Las calificaciones del 2° Bimestre podrán cargarse hasta el Viernes 07/08 inclusive.`}
+                        {diffDias === 0 ? 'Las calificaciones del 2° Bimestre podrán cargarse hasta hoy inclusive.' : `Las calificaciones del 2° Bimestre podrán cargarse hasta el Sábado 08/08 inclusive.`}
                       </p>
                       {diffDias > 0 && <p style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginTop: 2 }}>Quedan {diffDias} día{diffDias !== 1 ? 's' : ''} para completar la carga.</p>}
                     </div>
@@ -3030,6 +3042,18 @@ export default function SistemaCalificaciones() {
           <ModalSinNotas
             db={db} todosUsuarios={todosUsuarios} alumnosGlobales={alumnosGlobales}
             onClose={() => setShowSinNotas(false)} />
+        )}
+        {showDesbloqueoMasivo && (
+          <ModalDesbloqueoMasivo
+            db={db} todosUsuarios={todosUsuarios}
+            showAlert={showAlert} showConfirm={showConfirm}
+            onClose={() => setShowDesbloqueoMasivo(false)} />
+        )}
+        {showFechasBloqueo && (
+          <ModalFechasBloqueoAdmin
+            db={db} fechasBloqueo={fechasBloqueo}
+            showAlert={showAlert}
+            onClose={() => setShowFechasBloqueo(false)} />
         )}
       </>
     );
@@ -4203,6 +4227,149 @@ function ModalNotifsBimestre({ db, notifs, onClose, showConfirm, showAlert }) {
   );
 }
 
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Desbloqueo masivo de bimestres (admin)
+// ════════════════════════════════════════════════════════
+function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onClose }) {
+  const [bims, setBims] = useState({ 1: false, 2: false, 3: false, 4: false });
+  const [procesando, setProcesando] = useState(false);
+
+  const handleDesbloqueo = async () => {
+    const seleccionados = Object.entries(bims).filter(([,v]) => v).map(([b]) => parseInt(b));
+    if (seleccionados.length === 0) return;
+    const ok = await showConfirm(
+      `¿Desbloquear el/los ${seleccionados.map(b => `${b}° Bimestre`).join(' y ')} para TODOS los docentes? Esta acción les permite volver a cargar notas.`,
+      '🔓 Desbloqueo masivo'
+    );
+    if (!ok) return;
+    setProcesando(true);
+    let total = 0;
+    const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
+    for (const u of docentes) {
+      const grados = u.rol === 'docente_grado'
+        ? (u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean))
+        : ([...new Set((u.materiasAsignadas || []).flatMap(ma => ma.grados || []))]);
+      const materias = u.rol === 'docente_grado'
+        ? (u.materiasAsignadas || [])
+        : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
+      for (const grado of grados) {
+        for (const mat of materias) {
+          const matNombre = mat.nombre || mat;
+          const key = matNombre.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
+          try {
+            const snap = await getDoc(doc(db, 'configuracion', key));
+            const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
+            const nuevo = { ...bloq };
+            seleccionados.forEach(b => { nuevo[b] = false; total++; });
+            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
+          } catch(e) {}
+        }
+      }
+    }
+    setProcesando(false);
+    onClose();
+    await showAlert(`✅ Desbloqueo masivo completado. Se desbloquearon ${total} bimestre(s) en total para todos los docentes.`, 'success', 'Desbloqueo completado');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 420, overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>🔓 Desbloqueo masivo</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.6 }}>
+            Desbloquea los bimestres seleccionados para <strong>todos los docentes</strong> del sistema de una vez.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {[1,2,3,4].map(bim => (
+              <label key={bim} onClick={() => setBims(prev => ({ ...prev, [bim]: !prev[bim] }))}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '10px 14px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: bims[bim] ? 'var(--navy)' : 'var(--border)', background: bims[bim] ? 'var(--navy-lt)' : '#f8fafc', transition: 'all .15s' }}>
+                <div style={{ width: 20, height: 20, borderRadius: 4, border: '2px solid', borderColor: bims[bim] ? 'var(--navy)' : '#cbd5e1', background: bims[bim] ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {bims[bim] && <svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: bims[bim] ? 700 : 500, color: bims[bim] ? 'var(--navy)' : 'var(--text)' }}>{bim}° Bimestre</span>
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', background: '#f1f5f9', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cancelar</button>
+            <button onClick={handleDesbloqueo} disabled={procesando || !Object.values(bims).some(Boolean)} className="btn-primary"
+              style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: procesando || !Object.values(bims).some(Boolean) ? 'not-allowed' : 'pointer', opacity: procesando || !Object.values(bims).some(Boolean) ? 0.5 : 1, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              {procesando ? 'Procesando...' : '🔓 Desbloquear a todos'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Editor de fechas de bloqueo (admin)
+// ════════════════════════════════════════════════════════
+function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
+  const [fechas, setFechas] = useState({
+    bim1: fechasBloqueo.bim1 ? fechasBloqueo.bim1.slice(0, 10) : '2026-05-13',
+    bim2: fechasBloqueo.bim2 ? fechasBloqueo.bim2.slice(0, 10) : '2026-08-08',
+    bim3: fechasBloqueo.bim3 ? fechasBloqueo.bim3.slice(0, 10) : '',
+    bim4: fechasBloqueo.bim4 ? fechasBloqueo.bim4.slice(0, 10) : '',
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  const handleGuardar = async () => {
+    setGuardando(true);
+    try {
+      await setDoc(doc(db, 'configuracion', 'fechasBloqueo'), {
+        bim1: fechas.bim1 ? `${fechas.bim1}T23:59:59` : null,
+        bim2: fechas.bim2 ? `${fechas.bim2}T23:59:59` : null,
+        bim3: fechas.bim3 ? `${fechas.bim3}T23:59:59` : null,
+        bim4: fechas.bim4 ? `${fechas.bim4}T23:59:59` : null,
+      }, { merge: true });
+      onClose();
+      await showAlert('✅ Fechas de bloqueo actualizadas. El sistema aplicará los nuevos límites automáticamente.', 'success', 'Guardado');
+    } catch(e) {
+      await showAlert('Error al guardar. Intentá de nuevo.', 'error');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 420, overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📅 Fechas de bloqueo automático</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Después de cada fecha el sistema bloquea automáticamente el bimestre. Dejá vacío los bimestres sin fecha definida aún.
+          </p>
+          {[1,2,3,4].map(bim => (
+            <div key={bim} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bim}° Bimestre — fecha límite de carga</label>
+              <input type="date" value={fechas[`bim${bim}`]}
+                onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}`]: e.target.value }))}
+                className="n-field-input" />
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', background: '#f1f5f9', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>Cancelar</button>
+            <button onClick={handleGuardar} disabled={guardando} className="btn-primary"
+              style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: guardando ? 'not-allowed' : 'pointer', opacity: guardando ? 0.6 : 1, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              {guardando ? 'Guardando...' : '💾 Guardar fechas'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Vista rápida docentes sin notas (admin)
@@ -5737,6 +5904,10 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                           📁 Entregas
                         </button>
+                        <button onClick={() => { setDocenteDesbloqueo(u); setBimestresDesbloqueo({ 1: false, 2: false, 3: false, 4: false }); }} className="btn-primary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: '#ecfdf5', color: '#065f46', border: '1.5px solid #6ee7b7', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                          🔓 Desbloquear
+                        </button>
                         <button onClick={() => eliminarUsuario(u)} className="btn-primary"
                           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                           <Trash2 size={13} /> Eliminar
@@ -5750,6 +5921,73 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
           </div>
         </div>
       </div>
+      {/* ── MODAL DESBLOQUEO INDIVIDUAL ── */}
+      {docenteDesbloqueo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 440, overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+            <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>🔓 Desbloquear bimestres</h3>
+              <button onClick={() => setDocenteDesbloqueo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy)', marginBottom: 4 }}>{docenteDesbloqueo.nombre}</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Seleccioná los bimestres a desbloquear para todos sus grados y materias:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {[1,2,3,4].map(bim => (
+                  <label key={bim} onClick={() => setBimestresDesbloqueo(prev => ({ ...prev, [bim]: !prev[bim] }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '10px 14px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: bimestresDesbloqueo[bim] ? 'var(--navy)' : 'var(--border)', background: bimestresDesbloqueo[bim] ? 'var(--navy-lt)' : '#f8fafc', transition: 'all .15s' }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 4, border: '2px solid', borderColor: bimestresDesbloqueo[bim] ? 'var(--navy)' : '#cbd5e1', background: bimestresDesbloqueo[bim] ? 'var(--navy)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all .15s' }}>
+                      {bimestresDesbloqueo[bim] && <svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: bimestresDesbloqueo[bim] ? 700 : 500, color: bimestresDesbloqueo[bim] ? 'var(--navy)' : 'var(--text)' }}>{bim}° Bimestre</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setDocenteDesbloqueo(null)}
+                  style={{ flex: 1, padding: '10px', borderRadius: 'var(--r)', background: '#f1f5f9', border: '1.5px solid var(--border)', color: 'var(--slate)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                  Cancelar
+                </button>
+                <button disabled={desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean)}
+                  onClick={async () => {
+                    setDesbloqueando(true);
+                    const u = docenteDesbloqueo;
+                    const grados = u.rol === 'docente_grado'
+                      ? (u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean))
+                      : ([...new Set((u.materiasAsignadas || []).flatMap(ma => ma.grados || []))]);
+                    const materias = u.rol === 'docente_grado'
+                      ? (u.materiasAsignadas || [])
+                      : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
+                    let desbloqueados = 0;
+                    for (const grado of grados) {
+                      for (const mat of materias) {
+                        const matNombre = mat.nombre || mat;
+                        const key = safeKey(`${matNombre}_${grado}`);
+                        try {
+                          const snap = await getDoc(doc(db, 'configuracion', key));
+                          const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
+                          const nuevo = { ...bloq };
+                          Object.entries(bimestresDesbloqueo).forEach(([b, sel]) => {
+                            if (sel) { nuevo[parseInt(b)] = false; desbloqueados++; }
+                          });
+                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
+                        } catch(e) {}
+                      }
+                    }
+                    setDesbloqueando(false);
+                    setDocenteDesbloqueo(null);
+                    await showAlert(`✅ Se desbloquearon bimestres para ${u.nombre}. Ya puede cargar notas.`, 'success', 'Desbloqueado');
+                  }}
+                  className="btn-primary"
+                  style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 'not-allowed' : 'pointer', opacity: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 0.5 : 1, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {desbloqueando ? 'Desbloqueando...' : '🔓 Confirmar desbloqueo'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {modalCerrarSesion && <ModalCerrarSesion />}
     </>
   );
