@@ -2403,58 +2403,7 @@ export default function SistemaCalificaciones() {
               <div style={{ background: '#fff', border: '1.5px solid #fecaca', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', background: 'var(--red-lt)', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--red)', fontFamily: 'Outfit,sans-serif' }}>📋 Registro de Bajas · {gradoLabel(gradoActual)}</h3>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button
-                      onClick={async () => {
-                        const bajasDelGrado = bajas.filter(b => b.grado === gradoActual);
-                        if (bajasDelGrado.length === 0) return;
-                        const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia];
-                        let total = 0;
-                        for (const mat of todasMaterias) {
-                          const fsKey = safeKey(`${mat.nombre}_${gradoActual}`);
-                          try {
-                            const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-                            if (!snap.exists()) continue;
-                            const estudiantes = snap.data().estudiantes || [];
-                            const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
-                            if (filtrados.length < estudiantes.length) {
-                              total += estudiantes.length - filtrados.length;
-                              await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
-                            }
-                          } catch(e) {}
-                        }
-                        // También áreas especiales con grados propios
-                        try {
-                          const usuariosSnap = await getDocs(collection(db, 'usuarios'));
-                          const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
-                          for (const u of especiales) {
-                            for (const ma of (u.materiasAsignadas || [])) {
-                              if (!(ma.grados || []).includes(gradoActual)) continue;
-                              const fsKey = safeKey(`${ma.nombre}_${gradoActual}`);
-                              try {
-                                const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-                                if (!snap.exists()) continue;
-                                const estudiantes = snap.data().estudiantes || [];
-                                const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
-                                if (filtrados.length < estudiantes.length) {
-                                  total += estudiantes.length - filtrados.length;
-                                  await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
-                                }
-                              } catch(e) {}
-                            }
-                          }
-                        } catch(e) {}
-                        await showAlert(total > 0
-                          ? `✅ Sincronización completada. Se eliminaron ${total} registro(s) de alumnos dados de baja en las materias de ${gradoLabel(gradoActual)}.`
-                          : `✅ Todo sincronizado. No había registros pendientes de eliminar en ${gradoLabel(gradoActual)}.`,
-                          'success', 'Sincronización completada');
-                      }}
-                      className="btn-primary"
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                      🔄 Sincronizar bajas
-                    </button>
-                    <span style={{ background: '#fff', color: 'var(--red)', border: '1px solid #fecaca', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>{bajas.filter(b => b.grado === gradoActual).length} baja(s)</span>
-                  </div>
+                  <span style={{ background: '#fff', color: 'var(--red)', border: '1px solid #fecaca', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>{bajas.filter(b => b.grado === gradoActual).length} baja(s)</span>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -2483,6 +2432,125 @@ export default function SistemaCalificaciones() {
                 </table>
               </div>
             )}
+
+            {/* ── Sincronización ── */}
+            <div style={{ background: '#fff', border: '1.5px solid var(--border)', borderRadius: 'var(--r-lg)', padding: '16px 20px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)', marginRight: 4 }}>🔧 Sincronización:</p>
+                            <button
+                onClick={async () => {
+                  // Sincronizar alumnos nuevos a todas las materias
+                  const alumnosDelGrado = alumnosGlobales[gradoActual] || [];
+                  if (alumnosDelGrado.length === 0) {
+                    await showAlert('No hay alumnos en este grado.', 'warning'); return;
+                  }
+                  const todasMaterias = [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
+                  let totalAgregados = 0;
+                  const estructuraVacia = (alumno) => ({
+                    id: `${alumno.dni}_sync`,
+                    nombre: alumno.nombre,
+                    dni: alumno.dni,
+                    sexo: alumno.sexo || 'V',
+                    bimestres: {
+                      1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+                      2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+                      3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+                      4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+                    }
+                  });
+                  for (const mat of todasMaterias) {
+                    const key = safeKey(`${mat.nombre}_${gradoActual}`);
+                    try {
+                      const snap = await getDoc(doc(db, 'calificaciones', key));
+                      const estudiantesActuales = snap.exists() ? (snap.data().estudiantes || []) : [];
+                      const faltantes = alumnosDelGrado.filter(a => !estudiantesActuales.some(e => e.dni === a.dni));
+                      if (faltantes.length === 0) continue;
+                      const nuevosEst = [...estudiantesActuales, ...faltantes.map(a => estructuraVacia(a))];
+                      await setDoc(doc(db, 'calificaciones', key), { estudiantes: nuevosEst }, { merge: true });
+                      totalAgregados += faltantes.length;
+                    } catch(e) { console.error(`Error en ${mat.nombre}:`, e); }
+                  }
+                  // También áreas especiales con grados propios
+                  try {
+                    const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+                    const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
+                    for (const u of especiales) {
+                      for (const ma of (u.materiasAsignadas || [])) {
+                        const nombreMat = ma.nombre || ma;
+                        if (!(ma.grados || []).includes(gradoActual)) continue;
+                        const key = safeKey(`${nombreMat}_${gradoActual}`);
+                        try {
+                          const snap = await getDoc(doc(db, 'calificaciones', key));
+                          const estudiantesActuales = snap.exists() ? (snap.data().estudiantes || []) : [];
+                          const faltantes = alumnosDelGrado.filter(a => !estudiantesActuales.some(e => e.dni === a.dni));
+                          if (faltantes.length === 0) continue;
+                          const nuevosEst = [...estudiantesActuales, ...faltantes.map(a => estructuraVacia(a))];
+                          await setDoc(doc(db, 'calificaciones', key), { estudiantes: nuevosEst }, { merge: true });
+                          totalAgregados += faltantes.length;
+                        } catch(e) {}
+                      }
+                    }
+                  } catch(e) {}
+                  await showAlert(
+                    totalAgregados > 0
+                      ? `✅ Se sincronizaron ${totalAgregados} registro(s) faltantes en las materias de ${gradoLabel(gradoActual)}.`
+                      : `✅ Todo sincronizado. Todos los alumnos ya figuran en todas las materias de ${gradoLabel(gradoActual)}.`,
+                    'success', 'Sincronización completada'
+                  );
+                }}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--r)', background: 'var(--indigo)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                🔁 Sincronizar alumnos
+              </button>
+                            <button
+                onClick={async () => {
+                  const bajasDelGrado = bajas.filter(b => b.grado === gradoActual);
+                  if (bajasDelGrado.length === 0) return;
+                  const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia];
+                  let total = 0;
+                  for (const mat of todasMaterias) {
+                    const fsKey = safeKey(`${mat.nombre}_${gradoActual}`);
+                    try {
+                      const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                      if (!snap.exists()) continue;
+                      const estudiantes = snap.data().estudiantes || [];
+                      const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
+                      if (filtrados.length < estudiantes.length) {
+                        total += estudiantes.length - filtrados.length;
+                        await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
+                      }
+                    } catch(e) {}
+                  }
+                  // También áreas especiales con grados propios
+                  try {
+                    const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+                    const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
+                    for (const u of especiales) {
+                      for (const ma of (u.materiasAsignadas || [])) {
+                        if (!(ma.grados || []).includes(gradoActual)) continue;
+                        const fsKey = safeKey(`${ma.nombre}_${gradoActual}`);
+                        try {
+                          const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+                          if (!snap.exists()) continue;
+                          const estudiantes = snap.data().estudiantes || [];
+                          const filtrados = estudiantes.filter(e => !bajasDelGrado.some(b => b.dni === e.dni));
+                          if (filtrados.length < estudiantes.length) {
+                            total += estudiantes.length - filtrados.length;
+                            await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: filtrados }, { merge: true });
+                          }
+                        } catch(e) {}
+                      }
+                    }
+                  } catch(e) {}
+                  await showAlert(total > 0
+                    ? `✅ Sincronización completada. Se eliminaron ${total} registro(s) de alumnos dados de baja en las materias de ${gradoLabel(gradoActual)}.`
+                    : `✅ Todo sincronizado. No había registros pendientes de eliminar en ${gradoLabel(gradoActual)}.`,
+                    'success', 'Sincronización completada');
+                }}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                🔄 Sincronizar bajas
+              </button>
+            </div>
           </div>
         </div>
         {modalCerrarSesion && <ModalCerrarSesion />}
