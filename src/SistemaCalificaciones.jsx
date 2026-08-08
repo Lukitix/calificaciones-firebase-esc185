@@ -3555,9 +3555,6 @@ export default function SistemaCalificaciones() {
 }
 
 // ════════════════════════════════════════════════════════
-// COMPONENTE: Modal Registro de Modificaciones (admin)
-// ════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════
 // COMPONENTE: Modal Inasistencias
 // ════════════════════════════════════════════════════════
 function ModalInasistencias({ db, usuario, authUser, onClose, showAlert, showConfirm }) {
@@ -3892,8 +3889,7 @@ function ModalRegistroModificaciones({ db, onClose, showConfirm, showAlert }) {
   useEffect(() => {
     const q = query(
       collection(db, 'logs'),
-      orderBy('fecha', 'desc'),
-      limit(150)
+      orderBy('fecha', 'desc')
     );
     const unsub = onSnapshot(q, snap => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -4018,7 +4014,7 @@ function ModalAvisos({ db, avisos, authUser, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 720 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>
@@ -4199,7 +4195,7 @@ function ModalNotifsBimestre({ db, notifs, onClose, showConfirm, showAlert }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 620 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -4576,7 +4572,7 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 460 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-purple-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-purple-800">👤 Mi Perfil</h3>
@@ -4839,7 +4835,7 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }}
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 520 }}
         style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-blue-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-blue-800">✉️ Mensajes</h3>
