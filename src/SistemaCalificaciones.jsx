@@ -1597,29 +1597,25 @@ export default function SistemaCalificaciones() {
     toastTimer.current = setTimeout(() => setToastVisible(false), 1800);
   }, []);
 
-  // Ref para evitar race conditions — siempre tiene el estado más reciente
+  // ── ACTUALIZAR CAMPO — versión robusta con mutex para evitar race conditions ──
+  // Usamos una ref para mantener siempre el último estado de estudiantes
+  // y un mutex (cola) para serializar escrituras a Firestore
   const estudiantesLatestRef = React.useRef({});
+  const saveQueueRef = React.useRef(Promise.resolve());
+
   useEffect(() => {
     estudiantesLatestRef.current = estudiantes;
   }, [estudiantes]);
 
-  const actualizarCampo = async (id, bimestre, campo, valor) => {
+  const actualizarCampo = (id, bimestre, campo, valor) => {
     if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
 
-    // Leer el estado más reciente desde Firestore para evitar race conditions
-    // Especialmente crítico en celular con conexión lenta
-    let listaBase;
-    try {
-      const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-      listaBase = snap.exists() ? (snap.data().estudiantes || []) : (estudiantesLatestRef.current[key] || []);
-    } catch(e) {
-      // Si falla la lectura, usar el estado local
-      listaBase = estudiantesLatestRef.current[key] || [];
-    }
-
-    const lista = listaBase.map(est => {
+    // 1. Actualizar estado local inmediatamente usando la ref más reciente
+    // Esto garantiza que cada llamada acumula sobre el estado previo correcto
+    const listaActual = estudiantesLatestRef.current[key] || [];
+    const lista = listaActual.map(est => {
       if (est.id !== id) return est;
       const valorAnterior = est.bimestres?.[bimestre]?.[campo] || '';
       const nuevoBim = { ...est.bimestres?.[bimestre], [campo]: valor };
@@ -1653,18 +1649,25 @@ export default function SistemaCalificaciones() {
       return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBim } };
     });
 
-    // Actualizar estado local
+    // Actualizar ref y estado local inmediatamente
+    estudiantesLatestRef.current = { ...estudiantesLatestRef.current, [key]: lista };
     setEstudiantes(prev => ({ ...prev, [key]: lista }));
 
-    // Guardar en Firestore
-    try {
-      await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
-      showToast();
-      setSavedCells(prev => ({ ...prev, [`${id}_${bimestre}`]: true }));
-      setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500);
-    } catch(e) {
-      showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error');
-    }
+    // 2. Encolar escritura a Firestore — serializada para evitar race conditions
+    // Cada escritura espera a que termine la anterior antes de ejecutarse
+    // La última escritura encolada siempre tiene el estado más reciente
+    saveQueueRef.current = saveQueueRef.current.then(async () => {
+      // Leer el estado MÁS RECIENTE de la ref en el momento de escribir
+      const listaFinal = estudiantesLatestRef.current[key] || [];
+      try {
+        await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: listaFinal }, { merge: true });
+        showToast();
+        setSavedCells(prev => ({ ...prev, [`${id}_${bimestre}`]: true }));
+        setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500);
+      } catch(e) {
+        showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error');
+      }
+    });
   };
 
   const actualizarObservacion = (id, bimestre, texto) => {
