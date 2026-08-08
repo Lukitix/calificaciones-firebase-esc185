@@ -1649,6 +1649,58 @@ export default function SistemaCalificaciones() {
   // ── TÍTULO DE PESTAÑA ──
   useTituloPestana(pantalla, materia, grado);
 
+  // ── LIMPIEZA PUNTUAL: Gonzalez Yanela Marisol 7°C ──
+  useEffect(() => {
+    if (!authUser || !usuario || usuario.rol !== 'administrador') return;
+    const limpiarYanela = async () => {
+      const ALUMNA = { dni: '52.526.361', nombre: 'Gonzalez Yanela Marisol' };
+      const GRADO = '7°C';
+      const todasMaterias = [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia];
+      let limpiadas = 0;
+      for (const mat of todasMaterias) {
+        const key = safeKey(`${mat.nombre}_${GRADO}`);
+        try {
+          const snap = await getDoc(doc(db, 'calificaciones', key));
+          if (!snap.exists()) continue;
+          const estudiantes = snap.data().estudiantes || [];
+          const filtrados = estudiantes.filter(e => e.dni !== ALUMNA.dni);
+          if (filtrados.length < estudiantes.length) {
+            await setDoc(doc(db, 'calificaciones', key), { estudiantes: filtrados }, { merge: true });
+            limpiadas++;
+          }
+        } catch(e) {}
+      }
+      // También especiales
+      try {
+        const usuariosSnap = await getDocs(collection(db, 'usuarios'));
+        const especiales = usuariosSnap.docs.map(d => ({ ...d.data() })).filter(u => u.rol === 'area_especial');
+        for (const u of especiales) {
+          for (const ma of (u.materiasAsignadas || [])) {
+            if (!(ma.grados || []).includes(GRADO)) continue;
+            const key = safeKey(`${ma.nombre}_${GRADO}`);
+            try {
+              const snap = await getDoc(doc(db, 'calificaciones', key));
+              if (!snap.exists()) continue;
+              const estudiantes = snap.data().estudiantes || [];
+              const filtrados = estudiantes.filter(e => e.dni !== ALUMNA.dni);
+              if (filtrados.length < estudiantes.length) {
+                await setDoc(doc(db, 'calificaciones', key), { estudiantes: filtrados }, { merge: true });
+                limpiadas++;
+              }
+            } catch(e) {}
+          }
+        }
+      } catch(e) {}
+      if (limpiadas > 0) console.log(`✅ Yanela eliminada de ${limpiadas} materias`);
+      // Auto-remove this cleanup after running once
+      await setDoc(doc(db, 'datos', 'limpiezasEjecutadas'), { yanela7C: true }, { merge: true });
+    };
+    // Solo ejecutar si no se ejecutó antes
+    getDoc(doc(db, 'datos', 'limpiezasEjecutadas')).then(snap => {
+      if (!snap.exists() || !snap.data()?.yanela7C) limpiarYanela();
+    });
+  }, [authUser?.uid, usuario?.rol]);
+
   // ── BLOQUEO AUTOMÁTICO POR FECHA ──
   // 1° Bimestre: silencioso desde 13/05/2026 23:59
   // 2° Bimestre: silencioso desde 07/08/2026 23:59
@@ -2421,10 +2473,7 @@ export default function SistemaCalificaciones() {
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--slate)' }}>{b.motivo}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>{b.fecha}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <button onClick={() => eliminarRegistroBaja(b)} className="btn-primary"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 'var(--r)', background: 'var(--red-lt)', color: 'var(--red)', border: '1.5px solid #fecaca', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                            <Trash2 size={13} /> Eliminar
-                          </button>
+                          <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Solo lectura</span>
                         </td>
                       </tr>
                     ))}
@@ -2754,6 +2803,21 @@ export default function SistemaCalificaciones() {
               </div>
               {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 20px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre en curso</span>}
             </div>
+
+            {/* BANNER NOVEDAD — sincronización de alumnos */}
+            {isDocGrado && (
+              <div style={{ marginBottom: 16, background: 'var(--blue-lt)', border: '1.5px solid #bfdbfe', borderRadius: 'var(--r)', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>📢</span>
+                <div>
+                  <p style={{ fontWeight: 700, color: '#1e40af', fontSize: 14, marginBottom: 4 }}>Novedad — Sincronización de alumnos</p>
+                  <p style={{ fontSize: 13, color: '#1e40af', lineHeight: 1.6 }}>
+                    En <strong>Gestión de Alumnos</strong> encontrás dos nuevas opciones al final de la pantalla:<br/>
+                    🔁 <strong>Sincronizar alumnos</strong> — si agregaste un alumno/a y no aparece en todas las materias.<br/>
+                    🔄 <strong>Sincronizar bajas</strong> — si diste de baja a un alumno/a y sigue apareciendo en alguna materia.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* SELECTOR DE GRADO para docentes con múltiples grados */}
             {isDocGrado && (usuario?.gradosAsignados?.length > 1) && (
