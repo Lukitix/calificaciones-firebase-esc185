@@ -3887,9 +3887,14 @@ function ModalRegistroModificaciones({ db, onClose, showConfirm, showAlert }) {
   const LOGS_PAGE = 20;
 
   useEffect(() => {
+    // Traer solo logs de los últimos 7 días para no sobrecargar
+    const fechaLimite = new Date();
+    fechaLimite.setDate(fechaLimite.getDate() - 7);
     const q = query(
       collection(db, 'logs'),
-      orderBy('fecha', 'desc')
+      orderBy('fecha', 'desc'),
+      where('fecha', '>=', fechaLimite.toISOString()),
+      limit(500)
     );
     const unsub = onSnapshot(q, snap => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -3919,10 +3924,18 @@ function ModalRegistroModificaciones({ db, onClose, showConfirm, showAlert }) {
               if (!ok) return;
               const limite = new Date();
               limite.setDate(limite.getDate() - 60);
-              const q = query(collection(db, "logs"), where("fecha", "<", limite.toISOString()));
-              const snap = await getDocs(q);
-              await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "logs", d.id))));
-              await showAlert(`✅ Se eliminaron ${snap.docs.length} registros de más de 60 días.`, "success", "Limpieza completada");
+              // Borrar en batches de 400 para no superar límite de Firestore
+              let totalBorrados = 0;
+              let continuar = true;
+              while (continuar) {
+                const q2 = query(collection(db, "logs"), where("fecha", "<", limite.toISOString()), limit(400));
+                const snap2 = await getDocs(q2);
+                if (snap2.empty) { continuar = false; break; }
+                await Promise.all(snap2.docs.map(d => deleteDoc(doc(db, "logs", d.id))));
+                totalBorrados += snap2.docs.length;
+                if (snap2.docs.length < 400) continuar = false;
+              }
+              await showAlert(`✅ Se eliminaron ${totalBorrados} registros de más de 60 días.`, "success", "Limpieza completada");
             }}
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: "var(--r)", background: "rgba(255,255,255,.15)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               🗑 Limpiar +60 días
