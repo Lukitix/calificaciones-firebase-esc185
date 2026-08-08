@@ -1719,6 +1719,15 @@ export default function SistemaCalificaciones() {
 
   const toggleBloquearBimestre = async (bim) => {
     const bloqueando = !bimestresBlockeados[bim];
+    // Prevenir que el docente desbloquee manualmente si fue bloqueado por fecha automática
+    if (!bloqueando) {
+      const ahora = new Date();
+      const limites = [null, new Date(fechasBloqueo.bim1 || '2099'), new Date(fechasBloqueo.bim2 || '2099'), new Date(fechasBloqueo.bim3 || '2099'), new Date(fechasBloqueo.bim4 || '2099')];
+      if (fechasBloqueo[`bim${bim}`] && ahora > limites[bim]) {
+        await showAlert('Este bimestre fue cerrado automáticamente por vencimiento del plazo. Solo la Directora puede habilitarlo nuevamente.', 'warning', '🔒 Bloqueado por fecha');
+        return;
+      }
+    }
 
     // Si está bloqueando (marcando completo), validar notas
     if (bloqueando) {
@@ -2639,6 +2648,7 @@ export default function SistemaCalificaciones() {
         onAbrirInasistencias={() => setShowInasistencias(true)}
         onAbrirSinNotas={() => setShowSinNotas(true)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
+        showConfirm={showConfirm} todosUsuarios={todosUsuarios}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
       {docenteActividad && (
         <ModalActividadDocente
@@ -5682,12 +5692,15 @@ function ModalActividadDocente({ db, docente, alumnosGlobales, onClose }) {
 }
 
 // ════════════════════════════════════════════════════════
-function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, onAbrirInasistencias, onAbrirSinNotas, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab }) {
+function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, showAlert, onInicio, onCerrarSesion, onEditarDocente, onVerEntregas, onVerAlumnos, onVerCalificaciones, onVerActividad, onAbrirMensajes, onAbrirBimestres, onAbrirModificaciones, onAbrirRecordatorio, onAbrirSolicitudes, onAbrirInasistencias, onAbrirSinNotas, rolLabel, modalCerrarSesion, ModalCerrarSesion, ModalRenderer, TopBar, Badge, initialTab, todosUsuarios }) {
   const [usuarios, setUsuarios] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActiva, setTabActiva] = useState(initialTab || 'grado');
   const [seccion, setSeccion] = useState('docentes');
   const [inasistenciasNoVistasGU, setInasistenciasNoVistasGU] = useState(0);
+  const [docenteDesbloqueo, setDocenteDesbloqueo] = useState(null);
+  const [bimestresDesbloqueo, setBimestresDesbloqueo] = useState({ 1: false, 2: false, 3: false, 4: false });
+  const [desbloqueando, setDesbloqueando] = useState(false);
 
   useEffect(() => {
     const unsub = onSnapshot(
