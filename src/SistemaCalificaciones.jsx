@@ -332,10 +332,10 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .n-field-input:focus { border-color: var(--indigo); }
 @media (max-width: 768px) {
   .topbar-actions { flex-wrap: wrap; gap: 4px !important; }
-  .topbar-actions button { padding: 6px 10px !important; font-size: 11px !important; }
-  .cards-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .topbar-actions button { padding: 6px 10px !important; font-size: 12px !important; }
+  .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
   .cards-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
-  .welcome-bar { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .welcome-bar { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; padding: 16px !important; }
   .tabla-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .sidebar-admin { display: none !important; }
   .modal-wide { max-width: 95vw !important; margin: 8px !important; }
@@ -343,16 +343,23 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
   .registro-left { width: 100% !important; max-height: 200px; overflow: hidden; }
   .registro-right { width: 100% !important; }
   .login-layout { flex-direction: column !important; }
-  .login-left { width: 100% !important; padding: 24px !important; }
-  .login-right { width: 100% !important; padding: 24px !important; }
-  .login-img { width: 120px !important; height: 120px !important; }
-  .nota-input { width: 38px !important; height: 32px !important; font-size: 12px !important; }
-  .chip-materia-text { font-size: 12px !important; }
-  .materia-icon { width: 52px !important; height: 52px !important; font-size: 28px !important; }
+  .login-left { display: none !important; }
+  .login-right { width: 100% !important; padding: 32px 24px !important; }
+  .nota-input { width: 42px !important; height: 36px !important; font-size: 14px !important; }
+  .chip-materia-text { font-size: 13px !important; }
+  .materia-icon { width: 56px !important; height: 56px !important; font-size: 30px !important; }
+  .fixed { position: fixed !important; }
+  .modal-inner { max-height: 85vh !important; overflow-y: auto; }
+  .criterios-panel { font-size: 13px !important; }
+  .topbar-fixed { padding: 8px 12px !important; }
+  .breadcrumb { font-size: 12px !important; }
+  div[style*="padding: '28px 28px'"] { padding: 16px !important; }
 }
 @media (max-width: 480px) {
   .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-  .topbar-title { font-size: 13px !important; }
+  .topbar-title { font-size: 14px !important; }
+  * { -webkit-text-size-adjust: 100%; }
+  input, select, textarea { font-size: 16px !important; }
 }
 .n-field-input { border: 1.5px solid var(--border); border-radius: var(--r); padding: 10px 14px; font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; background: #fff; line-height: 1.5; font-size: 16px; }
 .n-field-input:focus { border-color: var(--indigo); }
@@ -1590,53 +1597,74 @@ export default function SistemaCalificaciones() {
     toastTimer.current = setTimeout(() => setToastVisible(false), 1800);
   }, []);
 
-  const actualizarCampo = (id, bimestre, campo, valor) => {
+  // Ref para evitar race conditions — siempre tiene el estado más reciente
+  const estudiantesLatestRef = React.useRef({});
+  useEffect(() => {
+    estudiantesLatestRef.current = estudiantes;
+  }, [estudiantes]);
+
+  const actualizarCampo = async (id, bimestre, campo, valor) => {
     if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
-    setEstudiantes(prev => {
-      const nuevos = { ...prev };
-      const lista = (nuevos[key] || []).map(est => {
-        if (est.id !== id) return est;
-        const valorAnterior = est.bimestres?.[bimestre]?.[campo] || '';
-        const nuevoBim = { ...est.bimestres[bimestre], [campo]: valor };
-        if (campo.startsWith('n')) {
-          // Calcular promedio solo con los criterios que están siendo usados en este bimestre
-          const critsUsados = criteriosPorBimestre[bimestre] || [];
-          const claves = critsUsados.length > 0
-            ? critsUsados.map((_, i) => `n${i+1}`)
-            : ['n1','n2','n3','n4','n5'];
-          const notas = claves.map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
-          nuevoBim.nota = notas.length > 0
-            ? (Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100).toFixed(2)
-            : '';
-        }
-        // Registrar cambio si hay diferencia real
-        if (valor !== valorAnterior && campo.startsWith('n') && (valor || valorAnterior)) {
-          const criterioIdx = parseInt(campo.replace('n','')) - 1;
-          const criterioNombre = criteriosPorBimestre[bimestre]?.[criterioIdx] || campo;
-          setDoc(doc(collection(db, 'logs')), {
-            docente: usuario?.nombre || '—',
-            alumno: est.nombre,
-            materia: materia.nombre,
-            grado,
-            bimestre,
-            criterio: criterioNombre,
-            antes: valorAnterior || '(vacío)',
-            despues: valor || '(vacío)',
-            fecha: new Date().toISOString(),
-            fechaCorta: new Date().toLocaleDateString('es-AR'),
-            hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
-          });
-        }
-        return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBim } };
-      });
-      nuevos[key] = lista;
-      setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true })
-        .then(() => { showToast(); setSavedCells(prev => ({ ...prev, [`${id}_${bimestre}`]: true })); setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500); })
-        .catch(() => showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error'));
-      return nuevos;
+
+    // Leer el estado más reciente desde Firestore para evitar race conditions
+    // Especialmente crítico en celular con conexión lenta
+    let listaBase;
+    try {
+      const snap = await getDoc(doc(db, 'calificaciones', fsKey));
+      listaBase = snap.exists() ? (snap.data().estudiantes || []) : (estudiantesLatestRef.current[key] || []);
+    } catch(e) {
+      // Si falla la lectura, usar el estado local
+      listaBase = estudiantesLatestRef.current[key] || [];
+    }
+
+    const lista = listaBase.map(est => {
+      if (est.id !== id) return est;
+      const valorAnterior = est.bimestres?.[bimestre]?.[campo] || '';
+      const nuevoBim = { ...est.bimestres?.[bimestre], [campo]: valor };
+      if (campo.startsWith('n')) {
+        const critsUsados = criteriosPorBimestre[bimestre] || [];
+        const claves = critsUsados.length > 0
+          ? critsUsados.map((_, i) => `n${i+1}`)
+          : ['n1','n2','n3','n4','n5'];
+        const notas = claves.map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
+        nuevoBim.nota = notas.length > 0
+          ? (Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100).toFixed(2)
+          : '';
+      }
+      // Log del cambio
+      if (valor !== valorAnterior && campo.startsWith('n') && (valor || valorAnterior)) {
+        const criterioIdx = parseInt(campo.replace('n','')) - 1;
+        const criterioNombre = criteriosPorBimestre[bimestre]?.[criterioIdx] || campo;
+        setDoc(doc(collection(db, 'logs')), {
+          docente: usuario?.nombre || '—',
+          alumno: est.nombre,
+          materia: materia.nombre,
+          grado, bimestre,
+          criterio: criterioNombre,
+          antes: valorAnterior || '(vacío)',
+          despues: valor || '(vacío)',
+          fecha: new Date().toISOString(),
+          fechaCorta: new Date().toLocaleDateString('es-AR'),
+          hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+        });
+      }
+      return { ...est, bimestres: { ...est.bimestres, [bimestre]: nuevoBim } };
     });
+
+    // Actualizar estado local
+    setEstudiantes(prev => ({ ...prev, [key]: lista }));
+
+    // Guardar en Firestore
+    try {
+      await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: lista }, { merge: true });
+      showToast();
+      setSavedCells(prev => ({ ...prev, [`${id}_${bimestre}`]: true }));
+      setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500);
+    } catch(e) {
+      showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error');
+    }
   };
 
   const actualizarObservacion = (id, bimestre, texto) => {
@@ -3221,16 +3249,7 @@ export default function SistemaCalificaciones() {
                       {bimestresBlockeados[bim] && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'var(--green-lt)', padding: '1px 7px', borderRadius: 20 }}>✅ Completo</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 5 }}>
-                      {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && bim > 1 && (criteriosPorBimestre[bim - 1] || []).length > 0 && (criteriosPorBimestre[bim] || []).length === 0 && (
-                        <button onClick={async () => {
-                          const origen = criteriosPorBimestre[bim - 1] || [];
-                          const nuevos = { ...criteriosPorBimestre, [bim]: [...origen] };
-                          await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criteriosPorBimestre: nuevos }, { merge: true });
-                        }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
-                          📋 Repetir criterios del {bim - 1}° Bimestre
-                        </button>
-                      )}
+
                       {usuario?.rol !== 'administrador' && !bimestresBlockeados[bim] && (
                         <button onClick={() => agregarCriterio(bim)}
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
@@ -3272,8 +3291,8 @@ export default function SistemaCalificaciones() {
             <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No hay estudiantes registrados</p><p style={{ fontSize: 13, marginTop: 4 }}>Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <>
-              {/* Banner alumnos sin nota en bimestre cerrado */}
-              {(() => {
+              {/* Banner alumnos sin nota en bimestre cerrado — solo para docentes, no admin */}
+              {usuario?.rol !== 'administrador' && (() => {
                 const bimsCerrados = [1,2,3,4].filter(b => bimestresBlockeados[b]);
                 const sinNotaCerrado = estActuales.filter(e =>
                   bimsCerrados.some(b => {
