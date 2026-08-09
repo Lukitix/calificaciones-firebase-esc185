@@ -708,13 +708,13 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
     const abreviarMateria = (nombre) => {
       const abrevs = {
-        'Lengua y Literatura': 'Lengua y Lit.',
-        'Ciencias Sociales': 'Cs. Sociales',
-        'Ciencias Naturales': 'Cs. Naturales',
-        'Formación Ética y Ciudadana': 'Form. Ética',
-        'Educación Artística: Plástica': 'Art.: Plástica',
-        'Educación Artística: Música': 'Art.: Música',
-        'Educación Física': 'Ed. Física',
+        'Lengua y Literatura': 'Lengua y\nLiteratura',
+        'Ciencias Sociales': 'Cs.\nSociales',
+        'Ciencias Naturales': 'Cs.\nNaturales',
+        'Formación Ética y Ciudadana': 'Form.\nÉtica',
+        'Educación Artística: Plástica': 'Art.\nPlástica',
+        'Educación Artística: Música': 'Art.\nMúsica',
+        'Educación Física': 'Ed.\nFísica',
         'Lengua Extranjera: Inglés': 'Inglés',
         'Lengua Extranjera: Portugués': 'Portugués',
         'Taller de Ajedrez': 'T. Ajedrez',
@@ -722,6 +722,9 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         'Taller de Plástica': 'T. Plástica',
         'Taller de Danza': 'T. Danza',
         'Taller de Tecnología': 'T. Tecnología',
+        'Informática': 'Informática',
+        'Tecnología': 'Tecnología',
+        'Laboratorio': 'Laboratorio',
         'Convivencia': 'Convivencia',
       };
       return abrevs[nombre] || nombre;
@@ -760,15 +763,21 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
     let primerPagina = true;
 
-    // Detectar bimestre activo para el título
-    const ahora = new Date();
-    const getBimActivo = () => {
-      if (ahora <= new Date('2026-05-13T23:59:59')) return '1°';
-      if (ahora <= new Date('2026-08-08T23:59:59')) return '2°';
-      if (ahora <= new Date('2026-11-01T23:59:59')) return '3°';
-      return '4°';
-    };
-    const bimActivo = getBimActivo();
+    // Detectar bimestre del PDF: el último bimestre bloqueado con notas cargadas
+    // Leemos fechasBloqueo de Firestore para determinar cuál cerró último
+    let bimActivo = '2°'; // default
+    try {
+      const fechasSnap = await getDoc(doc_ref(db, 'configuracion', 'fechasBloqueo'));
+      if (fechasSnap.exists()) {
+        const fd = fechasSnap.data();
+        const ahora = new Date();
+        // El bimestre del PDF es el último que ya cerró (fecha pasada)
+        if (fd.bim4 && ahora > new Date(fd.bim4)) bimActivo = '4°';
+        else if (fd.bim3 && ahora > new Date(fd.bim3)) bimActivo = '3°';
+        else if (fd.bim2 && ahora > new Date(fd.bim2)) bimActivo = '2°';
+        else bimActivo = '1°';
+      }
+    } catch(e) { bimActivo = '2°'; }
 
     // Calcular promedio cuatrimestral de un alumno sobre un conjunto de materias
     const calcCuatrimestre = (al, datos, bimA, bimB) => {
@@ -820,10 +829,10 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
           1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
         };
         for (let i = 2; i <= nMaterias + 1; i++) {
-          styles[i] = { cellWidth: 14, halign: 'center', minCellHeight: 0 };
+          styles[i] = { cellWidth: 18, halign: 'center', minCellHeight: 0 };
         }
-        // Última columna (1°Cuat) un poco más ancha
-        styles[nMaterias + 2] = { cellWidth: 16, halign: 'center', fontStyle: 'bold' };
+        // Última columna (1°Cuat) un poco más ancha y destacada
+        styles[nMaterias + 2] = { cellWidth: 18, halign: 'center', fontStyle: 'bold' };
         return styles;
       };
 
@@ -846,7 +855,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       autoTable(pdfDoc, {
         startY: 32, head: headCurr, body: buildBody(datosCurr),
         styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
-        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
         columnStyles: buildColumnStyles(curriculares.length, primerCiclo ? 42 : 48),
         alternateRowStyles: { fillColor: [249, 250, 251] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
@@ -869,7 +878,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
         styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
         columnStyles: buildColumnStyles(especiales.length, primerCiclo ? 38 : 46),
         alternateRowStyles: { fillColor: [255, 251, 235] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
@@ -892,7 +901,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         autoTable(pdfDoc, {
           startY: 32, head: headTall, body: buildBody(datosTall),
           styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
-          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
           columnStyles: buildColumnStyles(talleres.length, primerCiclo ? 38 : 46),
           alternateRowStyles: { fillColor: [236, 253, 245] },
           tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
