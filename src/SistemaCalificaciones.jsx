@@ -721,6 +721,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         'Taller de Música': 'T. Música',
         'Taller de Plástica': 'T. Plástica',
         'Taller de Danza': 'T. Danza',
+        'Taller de Tecnología': 'T. Tecnología',
         'Convivencia': 'Convivencia',
       };
       return abrevs[nombre] || nombre;
@@ -759,6 +760,31 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
     let primerPagina = true;
 
+    // Detectar bimestre activo para el título
+    const ahora = new Date();
+    const getBimActivo = () => {
+      if (ahora <= new Date('2026-05-13T23:59:59')) return '1°';
+      if (ahora <= new Date('2026-08-08T23:59:59')) return '2°';
+      if (ahora <= new Date('2026-11-01T23:59:59')) return '3°';
+      return '4°';
+    };
+    const bimActivo = getBimActivo();
+
+    // Calcular promedio cuatrimestral de un alumno sobre un conjunto de materias
+    const calcCuatrimestre = (al, datos, bimA, bimB) => {
+      const notas = datos.map(({ estudiantes }) => {
+        const est = estudiantes.find(e => e.dni === al.dni);
+        const nA = parseFloat(est?.bimestres?.[bimA]?.nota);
+        const nB = parseFloat(est?.bimestres?.[bimB]?.nota);
+        if (!isNaN(nA) && !isNaN(nB)) return (nA + nB) / 2;
+        if (!isNaN(nA)) return nA;
+        if (!isNaN(nB)) return nB;
+        return null;
+      }).filter(n => n !== null);
+      if (notas.length === 0) return '—';
+      return (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2);
+    };
+
     for (const grado of gradosDocente) {
       const alumnosDelGrado = alumnosGlobales[grado] || [];
       if (alumnosDelGrado.length === 0) continue;
@@ -769,6 +795,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         return a.nombre.localeCompare(b.nombre, 'es');
       });
 
+      // buildBody: una columna por materia (nota bimestre activo) + columna 1°Cuat
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
         datos.forEach(({ estudiantes }) => {
@@ -779,10 +806,26 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
           const b4 = est?.bimestres?.[4]?.nota || '';
           const pf = calcularPromedioFinal(b1, b2, b3, b4);
           const notaMostrar = pf || b4 || b3 || b2 || b1;
-          row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : notaMostrar) : '—');
+          row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : String(notaMostrar)) : '—');
         });
+        // Columna 1°Cuatrimestre
+        row.push(primerCiclo ? '—' : calcCuatrimestre(al, datos, 1, 2));
         return row;
       });
+
+      // Ancho fijo para columnas de notas (evita que el 10 se parta)
+      const buildColumnStyles = (nMaterias, nAmbre) => {
+        const styles = {
+          0: { cellWidth: 7, halign: 'center' },
+          1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
+        };
+        for (let i = 2; i <= nMaterias + 1; i++) {
+          styles[i] = { cellWidth: 14, halign: 'center', minCellHeight: 0 };
+        }
+        // Última columna (1°Cuat) un poco más ancha
+        styles[nMaterias + 2] = { cellWidth: 16, halign: 'center', fontStyle: 'bold' };
+        return styles;
+      };
 
       // ── Página 1: Áreas Curriculares (+ Convivencia) ──
       const curriculares = getMateriasDocente(grado).filter(m =>
@@ -798,13 +841,13 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
       if (!primerPagina) pdfDoc.addPage();
       primerPagina = false;
-      encabezado('Áreas Curriculares — Promedios Finales', grado);
-      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre))]];
+      encabezado(`Áreas Curriculares — ${bimActivo} Bimestre`, grado);
+      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre)), '1°Cuat.']];
       autoTable(pdfDoc, {
         startY: 32, head: headCurr, body: buildBody(datosCurr),
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 9, cellPadding: 2.5, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold' },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+        headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+        columnStyles: buildColumnStyles(curriculares.length, primerCiclo ? 42 : 48),
         alternateRowStyles: { fillColor: [249, 250, 251] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
@@ -821,13 +864,13 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       }));
 
       pdfDoc.addPage();
-      encabezado('Áreas Especiales — Promedios Finales', grado);
-      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre))]];
+      encabezado(`Áreas Especiales — ${bimActivo} Bimestre`, grado);
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+        columnStyles: buildColumnStyles(especiales.length, primerCiclo ? 38 : 46),
         alternateRowStyles: { fillColor: [255, 251, 235] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
@@ -844,13 +887,13 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
           estudiantes: snapsTall[i].exists() ? (snapsTall[i].data().estudiantes || []) : []
         }));
         pdfDoc.addPage();
-        encabezado('Talleres — Promedios Finales', grado);
-        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre))]];
+        encabezado(`Talleres — ${bimActivo} Bimestre`, grado);
+        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
         autoTable(pdfDoc, {
           startY: 32, head: headTall, body: buildBody(datosTall),
-          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 8, cellPadding: primerCiclo ? 2 : 3, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2 },
-          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', minCellHeight: 14, fontSize: primerCiclo ? 6 : 7 },
-          columnStyles: { 0: { cellWidth: 8 }, 1: { halign: 'left', cellWidth: primerCiclo ? 42 : 52 } },
+          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 12 },
+          columnStyles: buildColumnStyles(talleres.length, primerCiclo ? 38 : 46),
           alternateRowStyles: { fillColor: [236, 253, 245] },
           tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
         });
