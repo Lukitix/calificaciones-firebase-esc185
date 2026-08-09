@@ -811,31 +811,32 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         bimActivo === '2°' ? { bimA: 1, bimB: 2, label: '1°Cuat.' } :
         null; // 1° o 3° bimestre: todavía no cierra un cuatrimestre completo
 
-      // buildBody: cada materia muestra su PROPIO promedio cuatrimestral: (Prom.bimA + Prom.bimB) / 2
-      // (igual cálculo que se ve en pantalla para cada materia). La última columna es el promedio
-      // general del área, resultado de promediar esos cuatrimestres por materia.
+      // buildBody: cada columna de materia muestra el Prom. del BIMESTRE ACTIVO tal cual (ej. Prom. 2° bim).
+      // La columna final ("1°Cuat"/"2°Cuat") es aparte: para CADA materia se calcula
+      // (Prom.bimA + Prom.bimB) / 2, y esos resultados por materia se promedian entre sí
+      // para dar el número final de esa columna.
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
         const cuatsPorMateria = [];
+        const bimNum = parseInt(bimActivo);
         datos.forEach(({ estudiantes }) => {
           const est = estudiantes.find(e => e.dni === al.dni);
-          let valorMostrar = '';
+
+          // Columna de la materia: Prom. del bimestre activo, sin promediar con nada más
+          const valorMostrar = est?.bimestres?.[bimNum]?.nota || '';
+          row.push(valorMostrar ? (primerCiclo ? textoConceptual(valorMostrar) : String(valorMostrar)) : '—');
+
+          // Para la columna final: cuatrimestre de ESTA materia = (Prom.bimA + Prom.bimB) / 2
           if (cuatAConsiderar) {
             const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
             const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
-            if (!isNaN(nA) && !isNaN(nB)) valorMostrar = ((nA + nB) / 2).toFixed(2);
-            else if (!isNaN(nA)) valorMostrar = nA.toFixed(2);
-            else if (!isNaN(nB)) valorMostrar = nB.toFixed(2);
-          } else {
-            // Todavía no cerró un cuatrimestre completo: se muestra la nota del bimestre activo tal cual
-            const bimNum = parseInt(bimActivo);
-            valorMostrar = est?.bimestres?.[bimNum]?.nota || '';
+            if (!isNaN(nA) && !isNaN(nB)) cuatsPorMateria.push((nA + nB) / 2);
+            else if (!isNaN(nA)) cuatsPorMateria.push(nA);
+            else if (!isNaN(nB)) cuatsPorMateria.push(nB);
           }
-          if (valorMostrar !== '' && !isNaN(parseFloat(valorMostrar))) cuatsPorMateria.push(parseFloat(valorMostrar));
-          row.push(valorMostrar ? (primerCiclo ? textoConceptual(valorMostrar) : String(valorMostrar)) : '—');
         });
         // Columna final: promedio general del área (promedio de los cuatrimestres de cada materia)
-        const promedioGeneral = cuatsPorMateria.length > 0
+        const promedioGeneral = cuatAConsiderar && cuatsPorMateria.length > 0
           ? (cuatsPorMateria.reduce((a, b) => a + b, 0) / cuatsPorMateria.length).toFixed(2)
           : '—';
         row.push(primerCiclo ? '—' : promedioGeneral);
