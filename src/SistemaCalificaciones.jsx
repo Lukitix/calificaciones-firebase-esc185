@@ -812,9 +812,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         null; // 1° o 3° bimestre: todavía no cierra un cuatrimestre completo
 
       // buildBody: cada columna de materia muestra el Prom. del BIMESTRE ACTIVO tal cual (ej. Prom. 2° bim).
-      // La columna final ("1°Cuat"/"2°Cuat") es aparte: para CADA materia se calcula
-      // (Prom.bimA + Prom.bimB) / 2, y esos resultados por materia se promedian entre sí
-      // para dar el número final de esa columna.
+      // Se usa para Áreas Especiales y Talleres (columna final única con el promedio general del área).
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
         const cuatsPorMateria = [];
@@ -843,6 +841,44 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         return row;
       });
 
+      // buildBodyCurricular: SOLO para Áreas Curriculares. Cada materia curricular va seguida de
+      // su PROPIA columna de cuatrimestre: (Prom.bimA + Prom.bimB) / 2 de ESA materia únicamente.
+      // Convivencia no participa del cálculo de cuatrimestre: va como columna simple al final.
+      const buildBodyCurricular = (datos) => {
+        const bimNum = parseInt(bimActivo);
+        return alumnosOrdenados.map((al, idx) => {
+          const row = [String(idx + 1), al.nombre];
+          let convivenciaFmt = '—';
+          datos.forEach(({ nombre, estudiantes }) => {
+            const est = estudiantes.find(e => e.dni === al.dni);
+            const valorActivo = est?.bimestres?.[bimNum]?.nota || '';
+            const valorFmt = valorActivo ? (primerCiclo ? textoConceptual(valorActivo) : String(valorActivo)) : '—';
+
+            if (nombre === 'Convivencia') {
+              convivenciaFmt = valorFmt; // se agrega al final, sin columna de cuatrimestre
+              return;
+            }
+
+            row.push(valorFmt);
+
+            // Cuatrimestre de ESTA materia
+            let cuatFmt = '—';
+            if (cuatAConsiderar) {
+              const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
+              const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
+              let cuatVal = null;
+              if (!isNaN(nA) && !isNaN(nB)) cuatVal = (nA + nB) / 2;
+              else if (!isNaN(nA)) cuatVal = nA;
+              else if (!isNaN(nB)) cuatVal = nB;
+              if (cuatVal !== null) cuatFmt = primerCiclo ? textoConceptual(cuatVal.toFixed(2)) : cuatVal.toFixed(2);
+            }
+            row.push(cuatFmt);
+          });
+          row.push(convivenciaFmt);
+          return row;
+        });
+      };
+
       // Margen usado en las tablas del PDF unificado (debe coincidir con el `margin` pasado a autoTable)
       const PDF_MARGIN = 10;
       const anchoUtil = pageW - PDF_MARGIN * 2;
@@ -868,6 +904,30 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         return styles;
       };
 
+      // buildColumnStylesCurricular: ancho dinámico para el formato de pares (materia + su cuatrimestre).
+      // nMateriasConCuat = cantidad de materias curriculares SIN contar Convivencia.
+      // Total de columnas de datos = (nMateriasConCuat × 2) + 1 (columna simple de Convivencia).
+      const buildColumnStylesCurricular = (nMateriasConCuat, nAmbre) => {
+        const anchoNumero = 10;
+        const totalColumnasDatos = nMateriasConCuat * 2 + 1;
+        const restante = anchoUtil - anchoNumero - nAmbre;
+        const anchoCol = Math.max(restante / totalColumnasDatos, 13); // piso más chico porque son más columnas
+
+        const styles = {
+          0: { cellWidth: anchoNumero, halign: 'center' },
+          1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
+        };
+        let col = 2;
+        for (let i = 0; i < nMateriasConCuat; i++) {
+          styles[col] = { cellWidth: anchoCol, halign: 'center', minCellHeight: 0 };
+          col++;
+          styles[col] = { cellWidth: anchoCol, halign: 'center', fontStyle: 'bold', fillColor: [237, 233, 254] };
+          col++;
+        }
+        styles[col] = { cellWidth: anchoCol, halign: 'center' }; // Convivencia
+        return styles;
+      };
+
       // ── Página 1: Áreas Curriculares (+ Convivencia) ──
       const curriculares = getMateriasDocente(grado).filter(m =>
         [...areas.curriculares, ...areas.convivencia].some(a => a.nombre === m.nombre)
@@ -883,13 +943,21 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       if (!primerPagina) pdfDoc.addPage();
       primerPagina = false;
       encabezado(`Áreas Curriculares — ${bimActivo} Bimestre`, grado);
-      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre)), cuatAConsiderar?.label || bimActivo + ' Bim.']];
+      const materiasCurricConCuat = curriculares.filter(m => m.nombre !== 'Convivencia');
+      const labelCuat = cuatAConsiderar?.label || (bimActivo + ' Bim.');
+      const headCurrRow = ['#', 'Alumno/a'];
+      materiasCurricConCuat.forEach(m => {
+        headCurrRow.push(abreviarMateria(m.nombre));
+        headCurrRow.push(labelCuat);
+      });
+      headCurrRow.push('Convivencia');
+      const headCurr = [headCurrRow];
       autoTable(pdfDoc, {
-        startY: 32, head: headCurr, body: buildBody(datosCurr),
+        startY: 32, head: headCurr, body: buildBodyCurricular(datosCurr),
         margin: { left: PDF_MARGIN, right: PDF_MARGIN },
         styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
         headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
-        columnStyles: buildColumnStyles(curriculares.length, primerCiclo ? 42 : 48),
+        columnStyles: buildColumnStylesCurricular(materiasCurricConCuat.length, primerCiclo ? 42 : 48),
         alternateRowStyles: { fillColor: [249, 250, 251] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
