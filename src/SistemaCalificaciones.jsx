@@ -804,35 +804,66 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         return a.nombre.localeCompare(b.nombre, 'es');
       });
 
-      // buildBody: una columna por materia (nota bimestre activo) + columna 1°Cuat
+      // Determina qué par de bimestres corresponde al cuatrimestre que se está cerrando.
+      // bimActivo = último bimestre ya cerrado (fecha de cierre pasada).
+      const cuatAConsiderar =
+        bimActivo === '4°' ? { bimA: 3, bimB: 4, label: '2°Cuat.' } :
+        bimActivo === '2°' ? { bimA: 1, bimB: 2, label: '1°Cuat.' } :
+        null; // 1° o 3° bimestre: todavía no cierra un cuatrimestre completo
+
+      // buildBody: cada materia muestra su PROPIO promedio cuatrimestral: (Prom.bimA + Prom.bimB) / 2
+      // (igual cálculo que se ve en pantalla para cada materia). La última columna es el promedio
+      // general del área, resultado de promediar esos cuatrimestres por materia.
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
+        const cuatsPorMateria = [];
         datos.forEach(({ estudiantes }) => {
           const est = estudiantes.find(e => e.dni === al.dni);
-          const b1 = est?.bimestres?.[1]?.nota || '';
-          const b2 = est?.bimestres?.[2]?.nota || '';
-          const b3 = est?.bimestres?.[3]?.nota || '';
-          const b4 = est?.bimestres?.[4]?.nota || '';
-          const pf = calcularPromedioFinal(b1, b2, b3, b4);
-          const notaMostrar = pf || b4 || b3 || b2 || b1;
-          row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : String(notaMostrar)) : '—');
+          let valorMostrar = '';
+          if (cuatAConsiderar) {
+            const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
+            const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
+            if (!isNaN(nA) && !isNaN(nB)) valorMostrar = ((nA + nB) / 2).toFixed(2);
+            else if (!isNaN(nA)) valorMostrar = nA.toFixed(2);
+            else if (!isNaN(nB)) valorMostrar = nB.toFixed(2);
+          } else {
+            // Todavía no cerró un cuatrimestre completo: se muestra la nota del bimestre activo tal cual
+            const bimNum = parseInt(bimActivo);
+            valorMostrar = est?.bimestres?.[bimNum]?.nota || '';
+          }
+          if (valorMostrar !== '' && !isNaN(parseFloat(valorMostrar))) cuatsPorMateria.push(parseFloat(valorMostrar));
+          row.push(valorMostrar ? (primerCiclo ? textoConceptual(valorMostrar) : String(valorMostrar)) : '—');
         });
-        // Columna 1°Cuatrimestre
-        row.push(primerCiclo ? '—' : calcCuatrimestre(al, datos, 1, 2));
+        // Columna final: promedio general del área (promedio de los cuatrimestres de cada materia)
+        const promedioGeneral = cuatsPorMateria.length > 0
+          ? (cuatsPorMateria.reduce((a, b) => a + b, 0) / cuatsPorMateria.length).toFixed(2)
+          : '—';
+        row.push(primerCiclo ? '—' : promedioGeneral);
         return row;
       });
 
-      // Ancho fijo para columnas de notas (evita que el 10 se parta)
+      // Margen usado en las tablas del PDF unificado (debe coincidir con el `margin` pasado a autoTable)
+      const PDF_MARGIN = 10;
+      const anchoUtil = pageW - PDF_MARGIN * 2;
+
+      // Anchos dinámicos: la columna # y Alumno/a tienen ancho fijo,
+      // y el resto del ancho de la hoja se reparte entre las columnas de materias + "1°Cuat",
+      // de modo que la tabla siempre ocupe TODO el ancho útil de la hoja.
       const buildColumnStyles = (nMaterias, nAmbre) => {
+        const anchoNumero = 10; // suficiente para números de 2 cifras (10, 11, ... 25)
+        const columnasNotas = nMaterias + 1; // materias + columna final "1°Cuat."
+        const restante = anchoUtil - anchoNumero - nAmbre;
+        const anchoNota = Math.max(restante / columnasNotas, 16); // piso de 16mm para que no se encimen los títulos
+
         const styles = {
-          0: { cellWidth: 7, halign: 'center' },
+          0: { cellWidth: anchoNumero, halign: 'center' },
           1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
         };
         for (let i = 2; i <= nMaterias + 1; i++) {
-          styles[i] = { cellWidth: 18, halign: 'center', minCellHeight: 0 };
+          styles[i] = { cellWidth: anchoNota, halign: 'center', minCellHeight: 0 };
         }
-        // Última columna (1°Cuat) un poco más ancha y destacada
-        styles[nMaterias + 2] = { cellWidth: 18, halign: 'center', fontStyle: 'bold' };
+        // Última columna (1°Cuat) mismo ancho, pero destacada
+        styles[nMaterias + 2] = { cellWidth: anchoNota, halign: 'center', fontStyle: 'bold' };
         return styles;
       };
 
@@ -851,10 +882,11 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       if (!primerPagina) pdfDoc.addPage();
       primerPagina = false;
       encabezado(`Áreas Curriculares — ${bimActivo} Bimestre`, grado);
-      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre)), '1°Cuat.']];
+      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre)), cuatAConsiderar?.label || bimActivo + ' Bim.']];
       autoTable(pdfDoc, {
         startY: 32, head: headCurr, body: buildBody(datosCurr),
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
         headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
         columnStyles: buildColumnStyles(curriculares.length, primerCiclo ? 42 : 48),
         alternateRowStyles: { fillColor: [249, 250, 251] },
@@ -874,10 +906,11 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
       pdfDoc.addPage();
       encabezado(`Áreas Especiales — ${bimActivo} Bimestre`, grado);
-      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre)), cuatAConsiderar?.label || bimActivo + ' Bim.']];
       autoTable(pdfDoc, {
         startY: 32, head: headEsp, body: buildBody(datosEsp),
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
         headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
         columnStyles: buildColumnStyles(especiales.length, primerCiclo ? 38 : 46),
         alternateRowStyles: { fillColor: [255, 251, 235] },
@@ -897,10 +930,11 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         }));
         pdfDoc.addPage();
         encabezado(`Talleres — ${bimActivo} Bimestre`, grado);
-        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
+        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre)), cuatAConsiderar?.label || bimActivo + ' Bim.']];
         autoTable(pdfDoc, {
           startY: 32, head: headTall, body: buildBody(datosTall),
-          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+          margin: { left: PDF_MARGIN, right: PDF_MARGIN },
+          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
           headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
           columnStyles: buildColumnStyles(talleres.length, primerCiclo ? 38 : 46),
           alternateRowStyles: { fillColor: [236, 253, 245] },
