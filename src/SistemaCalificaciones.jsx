@@ -1373,27 +1373,30 @@ export default function SistemaCalificaciones() {
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
-      // Bloqueo automático silencioso por fecha — se aplica UNA SOLA VEZ por bimestre.
-      // Usamos `autoBloqueoAplicado` (separado de `bimestresBlockeados`) para no volver a
-      // bloquear un bimestre que la Directora reabrió manualmente después del vencimiento.
-      // Sin esto, cada vez que el/la docente entraba, el sistema re-bloqueaba solo apenas
-      // la Directora lo desbloqueaba (porque la fecha límite ya había pasado).
+      // Bloqueo automático silencioso por fecha — se aplica UNA SOLA VEZ por cada fecha programada.
+      // Guardamos en `autoBloqueoAplicadoFecha` CUÁL fecha ya se aplicó (no solo un true/false):
+      // así, si la Directora reabre el bimestre, no se vuelve a bloquear solo con la misma fecha vieja,
+      // pero SÍ se bloquea de nuevo si después se programa una fecha distinta (más adelante).
       if (authUser && usuario?.rol !== 'administrador') {
         const ahora = new Date();
         const configKey = safeKey(`${materia.nombre}_${grado}`);
         const currentSnap = await getDoc(doc(db, 'configuracion', configKey));
         const currentData = currentSnap.exists() ? currentSnap.data() : {};
         const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
-        const yaAplicado = currentData.autoBloqueoAplicado || { 1: false, 2: false, 3: false, 4: false };
+        const yaAplicado = currentData.autoBloqueoAplicadoFecha || { 1: null, 2: null, 3: null, 4: null };
         const cambios = { ...bloq };
         const nuevoAplicado = { ...yaAplicado };
         let hubo = false;
-        if (fechasBloqueo.bim1 && ahora > new Date(fechasBloqueo.bim1) && !bloq[1] && !yaAplicado[1]) { cambios[1] = true; nuevoAplicado[1] = true; hubo = true; }
-        if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2) && !bloq[2] && !yaAplicado[2]) { cambios[2] = true; nuevoAplicado[2] = true; hubo = true; }
-        if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3) && !bloq[3] && !yaAplicado[3]) { cambios[3] = true; nuevoAplicado[3] = true; hubo = true; }
-        if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4) && !bloq[4] && !yaAplicado[4]) { cambios[4] = true; nuevoAplicado[4] = true; hubo = true; }
+        [1, 2, 3, 4].forEach(b => {
+          const fecha = fechasBloqueo[`bim${b}`];
+          if (fecha && ahora > new Date(fecha) && !bloq[b] && yaAplicado[b] !== fecha) {
+            cambios[b] = true;
+            nuevoAplicado[b] = fecha;
+            hubo = true;
+          }
+        });
         if (hubo) {
-          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
+          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
           if (!cancelado) {
             setBimestresBlockeados(cambios);
             setAutoBloqueoMsg(true);
@@ -4462,6 +4465,10 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
     setProcesando(true);
     let total = 0;
     let errores = 0;
+    // Traemos la fecha de bloqueo vigente en este momento: al desbloquear, guardamos ESA fecha
+    // como "ya aplicada", para que no se re-bloquee con la misma, pero sí con una fecha nueva futura.
+    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
+    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
     const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
     for (const u of docentes) {
       const grados = u.rol === 'docente_grado'
@@ -4478,15 +4485,15 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
             const snap = await getDoc(doc(db, 'configuracion', key));
             const data = snap.exists() ? snap.data() : {};
             const bloq = data.bimestresBlockeados || {};
-            const yaAplicado = data.autoBloqueoAplicado || {};
+            const yaAplicado = data.autoBloqueoAplicadoFecha || {};
             const nuevo = { ...bloq };
             const nuevoAplicado = { ...yaAplicado };
             seleccionados.forEach(b => {
               nuevo[b] = false;
-              nuevoAplicado[b] = true; // marca que ya no debe volver a autobloquearse por esta fecha
+              nuevoAplicado[b] = fechasVigentes[`bim${b}`] || null; // fecha vigente al momento del desbloqueo
               total++;
             });
-            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
+            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
           } catch(e) { errores++; }
         }
       }
@@ -6208,6 +6215,10 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                       : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
                     let desbloqueados = 0;
                     let errores = 0;
+                    // Fecha de bloqueo vigente en este momento (para no re-bloquear con la misma,
+                    // pero sí reaccionar si más adelante se programa una fecha nueva).
+                    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
+                    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
                     for (const grado of grados) {
                       for (const mat of materias) {
                         const matNombre = mat.nombre || mat;
@@ -6216,13 +6227,13 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                           const snap = await getDoc(doc(db, 'configuracion', key));
                           const data = snap.exists() ? snap.data() : {};
                           const bloq = data.bimestresBlockeados || {};
-                          const yaAplicado = data.autoBloqueoAplicado || {};
+                          const yaAplicado = data.autoBloqueoAplicadoFecha || {};
                           const nuevo = { ...bloq };
                           const nuevoAplicado = { ...yaAplicado };
                           Object.entries(bimestresDesbloqueo).forEach(([b, sel]) => {
-                            if (sel) { nuevo[parseInt(b)] = false; nuevoAplicado[parseInt(b)] = true; desbloqueados++; }
+                            if (sel) { nuevo[parseInt(b)] = false; nuevoAplicado[parseInt(b)] = fechasVigentes[`bim${b}`] || null; desbloqueados++; }
                           });
-                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
+                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
                         } catch(e) { errores++; }
                       }
                     }
