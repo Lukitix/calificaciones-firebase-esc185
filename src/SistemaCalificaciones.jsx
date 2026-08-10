@@ -204,9 +204,9 @@ function ModalRenderer({ modal, closeModal }) {
   };
   const estilo = iconos[modal.tipo_icono] || iconos.info;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }} style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+    <div className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 200, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760, animation: 'modalEntrada 0.2s ease-out' }}>
         <div className={`px-6 py-4 ${estilo.bg} flex items-center gap-3`}>
           <span className="text-2xl">{estilo.emoji}</span>
           <h3 className={`text-lg font-bold ${estilo.text}`}>
@@ -4461,6 +4461,7 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
     if (!ok) return;
     setProcesando(true);
     let total = 0;
+    let errores = 0;
     const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
     for (const u of docentes) {
       const grados = u.rol === 'docente_grado'
@@ -4475,17 +4476,28 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
           const key = safeKey(`${matNombre}_${grado}`);
           try {
             const snap = await getDoc(doc(db, 'configuracion', key));
-            const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
+            const data = snap.exists() ? snap.data() : {};
+            const bloq = data.bimestresBlockeados || {};
+            const yaAplicado = data.autoBloqueoAplicado || {};
             const nuevo = { ...bloq };
-            seleccionados.forEach(b => { nuevo[b] = false; total++; });
-            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
-          } catch(e) {}
+            const nuevoAplicado = { ...yaAplicado };
+            seleccionados.forEach(b => {
+              nuevo[b] = false;
+              nuevoAplicado[b] = true; // marca que ya no debe volver a autobloquearse por esta fecha
+              total++;
+            });
+            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
+          } catch(e) { errores++; }
         }
       }
     }
     setProcesando(false);
     onClose();
-    await showAlert(`✅ Desbloqueo masivo completado. Se desbloquearon ${total} bimestre(s) en total para todos los docentes.`, 'success', 'Desbloqueo completado');
+    await showAlert(
+      errores === 0
+        ? `✅ Desbloqueo masivo completado. Se desbloquearon ${total} bimestre(s) en total para todos los docentes.`
+        : `⚠️ Desbloqueo completado con ${errores} error(es). Se desbloquearon ${total} bimestre(s), pero ${errores} escritura(s) fallaron — revisá la conexión y volvé a intentar si hace falta.`,
+      errores === 0 ? 'success' : 'warning', 'Desbloqueo completado');
   };
 
   return (
@@ -6195,24 +6207,32 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                       ? (u.materiasAsignadas || [])
                       : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
                     let desbloqueados = 0;
+                    let errores = 0;
                     for (const grado of grados) {
                       for (const mat of materias) {
                         const matNombre = mat.nombre || mat;
                         const key = safeKey(`${matNombre}_${grado}`);
                         try {
                           const snap = await getDoc(doc(db, 'configuracion', key));
-                          const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
+                          const data = snap.exists() ? snap.data() : {};
+                          const bloq = data.bimestresBlockeados || {};
+                          const yaAplicado = data.autoBloqueoAplicado || {};
                           const nuevo = { ...bloq };
+                          const nuevoAplicado = { ...yaAplicado };
                           Object.entries(bimestresDesbloqueo).forEach(([b, sel]) => {
-                            if (sel) { nuevo[parseInt(b)] = false; desbloqueados++; }
+                            if (sel) { nuevo[parseInt(b)] = false; nuevoAplicado[parseInt(b)] = true; desbloqueados++; }
                           });
-                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
-                        } catch(e) {}
+                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
+                        } catch(e) { errores++; }
                       }
                     }
                     setDesbloqueando(false);
                     setDocenteDesbloqueo(null);
-                    await showAlert(`✅ Se desbloquearon bimestres para ${u.nombre}. Ya puede cargar notas.`, 'success', 'Desbloqueado');
+                    await showAlert(
+                      errores === 0
+                        ? `✅ Se desbloquearon bimestres para ${u.nombre}. Ya puede cargar notas.`
+                        : `⚠️ Se desbloquearon bimestres para ${u.nombre}, pero ${errores} escritura(s) fallaron. Revisá la conexión y volvé a intentar si hace falta.`,
+                      errores === 0 ? 'success' : 'warning', errores === 0 ? 'Desbloqueado' : 'Desbloqueo parcial');
                   }}
                   className="btn-primary"
                   style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 'not-allowed' : 'pointer', opacity: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 0.5 : 1, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
