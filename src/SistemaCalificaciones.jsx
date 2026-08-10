@@ -1373,21 +1373,27 @@ export default function SistemaCalificaciones() {
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
-      // Bloqueo automático silencioso por fecha
+      // Bloqueo automático silencioso por fecha — se aplica UNA SOLA VEZ por bimestre.
+      // Usamos `autoBloqueoAplicado` (separado de `bimestresBlockeados`) para no volver a
+      // bloquear un bimestre que la Directora reabrió manualmente después del vencimiento.
+      // Sin esto, cada vez que el/la docente entraba, el sistema re-bloqueaba solo apenas
+      // la Directora lo desbloqueaba (porque la fecha límite ya había pasado).
       if (authUser && usuario?.rol !== 'administrador') {
         const ahora = new Date();
         const configKey = safeKey(`${materia.nombre}_${grado}`);
         const currentSnap = await getDoc(doc(db, 'configuracion', configKey));
         const currentData = currentSnap.exists() ? currentSnap.data() : {};
         const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
+        const yaAplicado = currentData.autoBloqueoAplicado || { 1: false, 2: false, 3: false, 4: false };
         const cambios = { ...bloq };
+        const nuevoAplicado = { ...yaAplicado };
         let hubo = false;
-        if (fechasBloqueo.bim1 && ahora > new Date(fechasBloqueo.bim1) && !bloq[1]) { cambios[1] = true; hubo = true; }
-        if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2) && !bloq[2]) { cambios[2] = true; hubo = true; }
-        if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3) && !bloq[3]) { cambios[3] = true; hubo = true; }
-        if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4) && !bloq[4]) { cambios[4] = true; hubo = true; }
+        if (fechasBloqueo.bim1 && ahora > new Date(fechasBloqueo.bim1) && !bloq[1] && !yaAplicado[1]) { cambios[1] = true; nuevoAplicado[1] = true; hubo = true; }
+        if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2) && !bloq[2] && !yaAplicado[2]) { cambios[2] = true; nuevoAplicado[2] = true; hubo = true; }
+        if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3) && !bloq[3] && !yaAplicado[3]) { cambios[3] = true; nuevoAplicado[3] = true; hubo = true; }
+        if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4) && !bloq[4] && !yaAplicado[4]) { cambios[4] = true; nuevoAplicado[4] = true; hubo = true; }
         if (hubo) {
-          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios }, { merge: true });
+          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios, autoBloqueoAplicado: nuevoAplicado }, { merge: true });
           if (!cancelado) {
             setBimestresBlockeados(cambios);
             setAutoBloqueoMsg(true);
@@ -4466,7 +4472,7 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
       for (const grado of grados) {
         for (const mat of materias) {
           const matNombre = mat.nombre || mat;
-          const key = matNombre.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
+          const key = safeKey(`${matNombre}_${grado}`);
           try {
             const snap = await getDoc(doc(db, 'configuracion', key));
             const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
@@ -4522,11 +4528,22 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
 // COMPONENTE: Editor de fechas de bloqueo (admin)
 // ════════════════════════════════════════════════════════
 function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
+  // Separamos fecha y hora en dos campos: la fecha por defecto sigue siendo la misma,
+  // pero ahora la hora es editable (antes quedaba fija en 23:59:59 sin poder cambiarla).
+  const partir = (iso, fechaDefault) => {
+    if (!iso) return { fecha: fechaDefault, hora: '23:59' };
+    const [f, hMin] = iso.split('T');
+    return { fecha: f, hora: hMin ? hMin.slice(0, 5) : '23:59' };
+  };
+  const b1 = partir(fechasBloqueo.bim1, '2026-05-13');
+  const b2 = partir(fechasBloqueo.bim2, '2026-08-08');
+  const b3 = partir(fechasBloqueo.bim3, '');
+  const b4 = partir(fechasBloqueo.bim4, '');
   const [fechas, setFechas] = useState({
-    bim1: fechasBloqueo.bim1 ? fechasBloqueo.bim1.slice(0, 10) : '2026-05-13',
-    bim2: fechasBloqueo.bim2 ? fechasBloqueo.bim2.slice(0, 10) : '2026-08-08',
-    bim3: fechasBloqueo.bim3 ? fechasBloqueo.bim3.slice(0, 10) : '',
-    bim4: fechasBloqueo.bim4 ? fechasBloqueo.bim4.slice(0, 10) : '',
+    bim1: fechasBloqueo.bim1 ? b1.fecha : '2026-05-13', bim1h: b1.hora,
+    bim2: fechasBloqueo.bim2 ? b2.fecha : '2026-08-08', bim2h: b2.hora,
+    bim3: fechasBloqueo.bim3 ? b3.fecha : '', bim3h: b3.hora,
+    bim4: fechasBloqueo.bim4 ? b4.fecha : '', bim4h: b4.hora,
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -4534,10 +4551,10 @@ function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
     setGuardando(true);
     try {
       await setDoc(doc(db, 'configuracion', 'fechasBloqueo'), {
-        bim1: fechas.bim1 ? `${fechas.bim1}T23:59:59` : null,
-        bim2: fechas.bim2 ? `${fechas.bim2}T23:59:59` : null,
-        bim3: fechas.bim3 ? `${fechas.bim3}T23:59:59` : null,
-        bim4: fechas.bim4 ? `${fechas.bim4}T23:59:59` : null,
+        bim1: fechas.bim1 ? `${fechas.bim1}T${fechas.bim1h || '23:59'}:00` : null,
+        bim2: fechas.bim2 ? `${fechas.bim2}T${fechas.bim2h || '23:59'}:00` : null,
+        bim3: fechas.bim3 ? `${fechas.bim3}T${fechas.bim3h || '23:59'}:00` : null,
+        bim4: fechas.bim4 ? `${fechas.bim4}T${fechas.bim4h || '23:59'}:00` : null,
       }, { merge: true });
       onClose();
       await showAlert('✅ Fechas de bloqueo actualizadas. El sistema aplicará los nuevos límites automáticamente.', 'success', 'Guardado');
@@ -4558,14 +4575,19 @@ function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
         </div>
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Después de cada fecha el sistema bloquea automáticamente el bimestre. Dejá vacío los bimestres sin fecha definida aún.
+            Después de la fecha y hora elegidas, el sistema bloquea automáticamente el bimestre. Dejá vacío los bimestres sin fecha definida aún.
           </p>
           {[1,2,3,4].map(bim => (
             <div key={bim} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bim}° Bimestre — fecha límite de carga</label>
-              <input type="date" value={fechas[`bim${bim}`]}
-                onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}`]: e.target.value }))}
-                className="n-field-input" />
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bim}° Bimestre — fecha y hora límite de carga</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input type="date" value={fechas[`bim${bim}`]}
+                  onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}`]: e.target.value }))}
+                  className="n-field-input" style={{ flex: 2 }} />
+                <input type="time" value={fechas[`bim${bim}h`]}
+                  onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}h`]: e.target.value }))}
+                  className="n-field-input" style={{ flex: 1 }} />
+              </div>
             </div>
           ))}
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
