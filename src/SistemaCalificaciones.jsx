@@ -1160,6 +1160,27 @@ export default function SistemaCalificaciones() {
     bim3: null,
     bim4: null,
   });
+
+  // Sincronizar fechasBloqueo con Firestore en tiempo real.
+  // ANTES: este estado nunca se actualizaba desde la base — quedaba fijo para siempre en los
+  // valores por default de arriba, sin importar lo que la Directora configurara en el panel.
+  // Eso hacía que el chequeo de "¿ya venció el plazo?" comparara siempre contra una fecha vieja
+  // y fija, provocando que cualquier desbloqueo se revirtiera solo en la siguiente carga de página.
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'configuracion', 'fechasBloqueo'), (snap) => {
+      if (snap.exists()) {
+        const fd = snap.data();
+        setFechasBloqueo(prev => ({
+          bim1: fd.bim1 !== undefined ? fd.bim1 : prev.bim1,
+          bim2: fd.bim2 !== undefined ? fd.bim2 : prev.bim2,
+          bim3: fd.bim3 !== undefined ? fd.bim3 : prev.bim3,
+          bim4: fd.bim4 !== undefined ? fd.bim4 : prev.bim4,
+        }));
+      }
+    });
+    return () => unsub();
+  }, [db]);
+
   const [avisos, setAvisos] = useState([]);
   const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
   const [showAvisos, setShowAvisos] = useState(false);
