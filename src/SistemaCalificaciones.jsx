@@ -2695,7 +2695,7 @@ export default function SistemaCalificaciones() {
                 const alumnosDelGrado = alumnosGlobales[gradoActual] || [];
                 const coincidencias = [...alumnosDelGrado].filter(a =>
                   a.nombre.toLowerCase().includes(termino) || a.dni.includes(termino)
-                ).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+                ).sort(compararAlumnos);
                 if (coincidencias.length === 0) return (
                   <div style={{ marginTop: 8, padding: '10px 14px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 'var(--r)', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
                     Sin resultados en {gradoLabel(gradoActual)}
@@ -6656,7 +6656,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                         </tr>
                       </thead>
                       <tbody>
-                        {calificaciones.map((e, i) => {
+                        {[...calificaciones].sort(compararAlumnos).map((e, i) => {
                           const b1 = e.bimestres?.[1]?.nota || '';
                           const b2 = e.bimestres?.[2]?.nota || '';
                           const b3 = e.bimestres?.[3]?.nota || '';
