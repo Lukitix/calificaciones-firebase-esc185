@@ -3639,6 +3639,12 @@ export default function SistemaCalificaciones() {
                 <tbody>
                   {[...estActuales]
                     .filter(e => !busquedaAlumno || e.nombre.toLowerCase().includes(busquedaAlumno.toLowerCase()) || e.dni?.includes(busquedaAlumno))
+                    .map(e => {
+                      // El sexo guardado en ESTA materia puede faltar (dato viejo); el listado
+                      // maestro de alumnos (alumnosGlobales) es la fuente real y siempre correcta.
+                      const alumnoMaestro = (alumnosGlobales[grado] || []).find(al => al.dni === e.dni);
+                      return { ...e, sexo: alumnoMaestro?.sexo || e.sexo || 'V', nuevoIngreso: alumnoMaestro?.nuevoIngreso ?? e.nuevoIngreso };
+                    })
                     .sort(compararAlumnos).map((e, i) => {
                     const b1 = e.bimestres?.[1]?.nota || '';
                     const b2 = e.bimestres?.[2]?.nota || '';
@@ -6656,7 +6662,12 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                         </tr>
                       </thead>
                       <tbody>
-                        {[...calificaciones].sort(compararAlumnos).map((e, i) => {
+                        {[...calificaciones].map(e => {
+                          // El sexo guardado en ESTA materia puede faltar (dato viejo); el listado
+                          // maestro de alumnos (alumnosGlobales) es la fuente real y siempre correcta.
+                          const alumnoMaestro = (alumnosGlobales[gradoSel] || []).find(al => al.dni === e.dni);
+                          return { ...e, sexo: alumnoMaestro?.sexo || e.sexo || 'V', nuevoIngreso: alumnoMaestro?.nuevoIngreso ?? e.nuevoIngreso };
+                        }).sort(compararAlumnos).map((e, i) => {
                           const b1 = e.bimestres?.[1]?.nota || '';
                           const b2 = e.bimestres?.[2]?.nota || '';
                           const b3 = e.bimestres?.[3]?.nota || '';
