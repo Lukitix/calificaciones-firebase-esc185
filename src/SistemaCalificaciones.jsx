@@ -204,9 +204,9 @@ function ModalRenderer({ modal, closeModal }) {
   };
   const estilo = iconos[modal.tipo_icono] || iconos.info;
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ zIndex: 200, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760, animation: 'modalEntrada 0.2s ease-out' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 760 }} style={{ animation: 'modalEntrada 0.2s ease-out' }}>
         <div className={`px-6 py-4 ${estilo.bg} flex items-center gap-3`}>
           <span className="text-2xl">{estilo.emoji}</span>
           <h3 className={`text-lg font-bold ${estilo.text}`}>
@@ -712,19 +712,19 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         'Ciencias Sociales': 'Cs.\nSociales',
         'Ciencias Naturales': 'Cs.\nNaturales',
         'Formación Ética y Ciudadana': 'Form.\nÉtica',
-        'Educación Artística: Plástica': 'Art.\nPlást.',
+        'Educación Artística: Plástica': 'Art.\nPlástica',
         'Educación Artística: Música': 'Art.\nMúsica',
         'Educación Física': 'Ed.\nFísica',
         'Lengua Extranjera: Inglés': 'Inglés',
-        'Lengua Extranjera: Portugués': 'Portu-\ngués',
+        'Lengua Extranjera: Portugués': 'Portugués',
         'Taller de Ajedrez': 'T. Ajedrez',
         'Taller de Música': 'T. Música',
         'Taller de Plástica': 'T. Plástica',
         'Taller de Danza': 'T. Danza',
-        'Taller de Tecnología': 'T. Tecnol.',
-        'Informática': 'Informá-\ntica',
-        'Tecnología': 'Tecno-\nlogía',
-        'Laboratorio': 'Labora-\ntorio',
+        'Taller de Tecnología': 'T. Tecnología',
+        'Informática': 'Informática',
+        'Tecnología': 'Tecnología',
+        'Laboratorio': 'Laboratorio',
         'Convivencia': 'Convivencia',
       };
       return abrevs[nombre] || nombre;
@@ -804,138 +804,58 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         return a.nombre.localeCompare(b.nombre, 'es');
       });
 
-      // Determina qué par de bimestres corresponde al cuatrimestre que se está cerrando.
-      // bimActivo = último bimestre ya cerrado (fecha de cierre pasada).
-      const cuatAConsiderar =
-        bimActivo === '4°' ? { bimA: 3, bimB: 4, label: '2°Cuat.' } :
-        bimActivo === '2°' ? { bimA: 1, bimB: 2, label: '1°Cuat.' } :
-        null; // 1° o 3° bimestre: todavía no cierra un cuatrimestre completo
-
-      // buildBody: cada columna de materia muestra el Prom. del BIMESTRE ACTIVO tal cual (ej. Prom. 2° bim).
-      // Se usa para Áreas Especiales y Talleres (columna final única con el promedio general del área).
+      // buildBody: una columna por materia (nota bimestre activo) + columna 1°Cuat
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
-        const cuatsPorMateria = [];
-        const bimNum = parseInt(bimActivo);
         datos.forEach(({ estudiantes }) => {
           const est = estudiantes.find(e => e.dni === al.dni);
-
-          // Columna de la materia: Prom. del bimestre activo, sin promediar con nada más
-          const valorMostrar = est?.bimestres?.[bimNum]?.nota || '';
-          row.push(valorMostrar ? (primerCiclo ? textoConceptual(valorMostrar) : String(valorMostrar)) : '—');
-
-          // Para la columna final: cuatrimestre de ESTA materia = (Prom.bimA + Prom.bimB) / 2
-          if (cuatAConsiderar) {
-            const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
-            const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
-            if (!isNaN(nA) && !isNaN(nB)) cuatsPorMateria.push((nA + nB) / 2);
-            else if (!isNaN(nA)) cuatsPorMateria.push(nA);
-            else if (!isNaN(nB)) cuatsPorMateria.push(nB);
-          }
+          const b1 = est?.bimestres?.[1]?.nota || '';
+          const b2 = est?.bimestres?.[2]?.nota || '';
+          const b3 = est?.bimestres?.[3]?.nota || '';
+          const b4 = est?.bimestres?.[4]?.nota || '';
+          const pf = calcularPromedioFinal(b1, b2, b3, b4);
+          const notaMostrar = pf || b4 || b3 || b2 || b1;
+          row.push(notaMostrar ? (primerCiclo ? textoConceptual(notaMostrar) : String(notaMostrar)) : '—');
         });
-        // Columna final: promedio general del área (promedio de los cuatrimestres de cada materia)
-        const promedioGeneral = cuatAConsiderar && cuatsPorMateria.length > 0
-          ? (cuatsPorMateria.reduce((a, b) => a + b, 0) / cuatsPorMateria.length).toFixed(2)
-          : '—';
-        row.push(primerCiclo ? '—' : promedioGeneral);
+        // Columna 1°Cuatrimestre
+        row.push(primerCiclo ? '—' : calcCuatrimestre(al, datos, 1, 2));
         return row;
       });
 
-      // buildBodyConCuat: cada materia va seguida de su PROPIA columna de cuatrimestre:
-      // (Prom.bimA + Prom.bimB) / 2 de ESA materia únicamente.
-      // `excluirDeCuat`: nombres de materias que NO participan del cuatrimestre (ej. Convivencia
-      // en Áreas Curriculares) — esas van como columna simple, sin cuatrimestre, al final.
-      const buildBodyConCuat = (datos, excluirDeCuat = []) => {
-        const bimNum = parseInt(bimActivo);
-        return alumnosOrdenados.map((al, idx) => {
-          const row = [String(idx + 1), al.nombre];
-          const simplesFinal = [];
-          datos.forEach(({ nombre, estudiantes }) => {
-            const est = estudiantes.find(e => e.dni === al.dni);
-            const valorActivo = est?.bimestres?.[bimNum]?.nota || '';
-            const valorFmt = valorActivo ? (primerCiclo ? textoConceptual(valorActivo) : String(valorActivo)) : '—';
-
-            if (excluirDeCuat.includes(nombre)) {
-              simplesFinal.push(valorFmt); // se agrega al final, sin columna de cuatrimestre
-              return;
-            }
-
-            row.push(valorFmt);
-
-            // Cuatrimestre de ESTA materia
-            let cuatFmt = '—';
-            if (cuatAConsiderar) {
-              const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
-              const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
-              let cuatVal = null;
-              if (!isNaN(nA) && !isNaN(nB)) cuatVal = (nA + nB) / 2;
-              else if (!isNaN(nA)) cuatVal = nA;
-              else if (!isNaN(nB)) cuatVal = nB;
-              if (cuatVal !== null) cuatFmt = primerCiclo ? textoConceptual(cuatVal.toFixed(2)) : cuatVal.toFixed(2);
-            }
-            row.push(cuatFmt);
-          });
-          row.push(...simplesFinal);
-          return row;
-        });
-      };
-
-      // Margen usado en las tablas del PDF unificado (debe coincidir con el `margin` pasado a autoTable)
-      const PDF_MARGIN = 10;
-      const anchoUtil = pageW - PDF_MARGIN * 2;
-
-      // Anchos dinámicos: la columna # y Alumno/a tienen ancho fijo,
-      // y el resto del ancho de la hoja se reparte entre las columnas de materias + "1°Cuat",
-      // de modo que la tabla siempre ocupe TODO el ancho útil de la hoja.
+      // Ancho fijo para columnas de notas (evita que el 10 se parta)
       const buildColumnStyles = (nMaterias, nAmbre) => {
-        const anchoNumero = 10; // suficiente para números de 2 cifras (10, 11, ... 25)
-        const columnasNotas = nMaterias + 1; // materias + columna final "1°Cuat."
-        const restante = anchoUtil - anchoNumero - nAmbre;
-        const anchoNota = Math.max(restante / columnasNotas, 16); // piso de 16mm para que no se encimen los títulos
-
         const styles = {
-          0: { cellWidth: anchoNumero, halign: 'center' },
+          0: { cellWidth: 7, halign: 'center' },
           1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
         };
         for (let i = 2; i <= nMaterias + 1; i++) {
-          styles[i] = { cellWidth: anchoNota, halign: 'center', minCellHeight: 0 };
+          styles[i] = { cellWidth: 18, halign: 'center', minCellHeight: 0 };
         }
-        // Última columna (1°Cuat) mismo ancho, pero destacada
-        styles[nMaterias + 2] = { cellWidth: anchoNota, halign: 'center', fontStyle: 'bold' };
-        return styles;
-      };
-
-      // buildColumnStylesConCuat: ancho dinámico para el formato de pares (materia + su cuatrimestre).
-      // nMateriasConCuat = materias que llevan columna de cuatrimestre al lado.
-      // nMateriasSimples = materias excluidas del cuatrimestre, que van solas al final (0 en Especiales/Talleres).
-      const buildColumnStylesConCuat = (nMateriasConCuat, nAmbre, nMateriasSimples = 0) => {
-        const anchoNumero = 10;
-        const totalColumnasDatos = nMateriasConCuat * 2 + nMateriasSimples;
-        const restante = anchoUtil - anchoNumero - nAmbre;
-        const anchoCol = Math.max(restante / totalColumnasDatos, 13); // piso más chico porque son más columnas
-
-        const styles = {
-          0: { cellWidth: anchoNumero, halign: 'center' },
-          1: { halign: 'left', cellWidth: nAmbre, overflow: 'linebreak' },
-        };
-        let col = 2;
-        for (let i = 0; i < nMateriasConCuat; i++) {
-          styles[col] = { cellWidth: anchoCol, halign: 'center', minCellHeight: 0 };
-          col++;
-          styles[col] = { cellWidth: anchoCol, halign: 'center', fontStyle: 'bold', fillColor: [237, 233, 254] };
-          col++;
-        }
-        for (let i = 0; i < nMateriasSimples; i++) {
-          styles[col] = { cellWidth: anchoCol, halign: 'center' };
-          col++;
-        }
+        // Última columna (1°Cuat) un poco más ancha y destacada
+        styles[nMaterias + 2] = { cellWidth: 18, halign: 'center', fontStyle: 'bold' };
         return styles;
       };
 
       // ── Página 1: Áreas Curriculares (+ Convivencia) ──
-      const curriculares = getMateriasDocente(grado).filter(m =>
-        [...areas.curriculares, ...areas.convivencia].some(a => a.nombre === m.nombre)
-      );
+      // Orden específico por ciclo
+      const ORDEN_CURR_SEGUNDO_CICLO = [
+        'Lengua y Literatura','Matemática','Ciencias Naturales','Ciencias Sociales',
+        'Formación Ética y Ciudadana','Educación Artística: Música','Educación Artística: Plástica',
+        'Educación Física','Tecnología','Lengua Extranjera: Inglés','Lengua Extranjera: Portugués',
+        'Laboratorio','Informática','Convivencia'
+      ];
+      const ORDEN_CURR_PRIMER_CICLO = [
+        'Lengua Oral','Lengua Escrita','Matemática','Ciencias Naturales','Ciencias Sociales',
+        'Formación Ética y Ciudadana','Lengua Extranjera','Tecnología','Educación Física',
+        'Expresión Artística: Música','Expresión Artística: Plástica','Convivencia'
+      ];
+      const ordenCurr = primerCiclo ? ORDEN_CURR_PRIMER_CICLO : ORDEN_CURR_SEGUNDO_CICLO;
+      const materiasDocente = getMateriasDocente(grado);
+      const allNames = new Set([...areas.curriculares, ...areas.especiales, ...areas.convivencia].map(a => a.nombre));
+      const curriculares = ordenCurr
+        .filter(nombre => materiasDocente.some(m => m.nombre === nombre) || allNames.has(nombre))
+        .map(nombre => ({ nombre }))
+        .filter(m => materiasDocente.some(md => md.nombre === m.nombre) || [...areas.curriculares,...areas.especiales,...areas.convivencia].some(a => a.nombre === m.nombre));
       const snapsCurr = await Promise.all(
         curriculares.map(m => getDoc(doc_ref(db, 'calificaciones', safeKey(`${m.nombre}_${grado}`))))
       );
@@ -947,25 +867,33 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       if (!primerPagina) pdfDoc.addPage();
       primerPagina = false;
       encabezado(`Áreas Curriculares — ${bimActivo} Bimestre`, grado);
-      const materiasCurricConCuat = curriculares.filter(m => m.nombre !== 'Convivencia');
-      const labelCuat = cuatAConsiderar?.label || (bimActivo + ' Bim.');
-      const headCurrRow = ['#', 'Alumno/a'];
-      materiasCurricConCuat.forEach(m => {
-        headCurrRow.push(abreviarMateria(m.nombre));
-        headCurrRow.push(labelCuat);
-      });
-      headCurrRow.push('Convivencia');
-      const headCurr = [headCurrRow];
+      const headCurr = [['#', 'Alumno/a', ...curriculares.map(m => abreviarMateria(m.nombre)), '1°Cuat.']];
       autoTable(pdfDoc, {
-        startY: 32, head: headCurr, body: buildBodyConCuat(datosCurr, ['Convivencia']),
-        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
+        startY: 32, head: headCurr, body: buildBody(datosCurr),
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6.5 : 8, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
         headStyles: { fillColor: [124, 58, 237], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 6 : 7, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
-        columnStyles: buildColumnStylesConCuat(materiasCurricConCuat.length, primerCiclo ? 42 : 48, 1),
+        columnStyles: buildColumnStyles(curriculares.length, primerCiclo ? 42 : 48),
         alternateRowStyles: { fillColor: [249, 250, 251] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
-      agregarFirma(pdfDoc.lastAutoTable.finalY + 10, grado);
+      // Agregar promedios generales debajo de la tabla curricular
+      const promGeneralesCurr = alumnosOrdenados.map(al => {
+        const notas = datosCurr.map(({ estudiantes }) => {
+          const est = estudiantes.find(e => e.dni === al.dni);
+          const n = parseFloat(est?.bimestres?.[2]?.nota || est?.bimestres?.[1]?.nota);
+          return isNaN(n) ? null : n;
+        }).filter(n => n !== null);
+        const prom = notas.length > 0 ? (notas.reduce((a,b)=>a+b,0)/notas.length).toFixed(2) : null;
+        return prom ? `${al.nombre.split(',')[0]}: ${prom}` : null;
+      }).filter(Boolean);
+      if (promGeneralesCurr.length > 0 && !primerCiclo) {
+        const yPos = pdfDoc.lastAutoTable.finalY + 5;
+        pdfDoc.setFontSize(7);
+        pdfDoc.setTextColor(100, 100, 100);
+        pdfDoc.text(`Promedio general ${bimActivo}° Bim. — ` + promGeneralesCurr.join(' · '), 14, yPos, { maxWidth: 270 });
+        pdfDoc.setTextColor(0, 0, 0);
+      }
+      agregarFirma(pdfDoc.lastAutoTable.finalY + (promGeneralesCurr.length > 0 && !primerCiclo ? 14 : 10), grado);
 
       // ── Página 2: Áreas Especiales ──
       const especiales = areas.especiales;
@@ -979,18 +907,12 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
 
       pdfDoc.addPage();
       encabezado(`Áreas Especiales — ${bimActivo} Bimestre`, grado);
-      const headEspRow = ['#', 'Alumno/a'];
-      especiales.forEach(m => {
-        headEspRow.push(abreviarMateria(m.nombre));
-        headEspRow.push(labelCuat);
-      });
-      const headEsp = [headEspRow];
+      const headEsp = [['#', 'Alumno/a', ...datosEsp.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
       autoTable(pdfDoc, {
-        startY: 32, head: headEsp, body: buildBodyConCuat(datosEsp),
-        margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: { top: 3, bottom: 3, left: 0.8, right: 0.8 }, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
-        columnStyles: buildColumnStylesConCuat(especiales.length, primerCiclo ? 34 : 38),
+        startY: 32, head: headEsp, body: buildBody(datosEsp),
+        styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
+        columnStyles: buildColumnStyles(especiales.length, primerCiclo ? 38 : 46),
         alternateRowStyles: { fillColor: [255, 251, 235] },
         tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
       });
@@ -1008,18 +930,12 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
         }));
         pdfDoc.addPage();
         encabezado(`Talleres — ${bimActivo} Bimestre`, grado);
-        const headTallRow = ['#', 'Alumno/a'];
-        talleres.forEach(m => {
-          headTallRow.push(abreviarMateria(m.nombre));
-          headTallRow.push(labelCuat);
-        });
-        const headTall = [headTallRow];
+        const headTall = [['#', 'Alumno/a', ...datosTall.map(d => abreviarMateria(d.nombre)), '1°Cuat.']];
         autoTable(pdfDoc, {
-          startY: 32, head: headTall, body: buildBodyConCuat(datosTall),
-          margin: { left: PDF_MARGIN, right: PDF_MARGIN },
-          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'linebreak' },
-          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: { top: 3, bottom: 3, left: 0.8, right: 0.8 }, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
-          columnStyles: buildColumnStylesConCuat(talleres.length, primerCiclo ? 34 : 38),
+          startY: 32, head: headTall, body: buildBody(datosTall),
+          styles: { font: 'helvetica', fontSize: primerCiclo ? 6 : 7.5, cellPadding: 2, halign: 'center', lineColor: [200,200,200], lineWidth: 0.2, overflow: 'hidden' },
+          headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold', fontSize: primerCiclo ? 5.5 : 6.5, cellPadding: 3, halign: 'center', valign: 'middle', minCellHeight: 16, overflow: 'linebreak' },
+          columnStyles: buildColumnStyles(talleres.length, primerCiclo ? 38 : 46),
           alternateRowStyles: { fillColor: [236, 253, 245] },
           tableLineColor: [180, 180, 180], tableLineWidth: 0.3,
         });
@@ -1136,7 +1052,7 @@ export default function SistemaCalificaciones() {
 
   const [solicitudes, setSolicitudes] = useState([]);
   const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
-  const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', sexo: 'V', editando: null });
+  const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', sexo: 'V', editando: null, nuevoIngreso: false });
   const [busquedaDNI, setBusquedaDNI] = useState('');
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
@@ -1151,6 +1067,7 @@ export default function SistemaCalificaciones() {
   const [autoBloqueoMsg, setAutoBloqueoMsg] = useState(false);
   const [showInasistencias, setShowInasistencias] = useState(false);
   const [showSinNotas, setShowSinNotas] = useState(false);
+  const [showPromedioGeneral, setShowPromedioGeneral] = useState(false);
   const [showDesbloqueoMasivo, setShowDesbloqueoMasivo] = useState(false);
   const [showFechasBloqueo, setShowFechasBloqueo] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
@@ -1160,27 +1077,6 @@ export default function SistemaCalificaciones() {
     bim3: null,
     bim4: null,
   });
-
-  // Sincronizar fechasBloqueo con Firestore en tiempo real.
-  // ANTES: este estado nunca se actualizaba desde la base — quedaba fijo para siempre en los
-  // valores por default de arriba, sin importar lo que la Directora configurara en el panel.
-  // Eso hacía que el chequeo de "¿ya venció el plazo?" comparara siempre contra una fecha vieja
-  // y fija, provocando que cualquier desbloqueo se revirtiera solo en la siguiente carga de página.
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'configuracion', 'fechasBloqueo'), (snap) => {
-      if (snap.exists()) {
-        const fd = snap.data();
-        setFechasBloqueo(prev => ({
-          bim1: fd.bim1 !== undefined ? fd.bim1 : prev.bim1,
-          bim2: fd.bim2 !== undefined ? fd.bim2 : prev.bim2,
-          bim3: fd.bim3 !== undefined ? fd.bim3 : prev.bim3,
-          bim4: fd.bim4 !== undefined ? fd.bim4 : prev.bim4,
-        }));
-      }
-    });
-    return () => unsub();
-  }, [db]);
-
   const [avisos, setAvisos] = useState([]);
   const [inasistenciasNoVistas, setInasistenciasNoVistas] = useState(0);
   const [showAvisos, setShowAvisos] = useState(false);
@@ -1394,30 +1290,21 @@ export default function SistemaCalificaciones() {
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
-      // Bloqueo automático silencioso por fecha — se aplica UNA SOLA VEZ por cada fecha programada.
-      // Guardamos en `autoBloqueoAplicadoFecha` CUÁL fecha ya se aplicó (no solo un true/false):
-      // así, si la Directora reabre el bimestre, no se vuelve a bloquear solo con la misma fecha vieja,
-      // pero SÍ se bloquea de nuevo si después se programa una fecha distinta (más adelante).
+      // Bloqueo automático silencioso por fecha
       if (authUser && usuario?.rol !== 'administrador') {
         const ahora = new Date();
         const configKey = safeKey(`${materia.nombre}_${grado}`);
         const currentSnap = await getDoc(doc(db, 'configuracion', configKey));
         const currentData = currentSnap.exists() ? currentSnap.data() : {};
         const bloq = currentData.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false };
-        const yaAplicado = currentData.autoBloqueoAplicadoFecha || { 1: null, 2: null, 3: null, 4: null };
         const cambios = { ...bloq };
-        const nuevoAplicado = { ...yaAplicado };
         let hubo = false;
-        [1, 2, 3, 4].forEach(b => {
-          const fecha = fechasBloqueo[`bim${b}`];
-          if (fecha && ahora > new Date(fecha) && !bloq[b] && yaAplicado[b] !== fecha) {
-            cambios[b] = true;
-            nuevoAplicado[b] = fecha;
-            hubo = true;
-          }
-        });
+        if (fechasBloqueo.bim1 && ahora > new Date(fechasBloqueo.bim1) && !bloq[1]) { cambios[1] = true; hubo = true; }
+        if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2) && !bloq[2]) { cambios[2] = true; hubo = true; }
+        if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3) && !bloq[3]) { cambios[3] = true; hubo = true; }
+        if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4) && !bloq[4]) { cambios[4] = true; hubo = true; }
         if (hubo) {
-          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
+          await setDoc(doc(db, 'configuracion', configKey), { bimestresBlockeados: cambios }, { merge: true });
           if (!cancelado) {
             setBimestresBlockeados(cambios);
             setAutoBloqueoMsg(true);
@@ -1621,7 +1508,7 @@ export default function SistemaCalificaciones() {
       if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
         await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
       }
-      const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V' };
+      const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V', ...(alumnoForm.nuevoIngreso ? { nuevoIngreso: true } : {}) };
       nuevos[gradoActual].push(alumnoNuevo);
       await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
 
@@ -1682,7 +1569,7 @@ export default function SistemaCalificaciones() {
         console.error('Error propagando a áreas especiales:', e);
       }
     }
-    setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null });
+    setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null, nuevoIngreso: false });
   };
 
   const eliminarAlumno = async (alumno) => {
@@ -2586,12 +2473,19 @@ export default function SistemaCalificaciones() {
                     </button>
                   ))}
                 </div>
+                <label onClick={() => setAlumnoForm(f => ({ ...f, nuevoIngreso: !f.nuevoIngreso }))}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: alumnoForm.nuevoIngreso ? '#f59e0b' : 'var(--border)', background: alumnoForm.nuevoIngreso ? '#fffbeb' : '#f8fafc', transition: 'all .15s' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 3, border: '2px solid', borderColor: alumnoForm.nuevoIngreso ? '#f59e0b' : '#cbd5e1', background: alumnoForm.nuevoIngreso ? '#f59e0b' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {alumnoForm.nuevoIngreso && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: alumnoForm.nuevoIngreso ? 700 : 500, color: alumnoForm.nuevoIngreso ? '#92400e' : 'var(--muted)', whiteSpace: 'nowrap' }}>Nuevo ingreso</span>
+                </label>
                 <button onClick={agregarAlumno} className="btn-primary"
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   <Plus size={16} /> {alumnoForm.editando ? 'Actualizar' : 'Agregar'}
                 </button>
                 {alumnoForm.editando && (
-                  <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null })}
+                  <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null, nuevoIngreso: false })}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                     <X size={14} /> Cancelar
                   </button>
@@ -3144,6 +3038,10 @@ export default function SistemaCalificaciones() {
                     <FileDown size={14} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Unificado'}
                   </button>
                   <InfoPDFUnificado />
+                  <button onClick={() => setShowPromedioGeneral(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 'var(--r)', background: 'var(--violet-lt)', color: 'var(--violet)', border: '1.5px solid #ddd6fe', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+                    📊 Prom. General
+                  </button>
                 </div>
               )}
               {isAdmin && (
@@ -3282,6 +3180,11 @@ export default function SistemaCalificaciones() {
           <ModalSinNotas
             db={db} todosUsuarios={todosUsuarios} alumnosGlobales={alumnosGlobales}
             onClose={() => setShowSinNotas(false)} />
+        )}
+        {showPromedioGeneral && (
+          <ModalPromedioGeneral
+            db={db} grado={grado} alumnosGlobales={alumnosGlobales}
+            onClose={() => setShowPromedioGeneral(false)} />
         )}
         {showDesbloqueoMasivo && (
           <ModalDesbloqueoMasivo
@@ -3554,9 +3457,16 @@ export default function SistemaCalificaciones() {
                   {[...estActuales]
                     .filter(e => !busquedaAlumno || e.nombre.toLowerCase().includes(busquedaAlumno.toLowerCase()) || e.dni?.includes(busquedaAlumno))
                     .sort((a, b) => {
-                    if ((a.sexo || 'V') !== (b.sexo || 'V')) return (a.sexo || 'V') === 'V' ? -1 : 1;
-                    return a.nombre.localeCompare(b.nombre, 'es');
-                  }).map((e, i) => {
+                      // Nuevos ingresos siempre al final
+                      if (a.nuevoIngreso && !b.nuevoIngreso) return 1;
+                      if (!a.nuevoIngreso && b.nuevoIngreso) return -1;
+                      if (a.nuevoIngreso && b.nuevoIngreso) return a.nombre.localeCompare(b.nombre, 'es');
+                      // Orden normal: varones primero, luego mujeres, alfabético
+                      const sexoA = alumnosDelGradoActual.find(al => al.dni === a.dni)?.sexo || a.sexo || 'V';
+                      const sexoB = alumnosDelGradoActual.find(al => al.dni === b.dni)?.sexo || b.sexo || 'V';
+                      if (sexoA !== sexoB) return sexoA === 'V' ? -1 : 1;
+                      return a.nombre.localeCompare(b.nombre, 'es');
+                    }).map((e, i) => {
                     const b1 = e.bimestres?.[1]?.nota || '';
                     const b2 = e.bimestres?.[2]?.nota || '';
                     const b3 = e.bimestres?.[3]?.nota || '';
@@ -4485,11 +4395,6 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
     if (!ok) return;
     setProcesando(true);
     let total = 0;
-    let errores = 0;
-    // Traemos la fecha de bloqueo vigente en este momento: al desbloquear, guardamos ESA fecha
-    // como "ya aplicada", para que no se re-bloquee con la misma, pero sí con una fecha nueva futura.
-    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
-    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
     const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
     for (const u of docentes) {
       const grados = u.rol === 'docente_grado'
@@ -4501,31 +4406,20 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
       for (const grado of grados) {
         for (const mat of materias) {
           const matNombre = mat.nombre || mat;
-          const key = safeKey(`${matNombre}_${grado}`);
+          const key = matNombre.replace(/[^a-zA-Z0-9]/g, '_') + '_' + grado.replace(/[^a-zA-Z0-9]/g, '_');
           try {
             const snap = await getDoc(doc(db, 'configuracion', key));
-            const data = snap.exists() ? snap.data() : {};
-            const bloq = data.bimestresBlockeados || {};
-            const yaAplicado = data.autoBloqueoAplicadoFecha || {};
+            const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
             const nuevo = { ...bloq };
-            const nuevoAplicado = { ...yaAplicado };
-            seleccionados.forEach(b => {
-              nuevo[b] = false;
-              nuevoAplicado[b] = fechasVigentes[`bim${b}`] || null; // fecha vigente al momento del desbloqueo
-              total++;
-            });
-            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
-          } catch(e) { errores++; }
+            seleccionados.forEach(b => { nuevo[b] = false; total++; });
+            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
+          } catch(e) {}
         }
       }
     }
     setProcesando(false);
     onClose();
-    await showAlert(
-      errores === 0
-        ? `✅ Desbloqueo masivo completado. Se desbloquearon ${total} bimestre(s) en total para todos los docentes.`
-        : `⚠️ Desbloqueo completado con ${errores} error(es). Se desbloquearon ${total} bimestre(s), pero ${errores} escritura(s) fallaron — revisá la conexión y volvé a intentar si hace falta.`,
-      errores === 0 ? 'success' : 'warning', 'Desbloqueo completado');
+    await showAlert(`✅ Desbloqueo masivo completado. Se desbloquearon ${total} bimestre(s) en total para todos los docentes.`, 'success', 'Desbloqueo completado');
   };
 
   return (
@@ -4568,22 +4462,11 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
 // COMPONENTE: Editor de fechas de bloqueo (admin)
 // ════════════════════════════════════════════════════════
 function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
-  // Separamos fecha y hora en dos campos: la fecha por defecto sigue siendo la misma,
-  // pero ahora la hora es editable (antes quedaba fija en 23:59:59 sin poder cambiarla).
-  const partir = (iso, fechaDefault) => {
-    if (!iso) return { fecha: fechaDefault, hora: '23:59' };
-    const [f, hMin] = iso.split('T');
-    return { fecha: f, hora: hMin ? hMin.slice(0, 5) : '23:59' };
-  };
-  const b1 = partir(fechasBloqueo.bim1, '2026-05-13');
-  const b2 = partir(fechasBloqueo.bim2, '2026-08-08');
-  const b3 = partir(fechasBloqueo.bim3, '');
-  const b4 = partir(fechasBloqueo.bim4, '');
   const [fechas, setFechas] = useState({
-    bim1: fechasBloqueo.bim1 ? b1.fecha : '2026-05-13', bim1h: b1.hora,
-    bim2: fechasBloqueo.bim2 ? b2.fecha : '2026-08-08', bim2h: b2.hora,
-    bim3: fechasBloqueo.bim3 ? b3.fecha : '', bim3h: b3.hora,
-    bim4: fechasBloqueo.bim4 ? b4.fecha : '', bim4h: b4.hora,
+    bim1: fechasBloqueo.bim1 ? fechasBloqueo.bim1.slice(0, 10) : '2026-05-13',
+    bim2: fechasBloqueo.bim2 ? fechasBloqueo.bim2.slice(0, 10) : '2026-08-08',
+    bim3: fechasBloqueo.bim3 ? fechasBloqueo.bim3.slice(0, 10) : '',
+    bim4: fechasBloqueo.bim4 ? fechasBloqueo.bim4.slice(0, 10) : '',
   });
   const [guardando, setGuardando] = useState(false);
 
@@ -4591,10 +4474,10 @@ function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
     setGuardando(true);
     try {
       await setDoc(doc(db, 'configuracion', 'fechasBloqueo'), {
-        bim1: fechas.bim1 ? `${fechas.bim1}T${fechas.bim1h || '23:59'}:00` : null,
-        bim2: fechas.bim2 ? `${fechas.bim2}T${fechas.bim2h || '23:59'}:00` : null,
-        bim3: fechas.bim3 ? `${fechas.bim3}T${fechas.bim3h || '23:59'}:00` : null,
-        bim4: fechas.bim4 ? `${fechas.bim4}T${fechas.bim4h || '23:59'}:00` : null,
+        bim1: fechas.bim1 ? `${fechas.bim1}T23:59:59` : null,
+        bim2: fechas.bim2 ? `${fechas.bim2}T23:59:59` : null,
+        bim3: fechas.bim3 ? `${fechas.bim3}T23:59:59` : null,
+        bim4: fechas.bim4 ? `${fechas.bim4}T23:59:59` : null,
       }, { merge: true });
       onClose();
       await showAlert('✅ Fechas de bloqueo actualizadas. El sistema aplicará los nuevos límites automáticamente.', 'success', 'Guardado');
@@ -4615,19 +4498,14 @@ function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
         </div>
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Después de la fecha y hora elegidas, el sistema bloquea automáticamente el bimestre. Dejá vacío los bimestres sin fecha definida aún.
+            Después de cada fecha el sistema bloquea automáticamente el bimestre. Dejá vacío los bimestres sin fecha definida aún.
           </p>
           {[1,2,3,4].map(bim => (
             <div key={bim} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bim}° Bimestre — fecha y hora límite de carga</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="date" value={fechas[`bim${bim}`]}
-                  onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}`]: e.target.value }))}
-                  className="n-field-input" style={{ flex: 2 }} />
-                <input type="time" value={fechas[`bim${bim}h`]}
-                  onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}h`]: e.target.value }))}
-                  className="n-field-input" style={{ flex: 1 }} />
-              </div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{bim}° Bimestre — fecha límite de carga</label>
+              <input type="date" value={fechas[`bim${bim}`]}
+                onChange={e => setFechas(prev => ({ ...prev, [`bim${bim}`]: e.target.value }))}
+                className="n-field-input" />
             </div>
           ))}
           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
@@ -4637,6 +4515,124 @@ function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
               {guardando ? 'Guardando...' : '💾 Guardar fechas'}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Modal Promedio General por Alumno
+// ════════════════════════════════════════════════════════
+function ModalPromedioGeneral({ db, grado, alumnosGlobales, onClose }) {
+  const [datos, setDatos] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [bimSel, setBimSel] = useState(2);
+
+  const MATERIAS_PROM = [
+    'Lengua y Literatura', 'Matemática', 'Ciencias Naturales', 'Ciencias Sociales',
+    'Formación Ética y Ciudadana', 'Educación Artística: Música', 'Educación Artística: Plástica',
+    'Educación Física', 'Tecnología', 'Lengua Extranjera: Inglés', 'Lengua Extranjera: Portugués',
+    'Laboratorio', 'Informática',
+    // Primer ciclo
+    'Lengua Oral', 'Lengua Escrita', 'Lengua Extranjera',
+    'Expresión Artística: Música', 'Expresión Artística: Plástica',
+  ];
+
+  useEffect(() => {
+    const cargar = async () => {
+      setCargando(true);
+      const alumnos = alumnosGlobales[grado] || [];
+      const snaps = await Promise.all(
+        MATERIAS_PROM.map(m => getDoc(doc(db, 'calificaciones', m.replace(/[^a-zA-Z0-9]/g,'_') + '_' + grado.replace(/[^a-zA-Z0-9]/g,'_'))))
+      );
+      const porMateria = MATERIAS_PROM.map((m, i) => ({
+        nombre: m,
+        estudiantes: snaps[i].exists() ? (snaps[i].data().estudiantes || []) : []
+      })).filter(m => m.estudiantes.length > 0);
+
+      const resultado = alumnos.map(al => {
+        const notas = porMateria.map(m => {
+          const est = m.estudiantes.find(e => e.dni === al.dni);
+          const n = parseFloat(est?.bimestres?.[bimSel]?.nota);
+          return isNaN(n) ? null : n;
+        }).filter(n => n !== null);
+        const prom = notas.length > 0 ? (notas.reduce((a,b) => a+b,0)/notas.length).toFixed(2) : null;
+        return { ...al, promedio: prom, cantMaterias: notas.length };
+      });
+      setDatos(resultado);
+      setCargando(false);
+    };
+    cargar();
+  }, [grado, bimSel]);
+
+  const sorted = [...datos].sort((a,b) => {
+    if (a.nuevoIngreso && !b.nuevoIngreso) return 1;
+    if (!a.nuevoIngreso && b.nuevoIngreso) return -1;
+    if ((a.sexo||'V') !== (b.sexo||'V')) return (a.sexo||'V') === 'V' ? -1 : 1;
+    return a.nombre.localeCompare(b.nombre, 'es');
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 600, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📊 Promedio General — {grado}</h3>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Suma de promedios de todas las materias curriculares y especiales</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        {/* Selector bimestre */}
+        <div style={{ display: 'flex', gap: 6, padding: '12px 20px', borderBottom: '1px solid var(--border)', background: '#f8fafc', flexShrink: 0 }}>
+          {[1,2,3,4].map(b => (
+            <button key={b} onClick={() => setBimSel(b)}
+              style={{ padding: '6px 14px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: bimSel === b ? 'var(--navy)' : 'var(--border)', background: bimSel === b ? 'var(--navy)' : '#fff', color: bimSel === b ? '#fff' : 'var(--slate)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+              {b}° Bim.
+            </button>
+          ))}
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {cargando ? (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
+              <div style={{ width: 36, height: 36, border: '4px solid var(--border)', borderTop: '4px solid var(--navy)', borderRadius: '50%', animation: 'spin .8s linear infinite', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: 14 }}>Calculando promedios...</p>
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--navy)' }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#fff' }}>Alumno/a</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#fff', width: 100 }}>Materias</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#fff', width: 120 }}>Prom. General</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((al, i) => {
+                  const pf = parseFloat(al.promedio);
+                  const color = isNaN(pf) ? 'var(--muted)' : pf >= 7 ? '#16a34a' : pf >= 4 ? '#d97706' : '#dc2626';
+                  return (
+                    <tr key={al.dni} style={{ background: i % 2 === 0 ? '#fff' : 'var(--zebra)', borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 16px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                        {al.nombre}
+                        {al.nuevoIngreso && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: 20, padding: '1px 6px' }}>Nuevo ingreso</span>}
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{al.cantMaterias}</td>
+                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                        {al.promedio
+                          ? <span style={{ fontSize: 15, fontWeight: 800, color }}>{al.promedio}</span>
+                          : <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: '#f8fafc', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ width: '100%', padding: '9px', borderRadius: 'var(--r)', background: '#f1f5f9', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cerrar</button>
         </div>
       </div>
     </div>
@@ -6235,36 +6231,24 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                       ? (u.materiasAsignadas || [])
                       : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
                     let desbloqueados = 0;
-                    let errores = 0;
-                    // Fecha de bloqueo vigente en este momento (para no re-bloquear con la misma,
-                    // pero sí reaccionar si más adelante se programa una fecha nueva).
-                    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
-                    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
                     for (const grado of grados) {
                       for (const mat of materias) {
                         const matNombre = mat.nombre || mat;
                         const key = safeKey(`${matNombre}_${grado}`);
                         try {
                           const snap = await getDoc(doc(db, 'configuracion', key));
-                          const data = snap.exists() ? snap.data() : {};
-                          const bloq = data.bimestresBlockeados || {};
-                          const yaAplicado = data.autoBloqueoAplicadoFecha || {};
+                          const bloq = snap.exists() ? (snap.data().bimestresBlockeados || {}) : {};
                           const nuevo = { ...bloq };
-                          const nuevoAplicado = { ...yaAplicado };
                           Object.entries(bimestresDesbloqueo).forEach(([b, sel]) => {
-                            if (sel) { nuevo[parseInt(b)] = false; nuevoAplicado[parseInt(b)] = fechasVigentes[`bim${b}`] || null; desbloqueados++; }
+                            if (sel) { nuevo[parseInt(b)] = false; desbloqueados++; }
                           });
-                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
-                        } catch(e) { errores++; }
+                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo }, { merge: true });
+                        } catch(e) {}
                       }
                     }
                     setDesbloqueando(false);
                     setDocenteDesbloqueo(null);
-                    await showAlert(
-                      errores === 0
-                        ? `✅ Se desbloquearon bimestres para ${u.nombre}. Ya puede cargar notas.`
-                        : `⚠️ Se desbloquearon bimestres para ${u.nombre}, pero ${errores} escritura(s) fallaron. Revisá la conexión y volvé a intentar si hace falta.`,
-                      errores === 0 ? 'success' : 'warning', errores === 0 ? 'Desbloqueado' : 'Desbloqueo parcial');
+                    await showAlert(`✅ Se desbloquearon bimestres para ${u.nombre}. Ya puede cargar notas.`, 'success', 'Desbloqueado');
                   }}
                   className="btn-primary"
                   style={{ flex: 2, padding: '10px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 'not-allowed' : 'pointer', opacity: desbloqueando || !Object.values(bimestresDesbloqueo).some(Boolean) ? 0.5 : 1, fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
