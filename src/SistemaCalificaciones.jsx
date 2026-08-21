@@ -1214,6 +1214,7 @@ export default function SistemaCalificaciones() {
   const [showSinNotas, setShowSinNotas] = useState(false);
   const [showDesbloqueoMasivo, setShowDesbloqueoMasivo] = useState(false);
   const [showFechasBloqueo, setShowFechasBloqueo] = useState(false);
+  const [showPromGenerales, setShowPromGenerales] = useState(false);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(false);
   const [fechasBloqueo, setFechasBloqueo] = useState({
     bim1: '2026-05-13T23:59:59',
@@ -3220,6 +3221,12 @@ export default function SistemaCalificaciones() {
                   <InfoPDFUnificado />
                 </div>
               )}
+              {isDocGrado && (
+                <button onClick={() => setShowPromGenerales(true)}
+                  className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--blue-lt)', color: '#1d4ed8', border: '1.5px solid #bfdbfe', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  📊 Prom. Generales
+                </button>
+              )}
               {isAdmin && (
                 <button
                   disabled={pdfUnificadoGenerando}
@@ -3368,6 +3375,11 @@ export default function SistemaCalificaciones() {
             db={db} fechasBloqueo={fechasBloqueo}
             showAlert={showAlert}
             onClose={() => setShowFechasBloqueo(false)} />
+        )}
+        {showPromGenerales && (
+          <ModalPromediosGenerales
+            db={db} usuario={usuario} alumnosGlobales={alumnosGlobales} fechasBloqueo={fechasBloqueo}
+            onClose={() => setShowPromGenerales(false)} />
         )}
       </>
     );
@@ -4638,6 +4650,115 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Editor de fechas de bloqueo (admin)
 // ════════════════════════════════════════════════════════
+function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, onClose }) {
+  const gradosDocente = usuario?.gradosAsignados?.length > 0 ? usuario.gradosAsignados : [usuario?.gradoAsignado].filter(Boolean);
+  const [gradoSel, setGradoSel] = useState(gradosDocente[0] || '');
+  const [cargando, setCargando] = useState(true);
+  const [filas, setFilas] = useState([]);
+
+  // Bimestre activo: el último ya cerrado según las fechas configuradas (mismo criterio que el PDF unificado)
+  const determinarBimActivo = () => {
+    const ahora = new Date();
+    if (fechasBloqueo.bim4 && ahora > new Date(fechasBloqueo.bim4)) return 4;
+    if (fechasBloqueo.bim3 && ahora > new Date(fechasBloqueo.bim3)) return 3;
+    if (fechasBloqueo.bim2 && ahora > new Date(fechasBloqueo.bim2)) return 2;
+    return 1;
+  };
+  const [bimSel, setBimSel] = useState(determinarBimActivo());
+
+  const primerCiclo = esPrimerCiclo(gradoSel);
+  // Materias que entran en el promedio general: Curriculares (sin Convivencia) + Especiales = 13 materias
+  const materiasPromGeneral = [...areas.curriculares, ...areas.especiales];
+
+  useEffect(() => {
+    if (!gradoSel) return;
+    let cancelado = false;
+    setCargando(true);
+    (async () => {
+      const snaps = await Promise.all(
+        materiasPromGeneral.map(m => getDoc(doc(db, 'calificaciones', safeKey(`${m.nombre}_${gradoSel}`))))
+      );
+      if (cancelado) return;
+      const datos = materiasPromGeneral.map((m, i) => ({
+        nombre: m.nombre,
+        estudiantes: snaps[i].exists() ? (snaps[i].data().estudiantes || []) : []
+      }));
+      const alumnos = [...(alumnosGlobales[gradoSel] || [])].sort(compararAlumnos);
+      const resultado = alumnos.map(al => {
+        const notas = datos
+          .map(({ estudiantes }) => parseFloat(estudiantes.find(e => e.dni === al.dni)?.bimestres?.[bimSel]?.nota))
+          .filter(n => !isNaN(n));
+        const prom = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+        return { nombre: al.nombre, dni: al.dni, cantidadMaterias: notas.length, prom };
+      });
+      setFilas(resultado);
+      setCargando(false);
+    })();
+    return () => { cancelado = true; };
+  }, [gradoSel, bimSel, db]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 640, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📊 Promedios Generales</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          {gradosDocente.length > 1 && (
+            <select value={gradoSel} onChange={e => setGradoSel(e.target.value)}
+              style={{ padding: '7px 10px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'DM Sans,sans-serif' }}>
+              {gradosDocente.map(g => <option key={g} value={g}>{gradoLabel(g)}</option>)}
+            </select>
+          )}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[1, 2, 3, 4].map(b => (
+              <button key={b} onClick={() => setBimSel(b)}
+                style={{ padding: '7px 12px', borderRadius: 'var(--r)', border: '1.5px solid', borderColor: bimSel === b ? 'var(--navy)' : 'var(--border)', background: bimSel === b ? 'var(--navy)' : '#fff', color: bimSel === b ? '#fff' : 'var(--slate)', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                {b}° Bim.
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
+            Sobre {materiasPromGeneral.length} materias (Curriculares + Especiales, sin Convivencia ni Talleres)
+          </span>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {cargando ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontWeight: 600 }}>Cargando...</div>
+          ) : filas.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontWeight: 600 }}>No hay alumnos cargados en {gradoLabel(gradoSel)}.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', position: 'sticky', top: 0 }}>
+                  <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>#</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Alumno/a</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Materias con nota</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Promedio general</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((f, i) => (
+                  <tr key={f.dni} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '9px 12px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>{i + 1}</td>
+                    <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>{f.nombre}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{f.cantidadMaterias} / {materiasPromGeneral.length}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13, color: f.prom === null ? 'var(--muted)' : 'var(--navy)' }}>
+                      {f.prom === null ? '—' : (primerCiclo ? textoConceptual(f.prom.toFixed(2)) : f.prom.toFixed(2))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalFechasBloqueoAdmin({ db, fechasBloqueo, showAlert, onClose }) {
   // Separamos fecha y hora en dos campos: la fecha por defecto sigue siendo la misma,
   // pero ahora la hora es editable (antes quedaba fija en 23:59:59 sin poder cambiarla).
