@@ -1033,16 +1033,40 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
       // No es una columna: es una nota de texto por alumno. Vale para TODOS los grados (1° a 7°);
       // en 1°-3° las notas son conceptuales, pero el promedio se calcula igual sobre el valor
       // numérico interno y se muestra en formato conceptual.
+      // 7° grado no tiene Portugués (solo Inglés): se excluye de la cuenta, quedan 12 materias.
       {
         const bimNum = parseInt(bimActivo);
-        const materiasPromGeneral = [...datosCurr.filter(d => d.nombre !== 'Convivencia'), ...datosEsp];
+        const esSeptimo = grado.charAt(0) === '7';
+        const materiasPromGeneral = [...datosCurr.filter(d => d.nombre !== 'Convivencia'), ...datosEsp]
+          .filter(d => !(esSeptimo && d.nombre === 'Lengua Extranjera: Portugués'));
+        const labelCuatProm = cuatAConsiderar?.label === '2°Cuat.' ? '2da. Ev. Integ. Cuatrim.' : '1ra. Ev. Integ. Cuatrim.';
         const lineasProm = alumnosOrdenados.map((al, idx) => {
           const notas = materiasPromGeneral
             .map(({ estudiantes }) => parseFloat(estudiantes.find(e => e.dni === al.dni)?.bimestres?.[bimNum]?.nota))
             .filter(n => !isNaN(n));
           const promGeneral = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : null;
           const promMostrar = promGeneral === null ? '—' : (primerCiclo ? textoConceptual(promGeneral) : promGeneral);
-          return `${idx + 1}. ${al.nombre} — Promedio general del ${bimActivo} Bimestre: ${promMostrar}`;
+
+          // Promedio de los CUATRIMESTRES de cada materia (no de un solo bimestre): igual idea
+          // que el promedio general, pero sobre (Prom.bimA + Prom.bimB) / 2 de cada materia.
+          let cuatMostrar = '—';
+          if (cuatAConsiderar) {
+            const cuats = materiasPromGeneral.map(({ estudiantes }) => {
+              const est = estudiantes.find(e => e.dni === al.dni);
+              const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
+              const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
+              if (!isNaN(nA) && !isNaN(nB)) return (nA + nB) / 2;
+              if (!isNaN(nA)) return nA;
+              if (!isNaN(nB)) return nB;
+              return null;
+            }).filter(n => n !== null);
+            if (cuats.length > 0) {
+              const cuatGeneral = (cuats.reduce((a, b) => a + b, 0) / cuats.length).toFixed(2);
+              cuatMostrar = primerCiclo ? textoConceptual(cuatGeneral) : cuatGeneral;
+            }
+          }
+
+          return `${idx + 1}. ${al.nombre} — Promedio general del ${bimActivo} Bimestre: ${promMostrar} — ${labelCuatProm}: ${cuatMostrar}`;
         });
 
         pdfDoc.addPage();
@@ -4673,8 +4697,14 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
   const [bimSel, setBimSel] = useState(determinarBimActivo());
 
   const primerCiclo = esPrimerCiclo(gradoSel);
-  // Materias que entran en el promedio general: Curriculares (sin Convivencia) + Especiales = 13 materias
-  const materiasPromGeneral = [...areas.curriculares, ...areas.especiales];
+  // Materias que entran en el promedio general: Curriculares (sin Convivencia) + Especiales
+  // 7° grado no tiene Portugués (solo Inglés): quedan 12 materias en vez de 13.
+  const esSeptimo = gradoSel.charAt(0) === '7';
+  const materiasPromGeneral = [...areas.curriculares, ...areas.especiales]
+    .filter(m => !(esSeptimo && m.nombre === 'Lengua Extranjera: Portugués'));
+
+  // Par de bimestres del cuatrimestre correspondiente al bimestre elegido
+  const parCuat = bimSel <= 2 ? { bimA: 1, bimB: 2, label: '1ra. Ev. Integ. Cuatrim.' } : { bimA: 3, bimB: 4, label: '2da. Ev. Integ. Cuatrim.' };
 
   useEffect(() => {
     if (!gradoSel) return;
@@ -4695,7 +4725,21 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
           .map(({ estudiantes }) => parseFloat(estudiantes.find(e => e.dni === al.dni)?.bimestres?.[bimSel]?.nota))
           .filter(n => !isNaN(n));
         const prom = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
-        return { nombre: al.nombre, dni: al.dni, cantidadMaterias: notas.length, prom };
+
+        // Promedio de los CUATRIMESTRES de cada materia: (Prom.bimA + Prom.bimB) / 2 por materia,
+        // promediado entre todas las materias — misma idea que el promedio general, otro insumo.
+        const cuats = datos.map(({ estudiantes }) => {
+          const est = estudiantes.find(e => e.dni === al.dni);
+          const nA = parseFloat(est?.bimestres?.[parCuat.bimA]?.nota);
+          const nB = parseFloat(est?.bimestres?.[parCuat.bimB]?.nota);
+          if (!isNaN(nA) && !isNaN(nB)) return (nA + nB) / 2;
+          if (!isNaN(nA)) return nA;
+          if (!isNaN(nB)) return nB;
+          return null;
+        }).filter(n => n !== null);
+        const promCuat = cuats.length > 0 ? (cuats.reduce((a, b) => a + b, 0) / cuats.length) : null;
+
+        return { nombre: al.nombre, dni: al.dni, cantidadMaterias: notas.length, prom, promCuat };
       });
       setFilas(resultado);
       setCargando(false);
@@ -4706,7 +4750,7 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 640, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'modalEntrada 0.2s ease-out' }}>
+      <div style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 720, maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'modalEntrada 0.2s ease-out' }}>
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>📊 Promedios Generales</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
@@ -4727,7 +4771,7 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
             ))}
           </div>
           <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>
-            Sobre {materiasPromGeneral.length} materias (Curriculares + Especiales, sin Convivencia ni Talleres)
+            Sobre {materiasPromGeneral.length} materias (Curriculares + Especiales, sin Convivencia ni Talleres{esSeptimo ? ', sin Portugués' : ''})
           </span>
         </div>
         <div style={{ overflowY: 'auto', flex: 1 }}>
@@ -4743,6 +4787,7 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
                   <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Alumno/a</th>
                   <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Materias con nota</th>
                   <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Promedio general</th>
+                  <th style={{ padding: '9px 12px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>{parCuat.label}</th>
                 </tr>
               </thead>
               <tbody>
@@ -4753,6 +4798,9 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
                     <td style={{ padding: '9px 12px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{f.cantidadMaterias} / {materiasPromGeneral.length}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13, color: f.prom === null ? 'var(--muted)' : 'var(--navy)' }}>
                       {f.prom === null ? '—' : (primerCiclo ? textoConceptual(f.prom.toFixed(2)) : f.prom.toFixed(2))}
+                    </td>
+                    <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13, color: f.promCuat === null ? 'var(--muted)' : '#7c3aed' }}>
+                      {f.promCuat === null ? '—' : (primerCiclo ? textoConceptual(f.promCuat.toFixed(2)) : f.promCuat.toFixed(2))}
                     </td>
                   </tr>
                 ))}
