@@ -1193,6 +1193,21 @@ export default function SistemaCalificaciones() {
   const [criteriosPorBimestre, setCriteriosPorBimestre] = useState({ 1: [], 2: [], 3: [], 4: [] });
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
   const [bimestresBlockeados, setBimestresBlockeados] = useState({ 1: false, 2: false, 3: false, 4: false });
+  // Ocultar/mostrar columnas de bimestre en la tabla de notas (solo vista, no toca datos).
+  // Se guarda en el navegador para que la preferencia se mantenga entre sesiones.
+  const [bimColapsados, setBimColapsados] = useState(() => {
+    try {
+      const guardado = localStorage.getItem('bimColapsados');
+      return guardado ? JSON.parse(guardado) : { 1: false, 2: false, 3: false, 4: false };
+    } catch { return { 1: false, 2: false, 3: false, 4: false }; }
+  });
+  const toggleBimColapsado = (bim) => {
+    setBimColapsados(prev => {
+      const nuevo = { ...prev, [bim]: !prev[bim] };
+      try { localStorage.setItem('bimColapsados', JSON.stringify(nuevo)); } catch {}
+      return nuevo;
+    });
+  };
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
@@ -2977,7 +2992,7 @@ export default function SistemaCalificaciones() {
         onAbrirInasistencias={() => setShowInasistencias(true)}
         onAbrirSinNotas={() => setShowSinNotas(true)}
         rolLabel={rolLabel} modalCerrarSesion={modalCerrarSesion} initialTab={origenGestion?.tab || 'grado'}
-        showConfirm={showConfirm} todosUsuarios={todosUsuarios}
+        todosUsuarios={todosUsuarios}
         ModalCerrarSesion={ModalCerrarSesion} ModalRenderer={ModalRenderer} TopBar={TopBar} Badge={Badge} />
       {docenteActividad && (
         <ModalActividadDocente
@@ -3641,18 +3656,26 @@ export default function SistemaCalificaciones() {
                     <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>
                     {[1, 2].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
+                      const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
+                        <th key={b} style={{ padding: colapsado ? '9px 3px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 26 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
+                          <button onClick={() => toggleBimColapsado(b)} title={colapsado ? `Mostrar ${b}° Bimestre` : `Ocultar ${b}° Bimestre`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 11, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center', gap: 4, margin: '0 auto' }}>
+                            {colapsado ? '▸' : '▾'} {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
+                          </button>
                         </th>
                       );
                     })}
                     <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° Cuat.</th>
                     {[3, 4].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
+                      const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
+                        <th key={b} style={{ padding: colapsado ? '9px 3px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 26 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
+                          <button onClick={() => toggleBimColapsado(b)} title={colapsado ? `Mostrar ${b}° Bimestre` : `Ocultar ${b}° Bimestre`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 11, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center', gap: 4, margin: '0 auto' }}>
+                            {colapsado ? '▸' : '▾'} {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
+                          </button>
                         </th>
                       );
                     })}
@@ -3689,6 +3712,15 @@ export default function SistemaCalificaciones() {
                         const idx2 = crits.indexOf(cr);
                         return !e.bimestres?.[bim]?.[`n${idx2+1}`];
                       });
+                      if (bimColapsados[bim]) {
+                        return (
+                          <td style={{ padding: '8px 3px', textAlign: 'center', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: 26, background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 24, borderRadius: 5, fontSize: primerCiclo && notaBim ? 8 : 11, fontWeight: 700, backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8' }}>
+                              {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '—'}
+                            </span>
+                          </td>
+                        );
+                      }
                       return (
                         <td style={{ padding: '8px 11px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px', background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
                           {bloqueado && !esNuevoSinNota && <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--red)', fontWeight: 700, marginBottom: 4 }}>🔒</div>}
@@ -4339,8 +4371,7 @@ function ModalAvisos({ db, avisos, authUser, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 720 }}
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 720, animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ background: 'linear-gradient(135deg, #d97706, #b45309)' }}>
           <h3 className="text-lg font-bold text-white">🔔 Avisos de Dirección</h3>
@@ -4520,8 +4551,7 @@ function ModalNotifsBimestre({ db, notifs, onClose, showConfirm, showAlert }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 620 }}
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 620, animation: 'modalEntrada 0.2s ease-out' }}>
         <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>✅ Bimestres Completados</h3>
@@ -5062,8 +5092,7 @@ function ModalPerfil({ db, usuario, authUser, showAlert, onClose, onActualizar }
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 460 }}
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 460, animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-purple-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-purple-800">👤 Mi Perfil</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
@@ -5325,8 +5354,7 @@ function ModalMensajes({ db, usuario, authUser, mensajes, nombreMostrado, onClos
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 520 }}
-        style={{ animation: 'modalEntrada 0.2s ease-out' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full overflow-hidden" style={{ maxWidth: 520, animation: 'modalEntrada 0.2s ease-out' }}>
         <div className="bg-blue-50 px-6 py-4 flex items-center justify-between border-b">
           <h3 className="text-lg font-bold text-blue-800">✉️ Mensajes</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
