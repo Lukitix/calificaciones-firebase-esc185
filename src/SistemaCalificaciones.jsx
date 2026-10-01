@@ -3673,32 +3673,36 @@ export default function SistemaCalificaciones() {
               ))}
             </div>
             <div className="tabla-wrapper" style={{ overflowX: 'auto' }}>
-              <table className="w-full border-collapse">
+              <table className="border-collapse" style={{ width: 'auto' }}>
                 <thead>
                   <tr style={{ background: 'var(--navy)' }}>
                     <th style={{ padding: '10px 11px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', width: 30 }}>#</th>
                     <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 155 }}>Estudiante</th>
                     {!dniOculto && <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>}
                     {[1, 2].map(b => {
+                      if (bimColapsados[b]) return null;
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
-                      const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: colapsado ? '9px 4px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 38 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
-                          {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
+                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                         </th>
                       );
                     })}
-                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° Cuat.</th>
+                    {!(bimColapsados[1] && bimColapsados[2]) && (
+                      <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>1° Cuat.</th>
+                    )}
                     {[3, 4].map(b => {
+                      if (bimColapsados[b]) return null;
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
-                      const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: colapsado ? '9px 4px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 38 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
-                          {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
+                        <th key={b} style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                          {b}° Bimestre {completo && <span title="Todos con nota">✅</span>}
                         </th>
                       );
                     })}
-                    <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>2° Cuat.</th>
+                    {!(bimColapsados[3] && bimColapsados[4]) && (
+                      <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#2e3a8a', minWidth: 70, borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>2° Cuat.</th>
+                    )}
                     <th style={{ padding: '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', background: '#3b1d8a', minWidth: 80, borderLeft: 'var(--bim-sep)' }}>Final</th>
                   </tr>
                 </thead>
@@ -3731,15 +3735,7 @@ export default function SistemaCalificaciones() {
                         const idx2 = crits.indexOf(cr);
                         return !e.bimestres?.[bim]?.[`n${idx2+1}`];
                       });
-                      if (bimColapsados[bim]) {
-                        return (
-                          <td style={{ padding: '8px 4px', textAlign: 'center', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: 38, background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, height: 26, borderRadius: 5, fontSize: primerCiclo && notaBim ? 9 : 12, fontWeight: 700, backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8' }}>
-                              {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '—'}
-                            </span>
-                          </td>
-                        );
-                      }
+                      if (bimColapsados[bim]) return null;
                       return (
                         <td style={{ padding: '8px 11px', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', minWidth: crits.length > 0 ? `${crits.length * 100 + 70}px` : '120px', background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
                           {bloqueado && !esNuevoSinNota && <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--red)', fontWeight: 700, marginBottom: 4 }}>🔒</div>}
@@ -3792,18 +3788,22 @@ export default function SistemaCalificaciones() {
                         {!dniOculto && <td style={{ padding: '9px 11px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{e.dni || '-'}</td>}
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
-                        <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c1 ? 9 : 12, fontWeight: 700, background: colorNota(c1)?.bg || '#eef2ff', color: colorNota(c1)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c1)?.bg || '#c7d2fe' }}>
-                            {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '—'}
-                          </span>
-                        </td>
+                        {!(bimColapsados[1] && bimColapsados[2]) && (
+                          <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c1 ? 9 : 12, fontWeight: 700, background: colorNota(c1)?.bg || '#eef2ff', color: colorNota(c1)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c1)?.bg || '#c7d2fe' }}>
+                              {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '—'}
+                            </span>
+                          </td>
+                        )}
                         <CeldaBimestre bim={3} />
                         <CeldaBimestre bim={4} />
-                        <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c2 ? 9 : 12, fontWeight: 700, background: colorNota(c2)?.bg || '#eef2ff', color: colorNota(c2)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c2)?.bg || '#c7d2fe' }}>
-                            {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '—'}
-                          </span>
-                        </td>
+                        {!(bimColapsados[3] && bimColapsados[4]) && (
+                          <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c2 ? 9 : 12, fontWeight: 700, background: colorNota(c2)?.bg || '#eef2ff', color: colorNota(c2)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c2)?.bg || '#c7d2fe' }}>
+                              {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '—'}
+                            </span>
+                          </td>
+                        )}
                         <td style={{ padding: '8px 11px', textAlign: 'center', borderLeft: 'var(--bim-sep)' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && promFinal ? 9 : 13, fontWeight: 800, background: 'var(--violet)', color: '#fff', border: '1.5px solid var(--violet)' }}>
                             {promFinal ? (primerCiclo ? textoConceptual(promFinal) : promFinal) : '—'}
