@@ -1208,6 +1208,17 @@ export default function SistemaCalificaciones() {
       return nuevo;
     });
   };
+  // Ocultar/mostrar la columna D.N.I. en la tabla de notas (misma idea, más espacio en el celular).
+  const [dniOculto, setDniOculto] = useState(() => {
+    try { return localStorage.getItem('dniOculto') === '1'; } catch { return false; }
+  });
+  const toggleDniOculto = () => {
+    setDniOculto(prev => {
+      const nuevo = !prev;
+      try { localStorage.setItem('dniOculto', nuevo ? '1' : '0'); } catch {}
+      return nuevo;
+    });
+  };
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
@@ -3647,22 +3658,33 @@ export default function SistemaCalificaciones() {
                   style={{ flex: 1, maxWidth: 320, padding: '6px 10px', border: '1.5px solid var(--border)', borderRadius: 'var(--r)', fontSize: 12, fontFamily: 'DM Sans,sans-serif', outline: 'none', color: 'var(--text)' }} />
                 {busquedaAlumno && <button onClick={() => setBusquedaAlumno('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={13} /></button>}
               </div>
+            {/* Barra de ocultar/mostrar columnas — botones grandes, pensados para tocar con el dedo en el celular */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 24px', borderBottom: '1px solid var(--border)', background: '#f8fafc', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginRight: 2 }}>Mostrar/ocultar:</span>
+              <button onClick={toggleDniOculto}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1.5px solid', borderColor: dniOculto ? '#c7d2fe' : 'var(--border)', background: dniOculto ? '#eef2ff' : '#fff', color: dniOculto ? 'var(--indigo)' : 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                {dniOculto ? <EyeOff size={14} /> : <Eye size={14} />} D.N.I.
+              </button>
+              {[1, 2, 3, 4].map(b => (
+                <button key={b} onClick={() => toggleBimColapsado(b)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: '1.5px solid', borderColor: bimColapsados[b] ? '#c7d2fe' : 'var(--border)', background: bimColapsados[b] ? '#eef2ff' : '#fff', color: bimColapsados[b] ? 'var(--indigo)' : 'var(--text)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  {bimColapsados[b] ? <EyeOff size={14} /> : <Eye size={14} />} {b}° Bim.
+                </button>
+              ))}
+            </div>
             <div className="tabla-wrapper" style={{ overflowX: 'auto' }}>
               <table className="w-full border-collapse">
                 <thead>
                   <tr style={{ background: 'var(--navy)' }}>
                     <th style={{ padding: '10px 11px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,.9)', width: 30 }}>#</th>
                     <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 155 }}>Estudiante</th>
-                    <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>
+                    {!dniOculto && <th style={{ padding: '9px 11px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', minWidth: 90 }}>D.N.I.</th>}
                     {[1, 2].map(b => {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: colapsado ? '9px 3px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 26 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
-                          <button onClick={() => toggleBimColapsado(b)} title={colapsado ? `Mostrar ${b}° Bimestre` : `Ocultar ${b}° Bimestre`}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 11, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center', gap: 4, margin: '0 auto' }}>
-                            {colapsado ? '▸' : '▾'} {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
-                          </button>
+                        <th key={b} style={{ padding: colapsado ? '9px 4px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 38 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
+                          {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
                         </th>
                       );
                     })}
@@ -3671,11 +3693,8 @@ export default function SistemaCalificaciones() {
                       const completo = estActuales.length > 0 && estActuales.every(e => e.bimestres?.[b]?.nota);
                       const colapsado = bimColapsados[b];
                       return (
-                        <th key={b} style={{ padding: colapsado ? '9px 3px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 26 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
-                          <button onClick={() => toggleBimColapsado(b)} title={colapsado ? `Mostrar ${b}° Bimestre` : `Ocultar ${b}° Bimestre`}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 11, fontWeight: 700, padding: 0, display: 'flex', alignItems: 'center', gap: 4, margin: '0 auto' }}>
-                            {colapsado ? '▸' : '▾'} {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
-                          </button>
+                        <th key={b} style={{ padding: colapsado ? '9px 4px' : '9px 11px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.9)', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: colapsado ? 38 : undefined, whiteSpace: colapsado ? 'nowrap' : undefined }}>
+                          {colapsado ? `${b}°` : <>{b}° Bimestre {completo && <span title="Todos con nota">✅</span>}</>}
                         </th>
                       );
                     })}
@@ -3714,8 +3733,8 @@ export default function SistemaCalificaciones() {
                       });
                       if (bimColapsados[bim]) {
                         return (
-                          <td style={{ padding: '8px 3px', textAlign: 'center', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: 26, background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 30, height: 24, borderRadius: 5, fontSize: primerCiclo && notaBim ? 8 : 11, fontWeight: 700, backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8' }}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)', width: 38, background: esNuevoSinNota ? '#fffbeb' : bloqueado ? '#fef2f2' : 'inherit' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 34, height: 26, borderRadius: 5, fontSize: primerCiclo && notaBim ? 9 : 12, fontWeight: 700, backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8' }}>
                               {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '—'}
                             </span>
                           </td>
@@ -3770,7 +3789,7 @@ export default function SistemaCalificaciones() {
                       <tr key={e.id} className="tabla-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 11px', textAlign: 'center', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>{i + 1}</td>
                         <td style={{ padding: '9px 11px', fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{e.nombre}</td>
-                        <td style={{ padding: '9px 11px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{e.dni || '-'}</td>
+                        {!dniOculto && <td style={{ padding: '9px 11px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{e.dni || '-'}</td>}
                         <CeldaBimestre bim={1} />
                         <CeldaBimestre bim={2} />
                         <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
