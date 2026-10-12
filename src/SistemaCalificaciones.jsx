@@ -384,6 +384,25 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
   .topbar-fixed { padding: 8px 12px !important; }
   .breadcrumb { font-size: 12px !important; }
   div[style*="padding: '28px 28px'"] { padding: 16px !important; }
+  /* ── Vista celular (solo pantallas chicas) ── */
+  .ing-wrap { flex-direction: column !important; }
+  .ing-left { width: 100% !important; padding: 20px 20px 16px !important; }
+  .ing-left h1 { font-size: 17px !important; margin-bottom: 6px !important; }
+  .ing-img { width: 84px !important; height: 84px !important; }
+  .ing-extra { display: none !important; }
+  .ing-right { width: 100% !important; align-items: flex-start !important; flex: 1; }
+  .ing-form { padding: 28px 22px 40px !important; max-width: 100% !important; }
+  .home-topbar { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; padding: 10px 12px !important; position: static !important; }
+  .home-brand-sub { display: none !important; }
+  .home-brand { white-space: nowrap; }
+  .home-topbar .topbar-actions { justify-content: flex-start; }
+  .mat-topbar { flex-wrap: wrap !important; gap: 8px !important; padding: 10px 12px !important; position: static !important; }
+  .mat-bc { display: none !important; }
+  .mat-actions { flex-wrap: wrap; gap: 6px !important; }
+  .crit-sub { display: none !important; }
+  .crit-grid { grid-template-columns: 1fr !important; }
+  .crit-grid > div { min-width: 0; }
+  .crit-card-head { flex-wrap: wrap; gap: 6px; }
 }
 @media (max-width: 480px) {
   .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
@@ -2599,11 +2618,12 @@ export default function SistemaCalificaciones() {
       <SessionExpiredToast />
       <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg" />
       <ModalRenderer modal={modal} closeModal={closeModal} />
-      <div className="min-h-screen w-full flex" style={{ background: 'var(--navy)' }}>
+      <div className="min-h-screen w-full flex ing-wrap" style={{ background: 'var(--navy)' }}>
         {/* Panel izquierdo — marca */}
-        <div style={{ width: '40%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px', flexShrink: 0 }}>
+        <div className="ing-left" style={{ width: '40%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', padding: '52px 48px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
             <img
+              className="ing-img"
               src="https://i.postimg.cc/5ycyH91P/upscalemedia-transformed.jpg"
               alt="Escuela Provincial N° 185"
               style={{ width: 240, height: 240, objectFit: 'cover', borderRadius: 'var(--r-lg)', border: '3px solid rgba(255,255,255,.2)', boxShadow: '0 16px 48px rgba(0,0,0,.4)' }}
@@ -2611,17 +2631,17 @@ export default function SistemaCalificaciones() {
             />
             <div>
               <h1 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.5, fontFamily: 'Outfit,sans-serif', marginBottom: 12, letterSpacing: '0.01em' }}>Escuela Provincial<br/>N° 185 "Juan Areco"</h1>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', lineHeight: 1.7, marginBottom: 14 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
-              <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,.2)', margin: '0 auto 14px' }}></div>
+              <p className="ing-extra" style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', lineHeight: 1.7, marginBottom: 14 }}>Santiago del Estero 150<br/>Oberá, Misiones</p>
+              <div className="ing-extra" style={{ width: 40, height: 1, background: 'rgba(255,255,255,.2)', margin: '0 auto 14px' }}></div>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,.75)', fontWeight: 600, marginBottom: 6 }}>Sistema de Calificaciones</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', fontWeight: 700, letterSpacing: '0.08em' }}>CICLO LECTIVO 2026</p>
+              <p className="ing-extra" style={{ fontSize: 11, color: 'rgba(255,255,255,.3)', fontWeight: 700, letterSpacing: '0.08em' }}>CICLO LECTIVO 2026</p>
             </div>
           </div>
           <div></div>
         </div>
         {/* Panel derecho — formulario */}
-        <div style={{ width: '60%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: 420, padding: '52px 48px' }} className="fade-in">
+        <div className="ing-right" style={{ width: '60%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 420, padding: '52px 48px' }} className="fade-in ing-form">
             <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 6 }}>Bienvenido/a</h2>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28 }}>Ingresá tus credenciales para acceder al sistema.</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -3198,11 +3218,11 @@ export default function SistemaCalificaciones() {
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
           {/* TOPBAR */}
-          <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+          <div className="home-topbar" style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Esc. Prov. N° 185 "Juan Areco"</span>
-              <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
-              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Sistema de Calificaciones</span>
+              <span className="home-brand" style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Esc. Prov. N° 185 "Juan Areco"</span>
+              <span className="home-brand-sub" style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+              <span className="home-brand-sub" style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>Sistema de Calificaciones</span>
             </div>
             <div className="topbar-actions" style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
               {isAdmin ? (
@@ -3278,7 +3298,7 @@ export default function SistemaCalificaciones() {
           {/* CONTENIDO */}
           <div style={{ padding: '28px 28px', maxWidth: '100%' }} className="page-transition">
             {/* WELCOME BAR */}
-            <div style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="welcome-bar" style={{ background: 'var(--navy)', borderRadius: 'var(--r-lg)', padding: '20px 24px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h2 style={{ fontSize: 19, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>{saludo}, {usuario?.rol === 'administrador' ? 'Raquel Noemí' : (usuario?.nombre?.split(',')[1]?.trim() || usuario?.nombre || 'Docente')}</h2>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,.6)', marginTop: 3 }}>{usuario?.rol === 'administrador' ? 'Directora' : rolLabel(usuario)}</p>
@@ -3574,14 +3594,14 @@ export default function SistemaCalificaciones() {
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
         {/* TOPBAR MATERIA */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
+        <div className="mat-topbar" style={{ background: '#fff', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 30, boxShadow: 'var(--sh)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
               <Home size={14} /> Inicio
             </button>
-            <span style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
+            <span className="mat-bc" style={{ width: 1, height: 16, background: 'var(--border)', display: 'inline-block' }}></span>
+            <div className="mat-bc" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
               <span style={{ cursor: 'pointer', color: 'var(--navy)', fontWeight: 600 }} onClick={() => { setVolverAGestion(false); setPantalla('inicio'); }}>Inicio</span>
               <span>›</span>
               <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{gradoLabel(grado)}</span>
@@ -3589,7 +3609,7 @@ export default function SistemaCalificaciones() {
               <span style={{ color: 'var(--navy)', fontWeight: 700 }}>{materia.nombre}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+          <div className="mat-actions" style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
             {usuario?.rol !== 'administrador' && (
               <button
                 disabled={pdfGenerando || estActuales.length === 0}
@@ -3675,9 +3695,9 @@ export default function SistemaCalificaciones() {
           </div>
           {!sinCriterios && (
           <div style={{ margin: '0 0 0 0', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="crit-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Criterios de Evaluación</h3>
-              <p style={{ fontSize: 11, color: 'var(--muted)' }}>Etiquetas para calificaciones por bimestre</p>
+              <p className="crit-sub" style={{ fontSize: 11, color: 'var(--muted)' }}>Etiquetas para calificaciones por bimestre</p>
             </div>
             <div style={{ background: '#fff5f5', border: '1.5px solid #fca5a5', borderRadius: 'var(--r)', padding: '10px 12px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <span style={{ color: 'var(--red)', fontSize: 15, flexShrink: 0, marginTop: 1 }}>⚠️</span>
@@ -3685,10 +3705,10 @@ export default function SistemaCalificaciones() {
                 <strong>Recordatorio:</strong> Los criterios deben referir a aspectos <strong>académicos</strong> de la asignatura (evaluación escrita, trabajo práctico, exposición oral, etc.). Cuestiones como <strong>comportamiento, conducta o actitud</strong> corresponden al Régimen de Convivencia y <strong>no deben incluirse</strong> como criterios de calificación.
               </p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="crit-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[1, 2, 3, 4].map(bim => (
                 <div key={bim} style={{ background: bimestresBlockeados[bim] ? '#f0fdf4' : '#f8fafc', border: '1.5px solid', borderColor: bimestresBlockeados[bim] ? '#86efac' : 'var(--border)', borderRadius: 'var(--r)', padding: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div className="crit-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--navy)' }}>{bim}° Bimestre</h4>
                       {bimestresBlockeados[bim] && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', background: 'var(--green-lt)', padding: '1px 7px', borderRadius: 20 }}>✅ Completo</span>}
