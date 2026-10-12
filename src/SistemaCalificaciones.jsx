@@ -403,6 +403,15 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
   .crit-grid { grid-template-columns: 1fr !important; }
   .crit-grid > div { min-width: 0; }
   .crit-card-head { flex-wrap: wrap; gap: 6px; }
+  .reg-left { display: none !important; }
+  .reg-right { width: 100% !important; flex: 1; }
+  .reg-form { padding: 24px 18px 40px !important; max-width: 100% !important; }
+  .reg-grid2 { grid-template-columns: 1fr !important; }
+  .bim-modal-body { padding: 12px 10px !important; overflow-x: auto; }
+  .bim-table th, .bim-table td { padding: 8px 5px !important; min-width: 0 !important; max-width: none !important; font-size: 12px !important; }
+  .bim-table td:first-child span { font-size: 12px !important; }
+  .bim-table td:first-child > div { gap: 5px !important; }
+  .bim-table .text-base { font-size: 13px !important; }
 }
 @media (max-width: 480px) {
   .cards-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
@@ -2460,7 +2469,7 @@ export default function SistemaCalificaciones() {
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full flex login-layout" style={{ background: 'var(--navy)' }}>
           {/* Panel izq — info */}
-          <div style={{ width: '38%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', padding: '48px 40px', gap: 20, justifyContent: 'space-between' }}>
+          <div className="reg-left" style={{ width: '38%', background: 'var(--navy)', display: 'flex', flexDirection: 'column', padding: '48px 40px', gap: 20, justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', marginBottom: 8 }}>¿Cómo funciona?</h2>
@@ -2493,13 +2502,13 @@ export default function SistemaCalificaciones() {
             </button>
           </div>
           {/* Panel der — formulario */}
-          <div style={{ width: '62%', background: '#fff', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
-            <div style={{ width: '100%', maxWidth: 680, padding: '40px 48px' }} className="fade-in">
+          <div className="reg-right" style={{ width: '62%', background: '#fff', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 680, padding: '40px 48px' }} className="fade-in reg-form">
               <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif', marginBottom: 4 }}>Solicitar acceso</h2>
               <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>Completá el formulario. La directora aprobará tu solicitud.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Datos personales */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="reg-grid2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Nombre completo</label>
                     <input type="text" value={registro.data.nombre} placeholder="Apellido, Nombre(s)"
@@ -4592,8 +4601,8 @@ function ModalFechasBimestre({ db, usuario, onClose }) {
           <h3 className="text-lg font-bold text-white">📅 Bimestres Ciclo Lectivo 2026</h3>
           <button onClick={onClose} className="text-white/70 hover:text-white"><X size={22} /></button>
         </div>
-        <div className="px-6 py-5">
-          <table className="w-full text-sm border-collapse">
+        <div className="px-6 py-5 bim-modal-body">
+          <table className="w-full text-sm border-collapse bim-table">
             <thead>
               <tr style={{ background: 'linear-gradient(135deg, #6d28d9, #4c1d95)' }}>
                 <th className="py-3 px-4 text-left text-xs font-bold text-white">Bimestre</th>
