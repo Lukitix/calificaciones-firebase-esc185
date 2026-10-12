@@ -2,13 +2,114 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1e3a5f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Calificaciones 185" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Sistema de Calificaciones - Escuela N°185</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Captura temprana del evento de instalación (Android/Chrome) y registro del SW.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__installPrompt = e;
+        window.dispatchEvent(new Event('pwa-install-ready'));
+      });
+      window.addEventListener('appinstalled', function () { window.__installPrompt = null; });
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Aviso de nueva versión. Nunca recarga solo: solo avisa y pide confirmación.
+      (function () {
+        function firma(doc) {
+          var out = [];
+          var m = doc.querySelector('script[type="module"][src*="/assets/"]');
+          if (m) out.push(m.getAttribute('src'));
+          doc.querySelectorAll('link[rel="stylesheet"][href*="/assets/"]').forEach(function (l) { out.push(l.getAttribute('href')); });
+          return out.join('|');
+        }
+        var actual = firma(document);
+        if (!actual) return; // modo desarrollo: no aplica
+        var hayNueva = false, banner = null, estado = 'aviso', timer = null;
+
+        function editando() {
+          var el = document.activeElement;
+          if (!el) return false;
+          var t = el.tagName;
+          if (el.isContentEditable) return true;
+          if (t === 'TEXTAREA' || t === 'SELECT') return true;
+          if (t === 'INPUT') {
+            var ty = (el.getAttribute('type') || 'text').toLowerCase();
+            return ['checkbox', 'radio', 'button', 'submit', 'range', 'file', 'color', 'reset', 'image'].indexOf(ty) === -1;
+          }
+          return false;
+        }
+        function el(tag, css, txt) {
+          var n = document.createElement(tag);
+          if (css) n.style.cssText = css;
+          if (txt) n.textContent = txt;
+          return n;
+        }
+        function btn(txt, primario, fn, dis) {
+          var b = el('button', 'padding:9px 14px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;border:1.5px solid #fff;' +
+            (primario ? 'background:#fff;color:#1e3a5f;' : 'background:transparent;color:#fff;') + (dis ? 'opacity:.5;cursor:not-allowed;' : ''), txt);
+          b.type = 'button';
+          if (dis) b.disabled = true; else b.addEventListener('click', fn);
+          return b;
+        }
+        function render() {
+          if (!hayNueva) return;
+          if (banner) banner.remove();
+          banner = el('div', 'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;background:#1e3a5f;color:#fff;padding:12px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.3);font-family:DM Sans,system-ui,sans-serif;font-size:14px;display:flex;flex-direction:column;gap:10px;');
+          var bloq = editando();
+          if (estado === 'confirmar') {
+            banner.appendChild(el('div', 'font-weight:600;', '¿Querés instalar una actualización de esta app? Tus datos existentes no se perderán.'));
+            var f = el('div', 'display:flex;gap:8px;flex-wrap:wrap;');
+            f.appendChild(btn('Sí, actualizar', true, aplicar, bloq));
+            f.appendChild(btn('Ahora no', false, function () { estado = 'aviso'; render(); }));
+            banner.appendChild(f);
+          } else {
+            banner.appendChild(el('div', 'font-weight:600;', 'Hay una nueva versión del sistema disponible.'));
+            if (bloq) banner.appendChild(el('div', 'font-size:13px;opacity:.9;', 'Terminá de cargar la nota y procedé a actualizar la App'));
+            var f2 = el('div', 'display:flex;gap:8px;flex-wrap:wrap;');
+            f2.appendChild(btn('Actualizar', true, function () { estado = 'confirmar'; render(); }, bloq));
+            f2.appendChild(btn('Más tarde', false, function () { banner.remove(); banner = null; hayNueva = false; }));
+            banner.appendChild(f2);
+          }
+          document.body.appendChild(banner);
+        }
+        function aplicar() {
+          if (editando()) { render(); return; }
+          try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+          setTimeout(function () { if (editando()) { render(); return; } location.reload(); }, 1300);
+        }
+        function revisar() {
+          if (hayNueva) return;
+          fetch('/', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (html) {
+            var d = new DOMParser().parseFromString(html, 'text/html');
+            var nueva = firma(d);
+            if (nueva && nueva !== actual) { hayNueva = true; estado = 'aviso'; render(); }
+          }).catch(function () {});
+        }
+        function refrescar() { setTimeout(function () { if (hayNueva && banner) render(); }, 0); }
+        document.addEventListener('focusin', refrescar);
+        document.addEventListener('focusout', refrescar);
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') revisar(); });
+        timer = setInterval(function () { if (document.visibilityState === 'visible') revisar(); }, 600000);
+      })();
+    </script>
   </body>
 </html>

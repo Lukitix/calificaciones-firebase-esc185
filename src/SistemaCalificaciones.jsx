@@ -117,6 +117,17 @@ const calcularPromedioFinal = (b1, b2, b3, b4) => {
   return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
 };
 
+// ─── ETIQUETAS DE SEXO (solo visual) ─────────────────────────────────────────
+// IMPORTANTE: en la base de datos el sexo se guarda como 'V' (varón) o 'M' (mujer).
+// Eso NO se cambia: el orden de las listas, los PDF y todos los datos ya cargados dependen de eso.
+// Lo único que cambia es lo que se MUESTRA en pantalla:
+//   'V' (guardado) → se ve "M" de Masculino, en celeste
+//   'M' (guardado) → se ve "F" de Femenino, en rosa
+const SEXO_UI = {
+  V: { letra: 'M', nombre: 'Masculino', fondo: '#dbeafe', texto: '#1d4ed8', activo: '#3b82f6' },
+  M: { letra: 'F', nombre: 'Femenino',  fondo: '#fce7f3', texto: '#be185d', activo: '#ec4899' },
+};
+
 // Comparador único y robusto para ordenar alumnos en toda la app.
 // - Nuevo ingreso siempre al final (sin importar sexo/orden alfabético).
 // - Sexo normalizado (evita que una "v" minúscula rompa el agrupamiento).
@@ -494,6 +505,73 @@ function Spinner({ texto = 'Cargando...' }) {
 // ─── NOTA INPUT ─────────────────────────────────────────────────────────────
 // Estado local para evitar pérdida de foco al escribir números de 2 dígitos
 // primerCiclo: si true, muestra abreviatura conceptual al perder el foco
+function InstallAppButton({ estilo = {} }) {
+  const [promptListo, setPromptListo] = useState(() => !!window.__installPrompt);
+  const [instalada, setInstalada] = useState(false);
+  const [verInstructivo, setVerInstructivo] = useState(false);
+
+  useEffect(() => {
+    const onReady = () => setPromptListo(true);
+    const onInstalled = () => { setInstalada(true); setPromptListo(false); };
+    window.addEventListener('pwa-install-ready', onReady);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('pwa-install-ready', onReady);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
+
+  let esMovil = false, standalone = false, esIOS = false;
+  try {
+    esMovil = window.matchMedia('(max-width: 768px)').matches;
+    standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const ua = navigator.userAgent || '';
+    esIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  } catch (e) { return null; }
+
+  if (!esMovil || standalone || instalada) return null;
+  if (!esIOS && !promptListo) return null;
+
+  const instalar = async () => {
+    if (esIOS) { setVerInstructivo(true); return; }
+    const evt = window.__installPrompt;
+    if (!evt) return;
+    try {
+      evt.prompt();
+      await evt.userChoice;
+    } catch (e) { /* ignorar */ }
+    window.__installPrompt = null;
+    setPromptListo(false);
+  };
+
+  return (
+    <>
+      <button type="button" onClick={instalar}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid var(--indigo)', background: 'transparent', color: 'var(--indigo)', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', ...estilo }}>
+        <Download size={16} /> Descargar App
+      </button>
+      {verInstructivo && (
+        <div onClick={() => setVerInstructivo(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: 16, padding: 22, maxWidth: 360, width: '100%', color: '#1e293b', fontFamily: 'DM Sans, sans-serif' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Instalar la app en tu iPhone</h3>
+            <ol style={{ paddingLeft: 20, fontSize: 14, lineHeight: 1.7, margin: 0 }}>
+              <li>Abrí esta página en <b>Safari</b>.</li>
+              <li>Tocá el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).</li>
+              <li>Elegí <b>Agregar a pantalla de inicio</b>.</li>
+            </ol>
+            <button type="button" onClick={() => setVerInstructivo(false)}
+              style={{ marginTop: 16, width: '100%', padding: '10px 14px', borderRadius: 10, border: 'none', background: 'var(--navy)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function NotaInput({ value, onCommit, title, primerCiclo = false }) {
   const [local, setLocal] = useState(value ?? '');
   const [focused, setFocused] = useState(false);
@@ -1248,6 +1326,7 @@ export default function SistemaCalificaciones() {
   const [solicitudes, setSolicitudes] = useState([]);
   const [showModalSolicitudes, setShowModalSolicitudes] = useState(false);
   const [alumnoForm, setAlumnoForm] = useState({ nombre: '', dni: '', sexo: 'V', nuevoIngreso: false, editando: null });
+  const [guardandoAlumno, setGuardandoAlumno] = useState(false);
   const [busquedaDNI, setBusquedaDNI] = useState('');
   const [resultadoBusqueda, setResultadoBusqueda] = useState(null);
   const [modalCerrarSesion, setModalCerrarSesion] = useState(false);
@@ -1698,13 +1777,22 @@ export default function SistemaCalificaciones() {
   };
 
   const agregarAlumno = async () => {
+    if (guardandoAlumno) return; // evita doble clic mientras se guarda
     if (!alumnoForm.nombre.trim() || !alumnoForm.dni.trim()) {
       await showAlert('Completá el nombre y el DNI del alumno.', 'warning'); return;
     }
     const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
     const nuevos = { ...alumnosGlobales };
     if (!nuevos[gradoActual]) nuevos[gradoActual] = [];
+    // El formulario se limpia APENAS se valida (no al final): propagar el cambio a todas las
+    // materias tarda varios segundos y, si algo fallaba en el medio, el formulario nunca se limpiaba.
+    // Si hay un error, se restaura lo que había escrito para poder reintentar.
+    const formOriginal = { ...alumnoForm };
+    const limpiarForm = () => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', nuevoIngreso: false, editando: null });
+    setGuardandoAlumno(true);
+    try {
     if (alumnoForm.editando) {
+      limpiarForm();
       const dniOriginal = alumnoForm.editando.dni;
       const nuevoNombre = alumnoForm.nombre.trim();
       const nuevoDni = alumnoForm.dni.trim();
@@ -1735,6 +1823,7 @@ export default function SistemaCalificaciones() {
       if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
         await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
       }
+      limpiarForm();
       const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V', nuevoIngreso: !!alumnoForm.nuevoIngreso };
       nuevos[gradoActual].push(alumnoNuevo);
       await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
@@ -1797,7 +1886,13 @@ export default function SistemaCalificaciones() {
         console.error('Error propagando a áreas especiales:', e);
       }
     }
-    setAlumnoForm({ nombre: '', dni: '', sexo: 'V', editando: null });
+    } catch (err) {
+      console.error('Error al guardar alumno:', err);
+      setAlumnoForm(formOriginal); // devolver lo que estaba escribiendo para reintentar
+      await showAlert('No se pudo completar el guardado del alumno. Revisá tu conexión e intentá de nuevo. Las notas ya cargadas no se modificaron.', 'error');
+    } finally {
+      setGuardandoAlumno(false);
+    }
   };
 
   const eliminarAlumno = async (alumno) => {
@@ -2580,6 +2675,7 @@ export default function SistemaCalificaciones() {
                   Registrate acá
                 </button>
               </p>
+              <InstallAppButton />
             </div>
           </div>
         </div>
@@ -2611,7 +2707,16 @@ export default function SistemaCalificaciones() {
                     setMostrarRecuperar(false); setRecuperarEmail('');
                     await showAlert(`✅ Enviamos el link de recuperación a ${emailFirebase}. Revisá tu bandeja de entrada y también spam. El link expira en 1 hora.`, 'success', 'Email enviado');
                   } catch(e) {
-                    await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
+                    const codigo = e?.code || '';
+                    if (codigo === 'auth/too-many-requests') {
+                      await showAlert('Hiciste demasiados intentos seguidos. Esperá unos minutos antes de volver a pedir el correo y revisá también tu carpeta de spam.', 'warning', 'Demasiados intentos');
+                    } else if (codigo === 'auth/invalid-email') {
+                      await showAlert('El correo no tiene un formato válido. Revisalo e intentá de nuevo.', 'error', 'Correo inválido');
+                    } else if (codigo === 'auth/network-request-failed') {
+                      await showAlert('No hay conexión a internet. Revisá tu conexión e intentá de nuevo.', 'error', 'Sin conexión');
+                    } else {
+                      await showAlert('No encontramos una cuenta con ese correo. Verificá que sea el correo con el que te registraste.', 'error', 'Error');
+                    }
                   } finally { setRecuperarCargando(false); }
                 }}
                 disabled={!recuperarEmail.trim() || recuperarCargando} className="btn-primary"
@@ -2696,8 +2801,9 @@ export default function SistemaCalificaciones() {
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginRight: 4 }}>Sexo:</span>
                   {['V', 'M'].map(s => (
                     <button key={s} type="button" onClick={() => setAlumnoForm({ ...alumnoForm, sexo: s })}
-                      style={{ padding: '5px 12px', borderRadius: 6, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', background: alumnoForm.sexo === s ? (s === 'V' ? '#3b82f6' : '#ec4899') : 'transparent', color: alumnoForm.sexo === s ? '#fff' : 'var(--muted)' }}>
-                      {s === 'V' ? '♂ V' : '♀ M'}
+                      title={SEXO_UI[s].nombre}
+                      style={{ padding: '5px 12px', borderRadius: 6, fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', background: alumnoForm.sexo === s ? SEXO_UI[s].activo : 'transparent', color: alumnoForm.sexo === s ? '#fff' : SEXO_UI[s].texto }}>
+                      {s === 'V' ? '♂' : '♀'} {SEXO_UI[s].letra}
                     </button>
                   ))}
                 </div>
@@ -2707,9 +2813,9 @@ export default function SistemaCalificaciones() {
                     style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#d97706' }} />
                   <span style={{ fontSize: 13, fontWeight: 700, color: alumnoForm.nuevoIngreso ? '#92400e' : 'var(--muted)' }}>🆕 Nuevo ingreso</span>
                 </label>
-                <button onClick={agregarAlumno} className="btn-primary"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                  <Plus size={16} /> {alumnoForm.editando ? 'Actualizar' : 'Agregar'}
+                <button onClick={agregarAlumno} disabled={guardandoAlumno} className="btn-primary"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: guardandoAlumno ? 'not-allowed' : 'pointer', opacity: guardandoAlumno ? 0.6 : 1 }}>
+                  <Plus size={16} /> {guardandoAlumno ? 'Guardando...' : (alumnoForm.editando ? 'Actualizar' : 'Agregar')}
                 </button>
                 {alumnoForm.editando && (
                   <button onClick={() => setAlumnoForm({ nombre: '', dni: '', sexo: 'V', nuevoIngreso: false, editando: null })}
@@ -2774,7 +2880,7 @@ export default function SistemaCalificaciones() {
               <div style={{ padding: '14px 20px', background: 'var(--navy-lt)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--navy)', fontFamily: 'Outfit,sans-serif' }}>Lista · {gradoLabel(gradoActual)}</h3>
                 <span style={{ background: 'var(--blue-lt)', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 20, fontSize: 12, fontWeight: 700, padding: '3px 12px' }}>
-                  {alumnosGr.length} alumnos{alumnosGr.length > 0 ? ` (${alumnosGr.filter(a => (a.sexo||'V')==='V').length}V / ${alumnosGr.filter(a => a.sexo==='M').length}M)` : ''}
+                  {alumnosGr.length} alumnos{alumnosGr.length > 0 ? ` (${alumnosGr.filter(a => (a.sexo||'V')==='V').length} M / ${alumnosGr.filter(a => a.sexo==='M').length} F)` : ''}
                 </span>
               </div>
               {alumnosGr.length === 0 ? (
@@ -2801,8 +2907,8 @@ export default function SistemaCalificaciones() {
                         </td>
                         <td style={{ padding: '11px 14px', textAlign: 'center', fontSize: 14, color: 'var(--muted)' }}>{a.dni}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: (a.sexo||'V')==='V' ? '#dbeafe' : '#fce7f3', color: (a.sexo||'V')==='V' ? '#1d4ed8' : '#be185d' }}>
-                            {(a.sexo || 'V') === 'V' ? '♂ V' : '♀ M'}
+                          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: SEXO_UI[(a.sexo||'V')==='M' ? 'M' : 'V'].fondo, color: SEXO_UI[(a.sexo||'V')==='M' ? 'M' : 'V'].texto }}>
+                            {(a.sexo || 'V') === 'V' ? '♂' : '♀'} {SEXO_UI[(a.sexo||'V')==='M' ? 'M' : 'V'].letra}
                           </span>
                         </td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -3180,6 +3286,7 @@ export default function SistemaCalificaciones() {
               </div>
               {bimActivo && <span style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', fontSize: 11, fontWeight: 600, padding: '6px 20px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0 }}>{bimActivo.n}° Bimestre en curso</span>}
             </div>
+            <div style={{ marginBottom: 16 }}><InstallAppButton /></div>
 
             {/* BANNER NOVEDAD — sincronización de alumnos */}
             {isDocGrado && (
