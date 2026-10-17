@@ -1250,16 +1250,40 @@ const _vacio = (v) => v === undefined || v === null || String(v).trim() === '';
 async function planRecuperacionDesdeLogs(db, materiaNombre, grado, criteriosPorBimestre) {
   const fsKey = safeKey(`${materiaNombre}_${grado}`);
   const logsSnap = await getDocs(query(collection(db, 'logs'), where('materia', '==', materiaNombre), where('grado', '==', grado)));
+  const logsData = logsSnap.docs.map(d => d.data()).filter(l => l.alumno && l.bimestre);
+  // Criterios guardados hoy en el servidor (si no se puede leer, se usan los de pantalla)
+  let criteriosServidor = criteriosPorBimestre || {};
+  try {
+    const cs = await getDoc(doc(db, 'configuracion', fsKey));
+    if (cs.exists() && cs.data().criterios) criteriosServidor = cs.data().criterios;
+  } catch (e) {}
+  // Criterios efectivos por bimestre: los guardados, o (si están vacíos) los reconstruidos desde los logs,
+  // ordenados por la fecha en que se usaron por primera vez.
+  const criteriosEfectivos = {};
+  const criteriosRestaurar = {};
+  const bimestresExcedidos = [];
+  [1, 2, 3, 4].forEach(b => {
+    const guardados = Array.isArray(criteriosServidor[b]) ? criteriosServidor[b] : [];
+    if (guardados.length > 0) { criteriosEfectivos[b] = guardados; return; }
+    const primera = {};
+    logsData.filter(l => Number(l.bimestre) === b && !/^n[1-5]$/.test(String(l.criterio))).forEach(l => {
+      const k = _normNombre(l.criterio);
+      if (!k) return;
+      if (!primera[k] || String(l.fecha || '') < primera[k].fecha) primera[k] = { nombre: String(l.criterio).trim(), fecha: String(l.fecha || '') };
+    });
+    const nombres = Object.values(primera).sort((x, y) => x.fecha.localeCompare(y.fecha)).map(x => x.nombre);
+    if (nombres.length > 5) { bimestresExcedidos.push(b); criteriosEfectivos[b] = []; return; }
+    criteriosEfectivos[b] = nombres;
+    if (nombres.length > 0) criteriosRestaurar[b] = nombres;
+  });
   // Último valor registrado por alumno + bimestre + casillero
   const ultimos = {};
   let sinCriterio = 0;
-  logsSnap.docs.forEach(d => {
-    const l = d.data();
-    if (!l.alumno || !l.bimestre) return;
+  logsData.forEach(l => {
     let clave = null;
     if (/^n[1-5]$/.test(String(l.criterio))) clave = String(l.criterio);
     else {
-      const idx = (criteriosPorBimestre?.[l.bimestre] || []).indexOf(l.criterio);
+      const idx = (criteriosEfectivos[l.bimestre] || []).findIndex(c => _normNombre(c) === _normNombre(l.criterio));
       if (idx >= 0) clave = `n${idx + 1}`;
     }
     if (!clave) { sinCriterio++; return; }
@@ -1282,16 +1306,25 @@ async function planRecuperacionDesdeLogs(db, materiaNombre, grado, criteriosPorB
     if (!_vacio(est.bimestres?.[u.bimestre]?.[u.clave])) { yaCargadas++; return; }
     items.push(u);
   });
-  return { fsKey, items, sinCriterio, sinAlumno, yaCargadas, totalRegistros: logsSnap.size, docExiste: docSnap.exists() };
+  return { fsKey, items, sinCriterio, sinAlumno, yaCargadas, totalRegistros: logsSnap.size, docExiste: docSnap.exists(), criteriosEfectivos, criteriosRestaurar, bimestresExcedidos };
 }
 
-async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosPorBimestre) {
+async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosEfectivos, criteriosRestaurar) {
   const refDoc = doc(db, 'calificaciones', fsKey);
+  const refConf = doc(db, 'configuracion', fsKey);
   const aplicados = [];
   await runTransaction(db, async (tx) => {
     aplicados.length = 0;
     const snap = await tx.get(refDoc);
+    const snapConf = await tx.get(refConf);
     if (!snap.exists()) throw new Error('DOC_INEXISTENTE');
+    // Restaurar criterios SOLO en los bimestres donde hoy están vacíos
+    const confActual = snapConf.exists() ? (snapConf.data().criterios || {}) : {};
+    const criteriosAEscribir = {};
+    Object.keys(criteriosRestaurar || {}).forEach(b => {
+      const hoy = Array.isArray(confActual[b]) ? confActual[b] : [];
+      if (hoy.length === 0) criteriosAEscribir[b] = criteriosRestaurar[b];
+    });
     const estudiantes = (snap.data().estudiantes || []).map(e => ({ ...e, bimestres: { ...(e.bimestres || {}) } }));
     const porNombre = {};
     estudiantes.forEach(e => { porNombre[_normNombre(e.nombre)] = e; });
@@ -1311,11 +1344,12 @@ async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosPorBimest
       const [nom, b] = k.split('|');
       const est = porNombre[nom];
       const bim = est.bimestres[b];
-      const crits = criteriosPorBimestre?.[b] || [];
+      const crits = criteriosEfectivos?.[b] || [];
       const claves = crits.length > 0 ? crits.map((_, i) => `n${i + 1}`) : ['n1', 'n2', 'n3', 'n4', 'n5'];
       const notas = claves.map(c => parseFloat(bim[c])).filter(n => !isNaN(n) && n > 0);
       bim.nota = notas.length > 0 ? (Math.round((notas.reduce((a, c) => a + c, 0) / notas.length) * 100) / 100).toFixed(2) : '';
     });
+    if (Object.keys(criteriosAEscribir).length > 0) tx.set(refConf, { criterios: criteriosAEscribir }, { merge: true });
     tx.set(refDoc, { estudiantes }, { merge: true });
   });
   return aplicados;
@@ -2340,13 +2374,15 @@ export default function SistemaCalificaciones() {
     try {
       const plan = await planRecuperacionDesdeLogs(db, materia.nombre, grado, criteriosPorBimestre);
       const resumen = `${materia.nombre} ${gradoLabel(grado)}: registros encontrados ${plan.totalRegistros}. Ya cargadas en el sistema: ${plan.yaCargadas}. Se pueden recuperar: ${plan.items.length}.` +
-        (plan.sinCriterio ? ` No ubicables (criterio renombrado o borrado): ${plan.sinCriterio}.` : '') +
+        (Object.keys(plan.criteriosRestaurar).length ? ` Criterios a restaurar (en orden de uso): ` + Object.keys(plan.criteriosRestaurar).map(b => `${b}° bim: ${plan.criteriosRestaurar[b].join(', ')}`).join(' | ') + '.' : '') +
+        (plan.bimestresExcedidos.length ? ` Bimestres con más de 5 criterios distintos (no se restauran): ${plan.bimestresExcedidos.join(', ')}.` : '') +
+        (plan.sinCriterio ? ` No ubicables: ${plan.sinCriterio}.` : '') +
         (plan.sinAlumno ? ` Alumnos que ya no figuran: ${plan.sinAlumno}.` : '');
       if (!plan.docExiste) { await showAlert('Esta materia todavía no tiene documento de notas. No se hizo ningún cambio.', 'warning'); return; }
-      if (plan.items.length === 0) { await showAlert(resumen + ' No hay nada para recuperar, no se modificó nada.', 'info', 'Recuperación'); return; }
+      if (plan.items.length === 0 && Object.keys(plan.criteriosRestaurar).length === 0) { await showAlert(resumen + ' No hay nada para recuperar, no se modificó nada.', 'info', 'Recuperación'); return; }
       const ok = await showConfirm(resumen + ' Solo se completan casilleros vacíos; nunca se pisa una nota existente. ¿Recuperar ahora?', '♻️ Recuperar notas');
       if (!ok) return;
-      const aplicados = await aplicarRecuperacionDesdeLogs(db, plan.fsKey, plan.items, criteriosPorBimestre);
+      const aplicados = await aplicarRecuperacionDesdeLogs(db, plan.fsKey, plan.items, plan.criteriosEfectivos, plan.criteriosRestaurar);
       // Dejar constancia en el registro de cambios
       const ahora = new Date();
       await Promise.all(aplicados.map(u => setDoc(doc(collection(db, 'logs')), {
@@ -2356,7 +2392,7 @@ export default function SistemaCalificaciones() {
         fecha: ahora.toISOString(), fechaCorta: ahora.toLocaleDateString('es-AR'),
         hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       }).catch(() => {})));
-      await showAlert(`Se recuperaron ${aplicados.length} notas. Si no las ves de inmediato, recargá la página.`, 'success', 'Recuperación lista');
+      await showAlert(`Se recuperaron ${aplicados.length} notas y ${Object.keys(plan.criteriosRestaurar).length} listas de criterios. Recargá la página para verlas.`, 'success', 'Recuperación lista');
     } catch (e) {
       console.error('Error en la recuperación:', e);
       await showAlert('No se pudo completar la recuperación (sin conexión o sin permisos). No se modificó nada. Intentá de nuevo.', 'error', 'Recuperación no realizada');
