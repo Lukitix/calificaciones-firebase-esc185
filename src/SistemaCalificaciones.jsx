@@ -819,7 +819,7 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
 }
 
 // ─── PDF UNIFICADO ───────────────────────────────────────────────────────────
-async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesProp, db, todosUsuarios, includeTalleres = false }) {
+async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesProp, db, todosUsuarios, includeTalleres = false, bimestreElegido = null }) {
   const doc_ref = doc;
   try {
     // Usar SIEMPRE la lista de alumnos actual del servidor (la copia en pantalla puede estar vieja o incompleta)
@@ -912,6 +912,8 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
         else bimActivo = '1°';
       }
     } catch(e) { bimActivo = '2°'; }
+    // Si la persona eligió un bimestre puntual, se usa ese en lugar del automático
+    if ([1, 2, 3, 4].includes(Number(bimestreElegido))) bimActivo = `${Number(bimestreElegido)}°`;
 
     // Calcular promedio cuatrimestral de un alumno sobre un conjunto de materias
     const calcCuatrimestre = (al, datos, bimA, bimB) => {
@@ -1239,6 +1241,86 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
   }
 }
 
+// ── RECUPERAR NOTAS DESDE EL REGISTRO DE CAMBIOS (logs) ──
+// Cada cambio de nota quedó guardado en `logs`. Estas funciones reconstruyen SOLO los casilleros que hoy están vacíos.
+// Nunca pisan una nota existente.
+const _normNombre = (t) => String(t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const _vacio = (v) => v === undefined || v === null || String(v).trim() === '';
+
+async function planRecuperacionDesdeLogs(db, materiaNombre, grado, criteriosPorBimestre) {
+  const fsKey = safeKey(`${materiaNombre}_${grado}`);
+  const logsSnap = await getDocs(query(collection(db, 'logs'), where('materia', '==', materiaNombre), where('grado', '==', grado)));
+  // Último valor registrado por alumno + bimestre + casillero
+  const ultimos = {};
+  let sinCriterio = 0;
+  logsSnap.docs.forEach(d => {
+    const l = d.data();
+    if (!l.alumno || !l.bimestre) return;
+    let clave = null;
+    if (/^n[1-5]$/.test(String(l.criterio))) clave = String(l.criterio);
+    else {
+      const idx = (criteriosPorBimestre?.[l.bimestre] || []).indexOf(l.criterio);
+      if (idx >= 0) clave = `n${idx + 1}`;
+    }
+    if (!clave) { sinCriterio++; return; }
+    const k = `${_normNombre(l.alumno)}|${l.bimestre}|${clave}`;
+    const previo = ultimos[k];
+    if (!previo || String(l.fecha || '') >= String(previo.fecha || '')) {
+      ultimos[k] = { alumno: l.alumno, bimestre: l.bimestre, clave, criterio: l.criterio, valor: l.despues === '(vacío)' ? '' : String(l.despues ?? ''), fecha: l.fecha || '' };
+    }
+  });
+  const docSnap = await getDoc(doc(db, 'calificaciones', fsKey));
+  const estudiantes = docSnap.exists() ? (docSnap.data().estudiantes || []) : [];
+  const porNombre = {};
+  estudiantes.forEach(e => { porNombre[_normNombre(e.nombre)] = e; });
+  const items = [];
+  let sinAlumno = 0, yaCargadas = 0;
+  Object.values(ultimos).forEach(u => {
+    if (_vacio(u.valor)) return;
+    const est = porNombre[_normNombre(u.alumno)];
+    if (!est) { sinAlumno++; return; }
+    if (!_vacio(est.bimestres?.[u.bimestre]?.[u.clave])) { yaCargadas++; return; }
+    items.push(u);
+  });
+  return { fsKey, items, sinCriterio, sinAlumno, yaCargadas, totalRegistros: logsSnap.size, docExiste: docSnap.exists() };
+}
+
+async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosPorBimestre) {
+  const refDoc = doc(db, 'calificaciones', fsKey);
+  const aplicados = [];
+  await runTransaction(db, async (tx) => {
+    aplicados.length = 0;
+    const snap = await tx.get(refDoc);
+    if (!snap.exists()) throw new Error('DOC_INEXISTENTE');
+    const estudiantes = (snap.data().estudiantes || []).map(e => ({ ...e, bimestres: { ...(e.bimestres || {}) } }));
+    const porNombre = {};
+    estudiantes.forEach(e => { porNombre[_normNombre(e.nombre)] = e; });
+    const tocados = new Set();
+    items.forEach(u => {
+      const est = porNombre[_normNombre(u.alumno)];
+      if (!est) return;
+      const bim = { ...(est.bimestres[u.bimestre] || {}) };
+      if (!_vacio(bim[u.clave])) return; // nunca pisar una nota existente
+      bim[u.clave] = u.valor;
+      est.bimestres[u.bimestre] = bim;
+      tocados.add(`${_normNombre(est.nombre)}|${u.bimestre}`);
+      aplicados.push(u);
+    });
+    // Recalcular el promedio del bimestre con la misma regla del sistema
+    tocados.forEach(k => {
+      const [nom, b] = k.split('|');
+      const est = porNombre[nom];
+      const bim = est.bimestres[b];
+      const crits = criteriosPorBimestre?.[b] || [];
+      const claves = crits.length > 0 ? crits.map((_, i) => `n${i + 1}`) : ['n1', 'n2', 'n3', 'n4', 'n5'];
+      const notas = claves.map(c => parseFloat(bim[c])).filter(n => !isNaN(n) && n > 0);
+      bim.nota = notas.length > 0 ? (Math.round((notas.reduce((a, c) => a + c, 0) / notas.length) * 100) / 100).toFixed(2) : '';
+    });
+    tx.set(refDoc, { estudiantes }, { merge: true });
+  });
+  return aplicados;
+}
+
 // ── Modificar la lista global de alumnos DE FORMA SEGURA ──
 // Lee la versión del SERVIDOR dentro de una transacción y cambia solo lo necesario.
 // Así nunca se pisa la lista completa con una copia vieja o vacía del navegador
@@ -1391,6 +1473,17 @@ export default function SistemaCalificaciones() {
   const toastTimer = useRef(null);
   const [pdfGenerando, setPdfGenerando] = useState(false);
   const [pdfUnificadoGenerando, setPdfUnificadoGenerando] = useState(false);
+  // Pregunta de qué bimestre se quiere el PDF. Devuelve { cancelar:true } o { bim: 1..4 | null (automático) }
+  const elegirBimestrePDF = async () => {
+    const r = await showPrompt('¿De qué bimestre querés el PDF? Escribí 1, 2, 3 o 4. Si lo dejás vacío se usa el último bimestre cerrado.', 'Ej: 1', '📄 Bimestre del PDF');
+    if (r === null) return { cancelar: true };
+    const t = String(r).trim();
+    if (t === '') return { bim: null };
+    const n = parseInt(t, 10);
+    if ([1, 2, 3, 4].includes(n)) return { bim: n };
+    await showAlert('Escribí un número del 1 al 4, o dejalo vacío.', 'warning');
+    return { cancelar: true };
+  };
   const [showEscala, setShowEscala] = useState(false);
 
   // Login con email real
@@ -2236,6 +2329,40 @@ export default function SistemaCalificaciones() {
         pendientesRef.current = Math.max(0, pendientesRef.current - 1);
       }
     });
+  };
+
+  // ── ADMIN: recuperar notas vacías de esta materia/grado desde el registro de cambios ──
+  const [recuperando, setRecuperando] = useState(false);
+  const recuperarDesdeLogs = async () => {
+    if (!materia || recuperando) return;
+    if (errores.calificaciones) { await showAlert('Los datos de esta materia no se cargaron bien. Esperá unos segundos o recargá la página y volvé a intentar.', 'warning'); return; }
+    setRecuperando(true);
+    try {
+      const plan = await planRecuperacionDesdeLogs(db, materia.nombre, grado, criteriosPorBimestre);
+      const resumen = `${materia.nombre} ${gradoLabel(grado)}: registros encontrados ${plan.totalRegistros}. Ya cargadas en el sistema: ${plan.yaCargadas}. Se pueden recuperar: ${plan.items.length}.` +
+        (plan.sinCriterio ? ` No ubicables (criterio renombrado o borrado): ${plan.sinCriterio}.` : '') +
+        (plan.sinAlumno ? ` Alumnos que ya no figuran: ${plan.sinAlumno}.` : '');
+      if (!plan.docExiste) { await showAlert('Esta materia todavía no tiene documento de notas. No se hizo ningún cambio.', 'warning'); return; }
+      if (plan.items.length === 0) { await showAlert(resumen + ' No hay nada para recuperar, no se modificó nada.', 'info', 'Recuperación'); return; }
+      const ok = await showConfirm(resumen + ' Solo se completan casilleros vacíos; nunca se pisa una nota existente. ¿Recuperar ahora?', '♻️ Recuperar notas');
+      if (!ok) return;
+      const aplicados = await aplicarRecuperacionDesdeLogs(db, plan.fsKey, plan.items, criteriosPorBimestre);
+      // Dejar constancia en el registro de cambios
+      const ahora = new Date();
+      await Promise.all(aplicados.map(u => setDoc(doc(collection(db, 'logs')), {
+        docente: `Recuperación (${usuario?.nombre || 'administrador'})`,
+        alumno: u.alumno, materia: materia.nombre, grado, bimestre: u.bimestre,
+        criterio: u.criterio, antes: '(vacío)', despues: u.valor,
+        fecha: ahora.toISOString(), fechaCorta: ahora.toLocaleDateString('es-AR'),
+        hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      }).catch(() => {})));
+      await showAlert(`Se recuperaron ${aplicados.length} notas. Si no las ves de inmediato, recargá la página.`, 'success', 'Recuperación lista');
+    } catch (e) {
+      console.error('Error en la recuperación:', e);
+      await showAlert('No se pudo completar la recuperación (sin conexión o sin permisos). No se modificó nada. Intentá de nuevo.', 'error', 'Recuperación no realizada');
+    } finally {
+      setRecuperando(false);
+    }
   };
 
   const actualizarObservacion = (id, bimestre, texto) => {
@@ -3568,9 +3695,11 @@ export default function SistemaCalificaciones() {
                   <button
                     disabled={pdfUnificadoGenerando}
                     onClick={async () => {
+                      const sel = await elegirBimestrePDF();
+                      if (sel.cancelar) return;
                       const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Unificado');
                       setPdfUnificadoGenerando(true);
-                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                      try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres, bimestreElegido: sel.bim }); }
                       finally { setPdfUnificadoGenerando(false); }
                     }}
                     className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--green-lt)', color: 'var(--green)', border: '1.5px solid #bbf7d0', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, opacity: pdfUnificadoGenerando ? 0.6 : 1 }}>
@@ -3589,9 +3718,11 @@ export default function SistemaCalificaciones() {
                 <button
                   disabled={pdfUnificadoGenerando}
                   onClick={async () => {
+                    const sel = await elegirBimestrePDF();
+                    if (sel.cancelar) return;
                     const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
                     setPdfUnificadoGenerando(true);
-                    try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                    try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres, bimestreElegido: sel.bim }); }
                     finally { setPdfUnificadoGenerando(false); }
                   }}
                   className="btn-primary" style={{ padding: '9px 18px', borderRadius: 'var(--r)', background: 'var(--green-lt)', color: 'var(--green)', border: '1.5px solid #bbf7d0', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, opacity: pdfUnificadoGenerando ? 0.6 : 1 }}>
@@ -3812,13 +3943,24 @@ export default function SistemaCalificaciones() {
               <button
                 disabled={pdfUnificadoGenerando}
                 onClick={async () => {
+                  const sel = await elegirBimestrePDF();
+                  if (sel.cancelar) return;
                   const incTalleres = await showConfirmYesNo('¿Incluir Talleres en el PDF?', '📄 PDF Dirección');
                   setPdfUnificadoGenerando(true);
-                  try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres }); }
+                  try { await generarPDFUnificado({ usuario, alumnosGlobales, db, includeTalleres: !!incTalleres, bimestreElegido: sel.bim }); }
                   finally { setPdfUnificadoGenerando(false); }
                 }}
                 className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', background: 'var(--navy)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, opacity: pdfUnificadoGenerando ? 0.5 : 1 }}>
                 <FileDown size={14} /> {pdfUnificadoGenerando ? 'Generando...' : 'PDF Dirección'}
+              </button>
+            )}
+            {usuario?.rol === 'administrador' && (
+              <button
+                disabled={recuperando}
+                onClick={recuperarDesdeLogs}
+                title="Reconstruye notas vacías de esta materia desde el registro de cambios (no pisa notas existentes)"
+                className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', background: 'transparent', color: 'var(--slate)', border: '1.5px solid var(--border)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                ♻️ {recuperando ? 'Buscando...' : 'Recuperar notas'}
               </button>
             )}
             {esPrimerCiclo(grado) && (
