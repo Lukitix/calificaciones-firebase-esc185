@@ -32,6 +32,8 @@ import {
   where,
   orderBy,
   limit,
+  runTransaction,
+  arrayUnion,
   enableIndexedDbPersistence
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -817,9 +819,15 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
 }
 
 // ─── PDF UNIFICADO ───────────────────────────────────────────────────────────
-async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios, includeTalleres = false }) {
+async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesProp, db, todosUsuarios, includeTalleres = false }) {
   const doc_ref = doc;
   try {
+    // Usar SIEMPRE la lista de alumnos actual del servidor (la copia en pantalla puede estar vieja o incompleta)
+    let alumnosGlobales = alumnosGlobalesProp || {};
+    try {
+      const snapAlu = await getDoc(doc_ref(db, 'datos', 'alumnosGlobales'));
+      if (snapAlu.exists()) alumnosGlobales = snapAlu.data();
+    } catch (e) { console.warn('PDF: no se pudo leer alumnosGlobales del servidor, se usa la copia local', e); }
     const pdfDoc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageW = pdfDoc.internal.pageSize.getWidth();
     const pageH = pdfDoc.internal.pageSize.getHeight();
@@ -1231,6 +1239,53 @@ async function generarPDFUnificado({ usuario, alumnosGlobales, db, todosUsuarios
   }
 }
 
+// ── Modificar la lista global de alumnos DE FORMA SEGURA ──
+// Lee la versión del SERVIDOR dentro de una transacción y cambia solo lo necesario.
+// Así nunca se pisa la lista completa con una copia vieja o vacía del navegador
+// (si no hay conexión, la operación falla y avisa, sin escribir nada).
+async function modificarAlumnosGlobales(db, mutador) {
+  const refDoc = doc(db, 'datos', 'alumnosGlobales');
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(refDoc);
+    const actual = snap.exists() ? snap.data() : {};
+    const copia = {};
+    Object.keys(actual).forEach(g => {
+      copia[g] = Array.isArray(actual[g]) ? actual[g].map(a => ({ ...a })) : actual[g];
+    });
+    mutador(copia);
+    tx.set(refDoc, copia);
+    return copia;
+  });
+}
+
+// ── Aviso visible cuando no se pueden leer los datos ──
+function BannerLectura({ errores }) {
+  const codigos = Object.entries(errores || {}).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+  if (codigos.length === 0) return null;
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 400, background: '#b91c1c', color: '#fff', padding: '10px 16px', fontSize: 13, fontWeight: 600, textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,.3)' }}>
+      ⚠️ No se pudieron leer los datos del servidor. Tus notas NO se borraron. No cargues ni modifiques notas, alumnos ni criterios hasta que este aviso desaparezca. Recargá la página; si sigue, avisá a Dirección.
+      <div style={{ fontSize: 11, fontWeight: 400, opacity: .85, marginTop: 2 }}>Detalle técnico: {codigos.join(' · ')}</div>
+    </div>
+  );
+}
+
+// ── Vista a restaurar si la página se recarga sola (Android cierra apps en segundo plano) ──
+function puedeAbrirVista(u, materiaNombre, gradoSel) {
+  if (!u) return false;
+  if (u.rol === 'administrador') return true;
+  if (u.rol === 'docente_grado') {
+    const grs = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
+    return (u.materiasAsignadas || []).includes(materiaNombre) && grs.includes(gradoSel);
+  }
+  if (u.rol === 'area_especial') {
+    const ma = (u.materiasAsignadas || []).find(x => x.nombre === materiaNombre);
+    return !!ma && (ma.grados || []).includes(gradoSel);
+  }
+  return false;
+}
+
+// ════════════════════════════════════════════════════════
 // COMPONENTE: Chip de criterio con renombrado inline
 // ════════════════════════════════════════════════════════
 function CriterioChip({ nombre, bloqueado, onEliminar, onRenombrar }) {
@@ -1296,6 +1351,13 @@ export default function SistemaCalificaciones() {
   const [grado, setGrado] = useState('1°A');
   const [estudiantes, setEstudiantes] = useState({});
   const [alumnosGlobales, setAlumnosGlobales] = useState({});
+  // Control de lectura: distingue "vacío de verdad" de "no pude leer"
+  const [errores, setErrores] = useState({});
+  const setErr = useCallback((src, code) => setErrores(prev => (prev[src] === code ? prev : { ...prev, [src]: code })), []);
+  const [alumnosListos, setAlumnosListos] = useState(false);
+  const [configCargada, setConfigCargada] = useState(false);
+  const pendientesRef = React.useRef(0); // escrituras de notas en curso (evita que un snapshot viejo pise lo recién escrito)
+  const vistaRestauradaRef = React.useRef(false);
   const [criteriosPorBimestre, setCriteriosPorBimestre] = useState({ 1: [], 2: [], 3: [], 4: [] });
   const [docenteNombre, setDocenteNombre] = useState({ actual: '', guardado: '' });
   const [bimestresBlockeados, setBimestresBlockeados] = useState({ 1: false, 2: false, 3: false, 4: false });
@@ -1438,6 +1500,7 @@ export default function SistemaCalificaciones() {
 
   const cerrarSesion = useCallback(async () => {
     await signOut(auth);
+    try { localStorage.removeItem('ultimaVista'); } catch (e) {}
     setUsuario(null); setAuthUser(null); setPantalla('login'); setModalCerrarSesion(false);
     if (inactividadTimeout.current) clearTimeout(inactividadTimeout.current);
     // Limpiar contraseña al cerrar sesión; mantener email solo si recordarme está guardado
@@ -1469,10 +1532,35 @@ export default function SistemaCalificaciones() {
         return;
       }
       setAuthUser(firebaseUser);
-      const snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
+      let snap;
+      try {
+        snap = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
+      } catch (e) {
+        console.error('No se pudo leer el perfil del usuario:', e);
+        setErr('perfil', e?.code || 'error');
+        setPantalla(p => (p === 'cargando' ? 'login' : p));
+        return;
+      }
       if (snap.exists()) {
-        setUsuario(snap.data());
-        setPantalla('inicio');
+        const datosUsuario = snap.data();
+        setErr('perfil', null);
+        setUsuario(datosUsuario);
+        // Si la página se recargó sola (p. ej. Android cierra la app en segundo plano),
+        // volver a la materia/grado donde estaba trabajando en lugar de mandar al inicio.
+        let destino = 'inicio';
+        try {
+          const g = JSON.parse(localStorage.getItem('ultimaVista') || 'null');
+          if (g && g.uid === firebaseUser.uid && g.pantalla === 'materia' && (Date.now() - g.t) < 6 * 3600 * 1000) {
+            const m = [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres].find(x => x.nombre === g.materia);
+            if (m && grados.includes(g.grado) && puedeAbrirVista(datosUsuario, m.nombre, g.grado)) {
+              setMateria(m); setGrado(g.grado); destino = 'materia';
+            }
+          }
+        } catch (e) {}
+        vistaRestauradaRef.current = true;
+        // Solo cambia de pantalla si todavía estaba cargando o en el login (si Firebase avisa de nuevo
+        // mientras el docente trabaja, NO se lo manda al inicio).
+        setPantalla(p => (p === 'cargando' || p === 'login') ? destino : p);
         resetInactividad();
       } else {
         await signOut(auth);
@@ -1510,7 +1598,14 @@ export default function SistemaCalificaciones() {
   useEffect(() => {
     if (!authUser) return;
     const unsub = onSnapshot(doc(db, 'datos', 'alumnosGlobales'), (snap) => {
+      // Un "no existe" que viene solo de la memoria del navegador NO es un dato real: se ignora.
+      if (!snap.exists() && snap.metadata.fromCache) return;
       setAlumnosGlobales(snap.exists() ? snap.data() : {});
+      setAlumnosListos(true);
+      setErr('alumnos', null);
+    }, (err) => {
+      console.error('Error leyendo alumnosGlobales:', err);
+      setErr('alumnos', err?.code || 'error');
     });
     return () => unsub();
   }, [authUser]);
@@ -1552,9 +1647,17 @@ export default function SistemaCalificaciones() {
     const key = safeKey(`${materia.nombre}_${grado}`);
     // Inicializar como undefined para que el sync espere los datos reales
     setEstudiantes(prev => ({ ...prev, [`${materia.nombre}-${grado}`]: undefined }));
-    const unsub = onSnapshot(doc(db, 'calificaciones', key), (snap) => {
+    const unsub = onSnapshot(doc(db, 'calificaciones', key), { includeMetadataChanges: true }, (snap) => {
+      // Hay escrituras mías en curso: el estado local manda (si no, un snapshot viejo pisaba la nota recién escrita).
+      if (pendientesRef.current > 0 || snap.metadata.hasPendingWrites) return;
+      // "No existe" que viene solo de la memoria del navegador NO es un dato real: seguir esperando al servidor.
+      if (!snap.exists() && snap.metadata.fromCache) return;
       const data = snap.exists() ? snap.data() : { estudiantes: [] };
       setEstudiantes(prev => ({ ...prev, [`${materia.nombre}-${grado}`]: data.estudiantes || [] }));
+      setErr('calificaciones', null);
+    }, (err) => {
+      console.error('Error leyendo calificaciones:', err);
+      setErr('calificaciones', err?.code || 'error');
     });
     return () => unsub();
   }, [authUser, materia, grado]);
@@ -1565,8 +1668,9 @@ export default function SistemaCalificaciones() {
     estudiantesRef.current = estudiantes;
   }, [estudiantes]);
 
+  const calCargadoSync = !!materia && estudiantes[`${materia.nombre}-${grado}`] !== undefined;
   useEffect(() => {
-    if (!materia || !alumnosGlobales[grado]) return;
+    if (!materia || !alumnosGlobales[grado] || !alumnosListos || !calCargadoSync) return;
     const key = `${materia.nombre}-${grado}`;
     const alumnosDelGrado = alumnosGlobales[grado] || [];
     // Usar ref para leer estudiantes SIN ser dependencia del effect
@@ -1578,30 +1682,30 @@ export default function SistemaCalificaciones() {
       !estudiantesActuales.find(e => e.dni === alumno.dni)
     );
     if (alumnosNuevos.length === 0) return; // No hay cambios, no tocar Firestore
-    // Agregar solo los alumnos nuevos, preservar los existentes con sus notas
-    const estudiantesActualizados = alumnosDelGrado.map(alumno => {
-      const existente = estudiantesActuales.find(e => e.dni === alumno.dni);
-      if (existente) return asegurarEstructuraEstudiante(existente);
-      return {
-        id: `${alumno.dni}_${Date.now()}`, nombre: alumno.nombre, dni: alumno.dni,
-        sexo: alumno.sexo || 'V', nuevoIngreso: !!alumno.nuevoIngreso,
-        bimestres: {
-          1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
-          2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
-          3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
-          4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
-        }
-      };
-    });
+    // SOLO AGREGA los alumnos que faltan. Nunca quita ni reemplaza a los que ya están con sus notas
+    // (las bajas se hacen únicamente desde "Dar de baja").
+    const nuevasEstructuras = alumnosNuevos.map(alumno => ({
+      id: `${alumno.dni}_${Date.now()}`, nombre: alumno.nombre, dni: alumno.dni,
+      sexo: alumno.sexo || 'V', nuevoIngreso: !!alumno.nuevoIngreso,
+      bimestres: {
+        1: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+        2: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+        3: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+        4: { n1:'', n2:'', n3:'', n4:'', n5:'', nota:'', criteriosTexto:'', observacion:'' },
+      }
+    }));
+    const estudiantesActualizados = [...estudiantesActuales.map(e => asegurarEstructuraEstudiante(e)), ...nuevasEstructuras];
     setDoc(doc(db, 'calificaciones', safeKey(`${materia.nombre}_${grado}`)), { estudiantes: estudiantesActualizados }, { merge: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grado, materia, alumnosGlobales]);
+  }, [grado, materia, alumnosGlobales, alumnosListos, calCargadoSync]);
 
   // ── Cargar configuración (criterios, candados, docente) — siempre que cambie materia o grado ──
   useEffect(() => {
     if (!materia) return;
     let cancelado = false;
+    setConfigCargada(false);
     const cargarConfig = async () => {
+      try {
       // Limpiar inmediatamente para que no queden criterios de la materia anterior
       setCriteriosPorBimestre({ 1: [], 2: [], 3: [], 4: [] });
       setBimestresBlockeados({ 1: false, 2: false, 3: false, 4: false });
@@ -1614,6 +1718,8 @@ export default function SistemaCalificaciones() {
         setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
+      setConfigCargada(true);
+      setErr('config', null);
       // Bloqueo automático silencioso por fecha — se aplica UNA SOLA VEZ por cada fecha programada.
       // Guardamos en `autoBloqueoAplicadoFecha` CUÁL fecha ya se aplicó (no solo un true/false):
       // así, si la Directora reabre el bimestre, no se vuelve a bloquear solo con la misma fecha vieja,
@@ -1644,6 +1750,10 @@ export default function SistemaCalificaciones() {
             setTimeout(() => setAutoBloqueoMsg(false), 8000);
           }
         }
+      }
+      } catch (e) {
+        console.error('Error leyendo la configuración de la materia:', e);
+        if (!cancelado) setErr('config', e?.code || 'error');
       }
     };
     cargarConfig();
@@ -1810,8 +1920,6 @@ export default function SistemaCalificaciones() {
       await showAlert('Completá el nombre y el DNI del alumno.', 'warning'); return;
     }
     const gradoActual = usuario?.rol === 'docente_grado' ? (usuario.gradosAsignados?.[0] || usuario.gradoAsignado) : grado;
-    const nuevos = { ...alumnosGlobales };
-    if (!nuevos[gradoActual]) nuevos[gradoActual] = [];
     // El formulario se limpia APENAS se valida (no al final): propagar el cambio a todas las
     // materias tarda varios segundos y, si algo fallaba en el medio, el formulario nunca se limpiaba.
     // Si hay un error, se restaura lo que había escrito para poder reintentar.
@@ -1827,10 +1935,12 @@ export default function SistemaCalificaciones() {
       const nuevoSexo = alumnoForm.sexo || 'V';
       const nuevoIngresoVal = !!alumnoForm.nuevoIngreso;
 
-      // 1. Actualizar en alumnosGlobales
-      const idx = nuevos[gradoActual].findIndex(a => a.dni === dniOriginal);
-      if (idx !== -1) nuevos[gradoActual][idx] = { nombre: nuevoNombre, dni: nuevoDni, sexo: nuevoSexo, nuevoIngreso: nuevoIngresoVal };
-      await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
+      // 1. Actualizar en alumnosGlobales (transacción: lee la lista actual del servidor y cambia solo este alumno)
+      await modificarAlumnosGlobales(db, (g) => {
+        const lista = g[gradoActual] || (g[gradoActual] = []);
+        const idx = lista.findIndex(a => a.dni === dniOriginal);
+        if (idx !== -1) lista[idx] = { nombre: nuevoNombre, dni: nuevoDni, sexo: nuevoSexo, nuevoIngreso: nuevoIngresoVal };
+      });
 
       // 2. Propagar cambio de nombre/dni a todas las calificaciones del grado
       const todasMaterias = [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
@@ -1848,13 +1958,21 @@ export default function SistemaCalificaciones() {
       }));
 
     } else {
-      if (nuevos[gradoActual].some(a => a.dni === alumnoForm.dni.trim())) {
-        await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
+      const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V', nuevoIngreso: !!alumnoForm.nuevoIngreso };
+      // Transacción: lee la lista actual del servidor, valida el DNI y agrega solo este alumno
+      try {
+        await modificarAlumnosGlobales(db, (g) => {
+          const lista = g[gradoActual] || (g[gradoActual] = []);
+          if (lista.some(a => a.dni === alumnoNuevo.dni)) throw new Error('DNI_DUPLICADO');
+          lista.push(alumnoNuevo);
+        });
+      } catch (e) {
+        if (e?.message === 'DNI_DUPLICADO') {
+          await showAlert('Ya existe un alumno con ese DNI en este grado.', 'warning'); return;
+        }
+        throw e;
       }
       limpiarForm();
-      const alumnoNuevo = { nombre: alumnoForm.nombre.trim(), dni: alumnoForm.dni.trim(), sexo: alumnoForm.sexo || 'V', nuevoIngreso: !!alumnoForm.nuevoIngreso };
-      nuevos[gradoActual].push(alumnoNuevo);
-      await setDoc(doc(db, 'datos', 'alumnosGlobales'), nuevos);
 
       // Propagar alumno nuevo a TODAS las materias del grado
       // SOLO lo agrega si no existe — nunca toca notas existentes
@@ -1945,13 +2063,18 @@ export default function SistemaCalificaciones() {
       fecha: new Date().toLocaleDateString('es-AR'),
       fechaISO: new Date().toISOString(),
     };
-    const bajasSnap = await getDoc(doc(db, 'datos', 'bajas'));
-    const bajasActuales = bajasSnap.exists() ? (bajasSnap.data().lista || []) : [];
-    await setDoc(doc(db, 'datos', 'bajas'), { lista: [...bajasActuales, registroBaja] });
-    // Eliminar de la lista activa
-    await setDoc(doc(db, 'datos', 'alumnosGlobales'), {
-      ...alumnosGlobales, [gradoActual]: (alumnosGlobales[gradoActual] || []).filter(a => a.dni !== alumno.dni)
-    });
+    // 1° se saca de la lista activa (transacción sobre los datos del servidor). Si falla, no se registra nada.
+    try {
+      await modificarAlumnosGlobales(db, (g) => {
+        g[gradoActual] = (g[gradoActual] || []).filter(a => a.dni !== alumno.dni);
+      });
+    } catch (e) {
+      console.error('Error registrando la baja:', e);
+      await showAlert('No se pudo registrar la baja (probablemente sin conexión). No se modificó nada. Intentá de nuevo.', 'error', 'Baja no realizada');
+      return;
+    }
+    // 2° se agrega el registro de baja sin pisar los anteriores
+    await setDoc(doc(db, 'datos', 'bajas'), { lista: arrayUnion(registroBaja) }, { merge: true });
     // Eliminar al alumno de TODAS las materias (curriculares, especiales, talleres, convivencia)
     const todasLasMaterias = [
       ...areas.curriculares,
@@ -2048,6 +2171,11 @@ export default function SistemaCalificaciones() {
     if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
+    // Nunca guardar si los datos de esta materia no se leyeron bien del servidor (evita pisar notas con una lista vacía)
+    if (estudiantesLatestRef.current[key] === undefined || errores.calificaciones) {
+      showAlert('Los datos de esta materia todavía no se cargaron bien desde el servidor, por eso NO se guardó este cambio. Esperá unos segundos o recargá la página.', 'warning', 'No se guardó');
+      return;
+    }
 
     // 1. Actualizar estado local inmediatamente usando la ref más reciente
     // Esto garantiza que cada llamada acumula sobre el estado previo correcto
@@ -2093,6 +2221,7 @@ export default function SistemaCalificaciones() {
     // 2. Encolar escritura a Firestore — serializada para evitar race conditions
     // Cada escritura espera a que termine la anterior antes de ejecutarse
     // La última escritura encolada siempre tiene el estado más reciente
+    pendientesRef.current += 1;
     saveQueueRef.current = saveQueueRef.current.then(async () => {
       // Leer el estado MÁS RECIENTE de la ref en el momento de escribir
       const listaFinal = estudiantesLatestRef.current[key] || [];
@@ -2103,6 +2232,8 @@ export default function SistemaCalificaciones() {
         setTimeout(() => setSavedCells(prev => { const n={...prev}; delete n[`${id}_${bimestre}`]; return n; }), 1500);
       } catch(e) {
         showAlert('⚠️ No se pudo guardar. Verificá tu conexión e intentá de nuevo.', 'error', 'Error');
+      } finally {
+        pendientesRef.current = Math.max(0, pendientesRef.current - 1);
       }
     });
   };
@@ -2110,6 +2241,7 @@ export default function SistemaCalificaciones() {
   const actualizarObservacion = (id, bimestre, texto) => {
     if (bimestresBlockeados[bimestre]) return;
     const key = `${materia.nombre}-${grado}`;
+    if (estudiantesLatestRef.current[key] === undefined || errores.calificaciones) return;
     const fsKey = safeKey(`${materia.nombre}_${grado}`);
     setEstudiantes(prev => {
       const nuevos = { ...prev };
@@ -2126,6 +2258,18 @@ export default function SistemaCalificaciones() {
 
   // ── TÍTULO DE PESTAÑA ──
   useTituloPestana(pantalla, materia, grado);
+
+  // Recordar en qué materia/grado estaba trabajando (por si la página se recarga sola)
+  useEffect(() => {
+    if (!authUser) return;
+    try {
+      if (pantalla === 'materia' && materia) {
+        localStorage.setItem('ultimaVista', JSON.stringify({ uid: authUser.uid, pantalla: 'materia', materia: materia.nombre, grado, t: Date.now() }));
+      } else if (vistaRestauradaRef.current && pantalla !== 'cargando' && pantalla !== 'login') {
+        localStorage.removeItem('ultimaVista');
+      }
+    } catch (e) {}
+  }, [pantalla, materia, grado, authUser]);
 
   // ── LIMPIEZA PUNTUAL: Gonzalez Yanela Marisol 7°C ──
   useEffect(() => {
@@ -2186,6 +2330,10 @@ export default function SistemaCalificaciones() {
   const LIMITE_BIM2 = new Date('2026-08-08T23:59:59');
 
   const toggleBloquearBimestre = async (bim) => {
+    if (!configCargada) {
+      await showAlert('Todavía no se cargó la configuración de esta materia (criterios y bloqueos). Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
     const bloqueando = !bimestresBlockeados[bim];
     // Prevenir que el docente desbloquee manualmente si fue bloqueado por fecha automática
     if (!bloqueando) {
@@ -2223,7 +2371,8 @@ export default function SistemaCalificaciones() {
 
     const nuevo = { ...bimestresBlockeados, [bim]: bloqueando };
     setBimestresBlockeados(nuevo);
-    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: nuevo }, { merge: true });
+    // Se guarda SOLO este bimestre (no el objeto completo), así no se pueden pisar los demás
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { bimestresBlockeados: { [bim]: bloqueando } }, { merge: true });
     if (bloqueando) {
       const nombreDoc = usuario?.nombre || '—';
       await setDoc(doc(collection(db, 'notificacionesBimestre')), {
@@ -2240,6 +2389,10 @@ export default function SistemaCalificaciones() {
   };
 
   const agregarCriterio = async (bimestre) => {
+    if (!configCargada) {
+      await showAlert('Todavía no se cargó la configuración de esta materia (criterios y bloqueos). Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
     const c = await showPrompt(`Nombre del criterio para el ${bimestre}° Bimestre:`, 'Ej: Evaluación escrita, Concepto...', 'Nuevo criterio');
     if (!c?.trim()) return;
     if (c.trim().length > 25) {
@@ -2251,25 +2404,38 @@ export default function SistemaCalificaciones() {
     }
     const nuevos = { ...criteriosPorBimestre, [bimestre]: [...(criteriosPorBimestre[bimestre] || []), c.trim()] };
     setCriteriosPorBimestre(nuevos);
-    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
+    // Se guarda SOLO este bimestre (no los 4), así nunca se pisan los criterios de los otros
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: { [bimestre]: nuevos[bimestre] } }, { merge: true });
   };
 
   const renombrarCriterio = async (bimestre, indexCrit, nuevoNombre) => {
+    if (!configCargada) {
+      await showAlert('Todavía no se cargó la configuración de esta materia (criterios y bloqueos). Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
     if (!nuevoNombre.trim() || nuevoNombre.trim() === criteriosPorBimestre[bimestre][indexCrit]) return;
     const nuevos = { ...criteriosPorBimestre };
     nuevos[bimestre] = [...nuevos[bimestre]];
     nuevos[bimestre][indexCrit] = nuevoNombre.trim();
     setCriteriosPorBimestre(nuevos);
-    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevos }, { merge: true });
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: { [bimestre]: nuevos[bimestre] } }, { merge: true });
   };
 
   const eliminarCriterio = async (bimestre, c) => {
+    if (!configCargada) {
+      await showAlert('Todavía no se cargó la configuración de esta materia (criterios y bloqueos). Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
+    if (estudiantesLatestRef.current[`${materia.nombre}-${grado}`] === undefined) {
+      await showAlert('Todavía no se cargaron los alumnos de esta materia. Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
     const ok = await showConfirm(`¿Eliminás el criterio "${c}" del ${bimestre}° Bimestre?`, 'Eliminar criterio');
     if (!ok) return;
     const idxElim = criteriosPorBimestre[bimestre].indexOf(c);
     const nuevosCrit = { ...criteriosPorBimestre, [bimestre]: criteriosPorBimestre[bimestre].filter(x => x !== c) };
     setCriteriosPorBimestre(nuevosCrit);
-    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: nuevosCrit }, { merge: true });
+    await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { criterios: { [bimestre]: nuevosCrit[bimestre] } }, { merge: true });
     // Limpiar la nota del criterio eliminado y reordenar las restantes en todos los estudiantes
     if (idxElim >= 0) {
       const key = `${materia.nombre}-${grado}`;
@@ -2298,6 +2464,10 @@ export default function SistemaCalificaciones() {
   };
 
   const guardarDocente = async () => {
+    if (!configCargada) {
+      await showAlert('Todavía no se cargó la configuración de esta materia (criterios y bloqueos). Esperá unos segundos o recargá la página. No se modificó nada.', 'warning', 'Datos sin cargar');
+      return;
+    }
     if (!docenteNombre.actual.trim()) { await showAlert('Ingresá el nombre del docente antes de guardar.', 'warning'); return; }
     await setDoc(doc(db, 'configuracion', safeKey(`${materia.nombre}_${grado}`)), { docente: docenteNombre.actual.trim() }, { merge: true });
     setDocenteNombre({ actual: '', guardado: docenteNombre.actual.trim() });
@@ -2329,6 +2499,7 @@ export default function SistemaCalificaciones() {
 
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActualesRaw = estudiantes[`${materia?.nombre}-${grado}`] || [];
+  const cargandoCal = !!materia && estudiantes[`${materia.nombre}-${grado}`] === undefined;
   const alumnosDelGradoActual = alumnosGlobales[grado] || [];
   const estActuales = estActualesRaw.map(e => ({
     ...e,
@@ -3224,6 +3395,7 @@ export default function SistemaCalificaciones() {
     return (
       <>
         <style>{globalStyles}</style>
+        <BannerLectura errores={errores} />
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
           {/* TOPBAR */}
@@ -3600,6 +3772,7 @@ export default function SistemaCalificaciones() {
   return (
     <>
       <style>{globalStyles}</style>
+      <BannerLectura errores={errores} />
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
         {/* TOPBAR MATERIA */}
@@ -3761,7 +3934,13 @@ export default function SistemaCalificaciones() {
               <p style={{ fontSize: 12, fontWeight: 600, color: '#92400e' }}>🏫 <strong>Convivencia</strong> — Registrá una nota directa por bimestre para cada alumno. Esta sección refleja el desempeño en convivencia escolar, actitud y comportamiento, de forma separada a las áreas curriculares.</p>
             </div>
           )}
-          {estActuales.length === 0 ? (
+          {cargandoCal ? (
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+              <p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Cargando alumnos y notas…</p>
+              <p style={{ fontSize: 13, marginTop: 4 }}>Si tarda mucho, revisá tu conexión o recargá la página. Tus datos no se borraron.</p>
+            </div>
+          ) : estActuales.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><p style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>No hay estudiantes registrados</p><p style={{ fontSize: 13, marginTop: 4 }}>Los docentes de grado deben cargar alumnos en Gestión de Alumnos</p></div>
           ) : (
             <>
