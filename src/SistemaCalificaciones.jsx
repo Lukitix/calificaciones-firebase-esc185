@@ -33,6 +33,7 @@ import {
   orderBy,
   limit,
   runTransaction,
+  writeBatch,
   arrayUnion,
   enableIndexedDbPersistence
 } from 'firebase/firestore';
@@ -1355,6 +1356,47 @@ async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosEfectivos
   return aplicados;
 }
 
+// ── DESBLOQUEO DE BIMESTRES (individual y masivo) ──
+// Arma la lista de (materia, grado) que realmente tiene cada docente y escribe TODO en una sola operación por lotes
+// (rápido y sin leer documento por documento). Guarda la fecha de bloqueo vigente como "ya aplicada" para que
+// el bloqueo automático no vuelva a cerrar el bimestre con esa misma fecha.
+function paresMateriaGradoDeDocente(u) {
+  const pares = [];
+  if (u.rol === 'docente_grado') {
+    const grados = u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean);
+    const nombres = [...(u.materiasAsignadas || []).map(m => m?.nombre || m), ...areas.convivencia.map(m => m.nombre)];
+    grados.forEach(g => nombres.forEach(n => pares.push([n, g])));
+  } else if (u.rol === 'area_especial') {
+    (u.materiasAsignadas || []).forEach(ma => {
+      const n = ma?.nombre || ma;
+      (ma?.grados || []).forEach(g => pares.push([n, g]));
+    });
+  }
+  return pares;
+}
+
+async function desbloquearBimestresParaDocentes(db, docentes, seleccionados) {
+  // Fecha vigente: si no se puede leer, se aborta (para no dejar datos que el sistema reinterprete como vencidos)
+  const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
+  const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
+  const vistos = new Set();
+  const refs = [];
+  docentes.forEach(u => paresMateriaGradoDeDocente(u).forEach(([n, g]) => {
+    const key = safeKey(`${n}_${g}`);
+    if (!vistos.has(key)) { vistos.add(key); refs.push(key); }
+  }));
+  const bloqueos = {}, aplicados = {};
+  seleccionados.forEach(b => { bloqueos[b] = false; aplicados[b] = fechasVigentes[`bim${b}`] || null; });
+  let escritos = 0, errores = 0;
+  for (let i = 0; i < refs.length; i += 400) {
+    const lote = writeBatch(db);
+    const grupo = refs.slice(i, i + 400);
+    grupo.forEach(key => lote.set(doc(db, 'configuracion', key), { bimestresBlockeados: bloqueos, autoBloqueoAplicadoFecha: aplicados }, { merge: true }));
+    try { await lote.commit(); escritos += grupo.length; } catch (e) { console.error('Error en desbloqueo por lotes:', e); errores += grupo.length; }
+  }
+  return { materias: refs.length, escritos, errores };
+}
+
 // ── Modificar la lista global de alumnos DE FORMA SEGURA ──
 // Lee la versión del SERVIDOR dentro de una transacción y cambia solo lo necesario.
 // Así nunca se pisa la lista completa con una copia vieja o vacía del navegador
@@ -1851,7 +1893,15 @@ export default function SistemaCalificaciones() {
       // Guardamos en `autoBloqueoAplicadoFecha` CUÁL fecha ya se aplicó (no solo un true/false):
       // así, si la Directora reabre el bimestre, no se vuelve a bloquear solo con la misma fecha vieja,
       // pero SÍ se bloquea de nuevo si después se programa una fecha distinta (más adelante).
-      if (authUser && usuario?.rol !== 'administrador') {
+      // Las fechas se leen del SERVIDOR en este momento (no del estado en pantalla, que puede ser el valor
+      // por defecto viejo si todavía no llegó la fecha real). Si no se pueden leer, NO se bloquea nada.
+      let fechasServidor = null;
+      try {
+        const fs = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
+        if (fs.exists()) fechasServidor = fs.data();
+      } catch (e) { fechasServidor = null; }
+      if (cancelado) return;
+      if (authUser && usuario?.rol !== 'administrador' && fechasServidor) {
         const ahora = new Date();
         const configKey = safeKey(`${materia.nombre}_${grado}`);
         const currentSnap = await getDoc(doc(db, 'configuracion', configKey));
@@ -1862,7 +1912,7 @@ export default function SistemaCalificaciones() {
         const nuevoAplicado = { ...yaAplicado };
         let hubo = false;
         [1, 2, 3, 4].forEach(b => {
-          const fecha = fechasBloqueo[`bim${b}`];
+          const fecha = fechasServidor[`bim${b}`];
           if (fecha && ahora > new Date(fecha) && !bloq[b] && yaAplicado[b] !== fecha) {
             cambios[b] = true;
             nuevoAplicado[b] = fecha;
@@ -5141,38 +5191,17 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
     setProcesando(true);
     let total = 0;
     let errores = 0;
-    // Traemos la fecha de bloqueo vigente en este momento: al desbloquear, guardamos ESA fecha
-    // como "ya aplicada", para que no se re-bloquee con la misma, pero sí con una fecha nueva futura.
-    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
-    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
-    const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
-    for (const u of docentes) {
-      const grados = u.rol === 'docente_grado'
-        ? (u.gradosAsignados?.length > 0 ? u.gradosAsignados : [u.gradoAsignado].filter(Boolean))
-        : ([...new Set((u.materiasAsignadas || []).flatMap(ma => ma.grados || []))]);
-      const materias = u.rol === 'docente_grado'
-        ? (u.materiasAsignadas || [])
-        : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
-      for (const grado of grados) {
-        for (const mat of materias) {
-          const matNombre = mat.nombre || mat;
-          const key = safeKey(`${matNombre}_${grado}`);
-          try {
-            const snap = await getDoc(doc(db, 'configuracion', key));
-            const data = snap.exists() ? snap.data() : {};
-            const bloq = data.bimestresBlockeados || {};
-            const yaAplicado = data.autoBloqueoAplicadoFecha || {};
-            const nuevo = { ...bloq };
-            const nuevoAplicado = { ...yaAplicado };
-            seleccionados.forEach(b => {
-              nuevo[b] = false;
-              nuevoAplicado[b] = fechasVigentes[`bim${b}`] || null; // fecha vigente al momento del desbloqueo
-              total++;
-            });
-            await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
-          } catch(e) { errores++; }
-        }
-      }
+    try {
+      const docentes = todosUsuarios.filter(u => u.rol === 'docente_grado' || u.rol === 'area_especial');
+      const r = await desbloquearBimestresParaDocentes(db, docentes, seleccionados);
+      total = r.escritos * seleccionados.length;
+      errores = r.errores;
+    } catch (e) {
+      console.error('Error en el desbloqueo masivo:', e);
+      setProcesando(false);
+      onClose();
+      await showAlert('No se pudo completar el desbloqueo (sin conexión o sin permisos). No se modificó nada. Intentá de nuevo.', 'error', 'Desbloqueo no realizado');
+      return;
     }
     setProcesando(false);
     onClose();
@@ -7022,27 +7051,17 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                       : (u.materiasAsignadas?.map(ma => ma.nombre || ma) || []);
                     let desbloqueados = 0;
                     let errores = 0;
-                    // Fecha de bloqueo vigente en este momento (para no re-bloquear con la misma,
-                    // pero sí reaccionar si más adelante se programa una fecha nueva).
-                    const fechasSnap = await getDoc(doc(db, 'configuracion', 'fechasBloqueo'));
-                    const fechasVigentes = fechasSnap.exists() ? fechasSnap.data() : {};
-                    for (const grado of grados) {
-                      for (const mat of materias) {
-                        const matNombre = mat.nombre || mat;
-                        const key = safeKey(`${matNombre}_${grado}`);
-                        try {
-                          const snap = await getDoc(doc(db, 'configuracion', key));
-                          const data = snap.exists() ? snap.data() : {};
-                          const bloq = data.bimestresBlockeados || {};
-                          const yaAplicado = data.autoBloqueoAplicadoFecha || {};
-                          const nuevo = { ...bloq };
-                          const nuevoAplicado = { ...yaAplicado };
-                          Object.entries(bimestresDesbloqueo).forEach(([b, sel]) => {
-                            if (sel) { nuevo[parseInt(b)] = false; nuevoAplicado[parseInt(b)] = fechasVigentes[`bim${b}`] || null; desbloqueados++; }
-                          });
-                          await setDoc(doc(db, 'configuracion', key), { bimestresBlockeados: nuevo, autoBloqueoAplicadoFecha: nuevoAplicado }, { merge: true });
-                        } catch(e) { errores++; }
-                      }
+                    try {
+                      const sel = Object.entries(bimestresDesbloqueo).filter(([, v]) => v).map(([k]) => parseInt(k));
+                      const r = await desbloquearBimestresParaDocentes(db, [u], sel);
+                      desbloqueados = r.escritos * sel.length;
+                      errores = r.errores;
+                    } catch (e) {
+                      console.error('Error en el desbloqueo individual:', e);
+                      setDesbloqueando(false);
+                      setDocenteDesbloqueo(null);
+                      await showAlert('No se pudo completar el desbloqueo (sin conexión o sin permisos). No se modificó nada. Intentá de nuevo.', 'error', 'Desbloqueo no realizado');
+                      return;
                     }
                     setDesbloqueando(false);
                     setDocenteDesbloqueo(null);
