@@ -196,6 +196,16 @@ const colorNota = (nota) => {
   return n >= 6 ? { bg: '#dcfce7', text: '#15803d' } : { bg: '#fee2e2', text: '#dc2626' };
 };
 
+// Color de una nota según el ciclo. En primer ciclo el valor se muestra como concepto (SAT, PS...) ya REDONDEADO
+// (ej. 5.5 → 6 → SAT), así que el color se decide con ese mismo valor redondeado: SAT, MS, DIS y SOB siempre en verde.
+const colorNotaCiclo = (nota, primerCiclo) => {
+  if (!primerCiclo) return colorNota(nota);
+  const n = parseFloat(nota);
+  if (isNaN(n)) return colorNota(nota);
+  const redondeado = Math.floor(n) + (n % 1 >= 0.5 ? 1 : 0);
+  return colorNota(redondeado);
+};
+
 // ─── SISTEMA DE MODALES ──────────────────────────────────────────────────────
 function useModal() {
   const [modal, setModal] = useState(null);
@@ -664,7 +674,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
         <div
           onClick={() => setFocused(true)}
           className="nota-input flex items-center justify-center font-black cursor-text"
-          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: colorNota(local)?.text || '#6d28d9', backgroundColor: colorNota(local)?.bg || '#f5f3ff' }}
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', fontSize: '9px', color: colorNotaCiclo(local, primerCiclo)?.text || '#6d28d9', backgroundColor: colorNotaCiclo(local, primerCiclo)?.bg || '#f5f3ff' }}
         >
           {abrevConceptual(local)}
         </div>
@@ -672,7 +682,7 @@ function NotaInput({ value, onCommit, title, primerCiclo = false }) {
         <input
           ref={inputRef}
           type="text" inputMode="decimal" className="nota-input"
-          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', backgroundColor: local ? (colorNota(local)?.bg || '') : '', color: local ? (colorNota(local)?.text || '#374151') : '#374151' }}
+          style={{ borderRadius: 0, borderTop: '1px solid #ddd6fe', borderBottom: '1px solid #ddd6fe', backgroundColor: local ? (colorNotaCiclo(local, primerCiclo)?.bg || '') : '', color: local ? (colorNotaCiclo(local, primerCiclo)?.text || '#374151') : '#374151' }}
           value={local} onChange={handleChange} onBlur={handleBlur} onFocus={() => setFocused(true)}
           onKeyDown={(e) => {
             if (e.key === 'Tab' || e.key === 'Enter') {
@@ -4301,7 +4311,7 @@ export default function SistemaCalificaciones() {
                                     )}
                                     {bloqueado || soloLectura ? (
                                       <div className="nota-input flex items-center justify-center font-black"
-                                        style={{ fontSize: primerCiclo ? '9px' : '12px', backgroundColor: colorNota(val)?.bg || '', color: colorNota(val)?.text || '#374151' }}>
+                                        style={{ fontSize: primerCiclo ? '9px' : '12px', backgroundColor: colorNotaCiclo(val, primerCiclo)?.bg || '', color: colorNotaCiclo(val, primerCiclo)?.text || '#374151' }}>
                                         {mostrar || '—'}
                                       </div>
                                     ) : (
@@ -4315,7 +4325,7 @@ export default function SistemaCalificaciones() {
                               <div className="flex flex-col items-center gap-0.5 ml-1">
                                 <span className="text-[11px] font-bold text-purple-500">Prom.</span>
                                 <div className="flex items-center justify-center font-black rounded-lg border-2"
-                                  style={{ minWidth: '44px', height: '36px', fontSize: primerCiclo && notaBim ? '9px' : '13px', padding: '2px 4px', textAlign: 'center', backgroundColor: colorNota(notaBim)?.bg || '#f3f0ff', color: colorNota(notaBim)?.text || '#6b21a8', borderColor: colorNota(notaBim)?.bg || '#e9d5ff' }}>
+                                  style={{ minWidth: '44px', height: '36px', fontSize: primerCiclo && notaBim ? '9px' : '13px', padding: '2px 4px', textAlign: 'center', backgroundColor: colorNotaCiclo(notaBim, primerCiclo)?.bg || '#f3f0ff', color: colorNotaCiclo(notaBim, primerCiclo)?.text || '#6b21a8', borderColor: colorNotaCiclo(notaBim, primerCiclo)?.bg || '#e9d5ff' }}>
                                   {notaBim ? (primerCiclo ? abrevConceptual(notaBim) : notaBim) : '-'}
                                 </div>
                               </div>
@@ -4333,7 +4343,7 @@ export default function SistemaCalificaciones() {
                         <CeldaBimestre bim={2} />
                         {!(bimColapsados[1] && bimColapsados[2]) && (
                           <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c1 ? 9 : 12, fontWeight: 700, background: colorNota(c1)?.bg || '#eef2ff', color: colorNota(c1)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c1)?.bg || '#c7d2fe' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c1 ? 9 : 12, fontWeight: 700, background: colorNotaCiclo(c1, primerCiclo)?.bg || '#eef2ff', color: colorNotaCiclo(c1, primerCiclo)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNotaCiclo(c1, primerCiclo)?.bg || '#c7d2fe' }}>
                               {c1 ? (primerCiclo ? textoConceptual(c1) : c1) : '—'}
                             </span>
                           </td>
@@ -4342,7 +4352,7 @@ export default function SistemaCalificaciones() {
                         <CeldaBimestre bim={4} />
                         {!(bimColapsados[3] && bimColapsados[4]) && (
                           <td style={{ padding: '8px 11px', textAlign: 'center', background: '#eef2ff', borderLeft: 'var(--bim-sep)', borderRight: 'var(--bim-sep)' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c2 ? 9 : 12, fontWeight: 700, background: colorNota(c2)?.bg || '#eef2ff', color: colorNota(c2)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNota(c2)?.bg || '#c7d2fe' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, height: 27, borderRadius: 5, fontSize: primerCiclo && c2 ? 9 : 12, fontWeight: 700, background: colorNotaCiclo(c2, primerCiclo)?.bg || '#eef2ff', color: colorNotaCiclo(c2, primerCiclo)?.text || 'var(--indigo)', border: '1.5px solid', borderColor: colorNotaCiclo(c2, primerCiclo)?.bg || '#c7d2fe' }}>
                               {c2 ? (primerCiclo ? textoConceptual(c2) : c2) : '—'}
                             </span>
                           </td>
@@ -7287,7 +7297,7 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                           const fmtTexto = (v) => v && v !== '-' ? (primerCiclo ? textoConceptual(v) : v) : '—';
 
                           const CeldaNota = ({ val, isCuat, isFinal }) => {
-                            const col = colorNota(val);
+                            const col = colorNotaCiclo(val, primerCiclo);
                             const bg = isFinal ? 'var(--violet)' : isCuat ? '#eef2ff' : (col?.bg || '#f8fafc');
                             const color = isFinal ? '#fff' : isCuat ? 'var(--indigo)' : (col?.text || '#94a3b8');
                             const border = isFinal ? 'var(--violet)' : isCuat ? '#c7d2fe' : (col?.bg || '#e2e8f0');
