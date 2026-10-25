@@ -1553,8 +1553,8 @@ const PREGUNTAS_AYUDA = [
 ];
 
 const NOVEDADES_AYUDA = [
-  { f: '25/10/2026', t: ['Ayuda ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".'] },
-  { f: '24/10/2026', t: ['Dar de baja a un alumno ya no borra sus notas: se guardan y se restauran con "Reincorporar".', 'Botón "Reportar un problema" dentro de esta ayuda.', 'El PDF unificado permite elegir el bimestre.', 'Los colores de la escala de primer ciclo ahora coinciden con la escala (SAT en verde).', 'Desbloqueo de bimestres más rápido y confiable.', 'Las notas tienen una copia de seguridad automática todos los días.'] },
+  { f: '25/10/2026', t: ['Guía ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".'] },
+  { f: '24/10/2026', t: ['Dar de baja a un alumno ya no borra sus notas: se guardan y se restauran con "Reincorporar".', 'Botón "Reportar un problema" dentro de esta guía.', 'El PDF unificado permite elegir el bimestre.', 'Los colores de la escala de primer ciclo ahora coinciden con la escala (SAT en verde).', 'Desbloqueo de bimestres más rápido y confiable.', 'Las notas tienen una copia de seguridad automática todos los días.'] },
 ];
 
 function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
@@ -1629,13 +1629,13 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   const cambiarEstado = async (r, estado) => { try { await updateDoc(doc(db, 'reportes', r.id), { estado }); } catch (e) {} };
   const borrar = async (r) => { try { await deleteDoc(doc(db, 'reportes', r.id)); } catch (e) {} };
 
-  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['novedades', '🆕 Novedades'], ['reportar', '🐞 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
+  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['novedades', '🆕 Novedades'], ['reportar', '🚩 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
 
   return (
     <>
-      <button onClick={() => setAbierto(true)} title="Ayuda y reporte de problemas" aria-label="Ayuda"
-        style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 40, width: 42, height: 42, borderRadius: '50%', background: 'var(--navy, #1e3a5f)', color: '#fff', border: '2px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,.3)', fontWeight: 800, fontSize: 18, cursor: 'pointer' }}>
-        ?
+      <button onClick={() => setAbierto(true)} title="Guía de uso y reporte de problemas" aria-label="Ayuda"
+        style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 40, height: 42, padding: '0 16px', borderRadius: 21, background: 'var(--navy, #1e3a5f)', color: '#fff', border: '2px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,.3)', fontWeight: 800, fontSize: 13, letterSpacing: '0.06em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+        📖 GUÍA
         {esAdmin && nuevos > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#dc2626', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 800, padding: '1px 6px' }}>{nuevos}</span>}
       </button>
       {abierto && (
