@@ -1407,6 +1407,234 @@ async function desbloquearBimestresParaDocentes(db, docentes, seleccionados) {
   return { materias: refs.length, escritos, errores };
 }
 
+// ── BAJAS CON RESGUARDO DE NOTAS ──
+// Antes de sacar a un alumno de las materias, se guarda una copia de sus notas (datos/bajaNotas_...).
+// "Reincorporar" lo vuelve a agregar y restaura esas notas SIN pisar nada que ya esté cargado.
+const nombresTodasLasMaterias = () => [...areas.curriculares, ...areas.especiales, ...areas.talleres, ...areas.convivencia].map(m => m.nombre);
+
+async function reunirNotasDeAlumno(db, grado, dni) {
+  const claves = nombresTodasLasMaterias().map(n => ({ nombre: n, key: safeKey(`${n}_${grado}`) }));
+  const snaps = await Promise.all(claves.map(c => getDoc(doc(db, 'calificaciones', c.key))));
+  const items = [];
+  snaps.forEach((snap, i) => {
+    if (!snap.exists()) return;
+    const est = (snap.data().estudiantes || []).find(e => e.dni === dni);
+    if (est) items.push({ key: claves[i].key, materia: claves[i].nombre, est });
+  });
+  return { items, claves };
+}
+
+async function quitarAlumnoDeMaterias(db, claves, dni) {
+  let errores = 0;
+  await Promise.all(claves.map(async (c) => {
+    try {
+      await runTransaction(db, async (tx) => {
+        const r = doc(db, 'calificaciones', c.key);
+        const s = await tx.get(r);
+        if (!s.exists()) return;
+        const lista = s.data().estudiantes || [];
+        const nueva = lista.filter(e => e.dni !== dni);
+        if (nueva.length < lista.length) tx.set(r, { estudiantes: nueva }, { merge: true });
+      });
+    } catch (e) { errores++; console.error(`Error quitando al alumno de ${c.nombre}:`, e); }
+  }));
+  return errores;
+}
+
+async function restaurarNotasDeAlumnoEnMateria(db, item, dni) {
+  const ref = doc(db, 'calificaciones', item.key);
+  let escritas = 0;
+  await runTransaction(db, async (tx) => {
+    escritas = 0;
+    const snap = await tx.get(ref);
+    const lista = snap.exists() ? (snap.data().estudiantes || []).map(e => ({ ...e })) : [];
+    const guardado = item.est || {};
+    const idx = lista.findIndex(e => e.dni === dni);
+    if (idx < 0) {
+      lista.push(guardado);
+      Object.values(guardado.bimestres || {}).forEach(b => ['n1', 'n2', 'n3', 'n4', 'n5'].forEach(k => { if (!_vacio(b?.[k])) escritas++; }));
+    } else {
+      const actual = { ...lista[idx], bimestres: { ...(lista[idx].bimestres || {}) } };
+      Object.keys(guardado.bimestres || {}).forEach(b => {
+        const g = guardado.bimestres[b] || {};
+        const a = { ...(actual.bimestres[b] || {}) };
+        Object.keys(g).forEach(k => {
+          if (_vacio(a[k]) && !_vacio(g[k])) { a[k] = g[k]; if (/^n[1-5]$/.test(k)) escritas++; }
+        });
+        actual.bimestres[b] = a;
+      });
+      lista[idx] = actual;
+    }
+    tx.set(ref, { estudiantes: lista }, { merge: true });
+  });
+  return escritas;
+}
+
+// ══════════════════════════════════════════════════════════════
+// AYUDA + REPORTE DE PROBLEMAS (botón flotante "?")
+// ══════════════════════════════════════════════════════════════
+const APP_VERSION = '2026-10-24';
+
+const PREGUNTAS_AYUDA = [
+  { p: 'No puedo cargar notas: el bimestre tiene un candado o dice "Completo".',
+    r: 'El bimestre está cerrado, ya sea porque lo marcaste como completo o porque venció la fecha de cierre. Si venció la fecha, solo la Dirección puede volver a abrirlo: pedíselo indicando materia, grado y bimestre. Después de que te lo habiliten, salí de la materia y volvé a entrar (o recargá la página).' },
+  { p: 'Dice "Sin criterios aún" y no puedo cargar notas.',
+    r: 'Cada bimestre necesita sus criterios antes de cargar notas. En la pantalla de la materia, dentro del bimestre, tocá el botón para agregar un criterio y escribí su nombre (por ejemplo "Evaluación escrita"). Si antes tenías criterios y desaparecieron, avisá a la Dirección con el botón "Reportar un problema".' },
+  { p: 'Me apareció un cartel de que los datos no se cargaron bien o que NO se guardó un cambio.',
+    r: 'Es una protección: el sistema no pudo leer los datos y por eso no deja guardar, para no pisar notas. Revisá tu conexión, esperá unos segundos y recargá la página. No sigas cargando notas hasta que desaparezca el aviso.' },
+  { p: 'La pantalla de la materia aparece vacía (sin alumnos o sin notas).',
+    r: 'Casi siempre es un problema de conexión al abrir. Esperá unos segundos; si sigue vacía, cerrá la app por completo (o recargá la página con Ctrl + F5) y volvé a entrar. Tus notas no se borran por esto. Si persiste, usá "Reportar un problema".' },
+  { p: 'No veo a un alumno en mi lista.',
+    r: 'Puede que no esté agregado todavía o que haya sido dado de baja. El docente de grado puede agregarlo desde la lista de alumnos del grado. Si lo agregaron hace un momento, recargá la página. Si fue una baja por error, la Dirección o el docente de grado pueden usar "Reincorporar" en el Registro de Bajas.' },
+  { p: '¿Cómo marco un bimestre como completo?',
+    r: 'Tocá "✓ Marcar" en el bimestre. Se pide que haya criterios cargados y que todos los alumnos tengan todas sus notas. Al marcarlo queda cerrado y se avisa a la Dirección. Si te equivocás, pedí que lo reabran.' },
+  { p: '¿Cómo funciona la escala de 1° a 3° grado?',
+    r: 'En primer ciclo las notas se muestran como conceptos: NS (2-3), PS (4-5), SAT (6-7), MS (8), DIS (9) y SOB (10). Los promedios con decimales se redondean (por ejemplo 5,5 pasa a 6). SAT, MS, DIS y SOB se muestran en verde; NS y PS, en rojo.' },
+  { p: '¿Cómo descargo el PDF?',
+    r: '"PDF Individual" genera la planilla de la materia que tenés abierta. "PDF Unificado" junta todas tus materias del grado y te pregunta de qué bimestre lo querés (1, 2, 3 o 4; vacío usa el último bimestre cerrado).' },
+  { p: 'La app no muestra los últimos cambios.',
+    r: 'Cerrá la app por completo (en el celular, sacala de las aplicaciones recientes) y volvé a abrirla. Si ves el aviso de "nueva versión", tocalo para actualizar.' },
+  { p: 'Olvidé mi contraseña.',
+    r: 'En la pantalla de ingreso tocá "¿Olvidaste tu contraseña?" y seguí los pasos: te llega un correo para crear una nueva.' },
+];
+
+function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
+  const [abierto, setAbierto] = useState(false);
+  const [tab, setTab] = useState('ayuda');
+  const [abierta, setAbierta] = useState(null);
+  const [texto, setTexto] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [reportes, setReportes] = useState([]);
+  const [nuevos, setNuevos] = useState(0);
+  const esAdmin = usuario?.rol === 'administrador';
+
+  // Aviso de reportes nuevos (solo Dirección)
+  useEffect(() => {
+    if (!esAdmin || !authUser) return;
+    const unsub = onSnapshot(query(collection(db, 'reportes'), where('estado', '==', 'nuevo')), (snap) => setNuevos(snap.size), () => {});
+    return () => unsub();
+  }, [db, esAdmin, authUser?.uid]);
+
+  // Lista de reportes (solo Dirección, solo con la pestaña abierta)
+  useEffect(() => {
+    if (!abierto || tab !== 'reportes' || !esAdmin) return;
+    const unsub = onSnapshot(query(collection(db, 'reportes'), orderBy('fecha', 'desc'), limit(100)),
+      (snap) => setReportes(snap.docs.map(d => ({ id: d.id, ...d.data() }))), () => {});
+    return () => unsub();
+  }, [abierto, tab, esAdmin, db]);
+
+  const enviar = async () => {
+    if (!texto.trim() || enviando) return;
+    setEnviando(true);
+    try {
+      const ahora = new Date();
+      const errs = Object.entries(contexto?.errores || {}).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`);
+      await setDoc(doc(collection(db, 'reportes')), {
+        uid: authUser.uid, nombre: usuario?.nombre || '—', email: usuario?.email || authUser.email || '', rol: usuario?.rol || '',
+        descripcion: texto.trim().slice(0, 2000),
+        pantalla: contexto?.pantalla || '', materia: contexto?.materia || '', grado: contexto?.grado || '',
+        erroresPantalla: errs, guardadosPendientes: contexto?.pendientes ?? 0,
+        enLinea: typeof navigator !== 'undefined' ? navigator.onLine : null,
+        version: APP_VERSION, navegador: (typeof navigator !== 'undefined' ? navigator.userAgent : '').slice(0, 200),
+        ventana: `${window.innerWidth}x${window.innerHeight}`,
+        fecha: ahora.toISOString(), fechaCorta: ahora.toLocaleDateString('es-AR'),
+        hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+        estado: 'nuevo',
+      });
+      setTexto('');
+      setAbierto(false);
+      await showAlert('¡Reporte enviado! La Dirección lo va a revisar. Incluye automáticamente la pantalla y los datos técnicos, no hace falta que mandes capturas.', 'success', 'Reporte enviado');
+    } catch (e) {
+      console.error('No se pudo enviar el reporte:', e);
+      setAbierto(false);
+      await showAlert('No se pudo enviar el reporte (sin conexión o sin permisos). Probá de nuevo en unos minutos o avisá por el medio habitual.', 'error', 'Reporte no enviado');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const cambiarEstado = async (r, estado) => { try { await updateDoc(doc(db, 'reportes', r.id), { estado }); } catch (e) {} };
+  const borrar = async (r) => { try { await deleteDoc(doc(db, 'reportes', r.id)); } catch (e) {} };
+
+  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['reportar', '🐞 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
+
+  return (
+    <>
+      <button onClick={() => setAbierto(true)} title="Ayuda y reporte de problemas" aria-label="Ayuda"
+        style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 40, width: 42, height: 42, borderRadius: '50%', background: 'var(--navy, #1e3a5f)', color: '#fff', border: '2px solid #fff', boxShadow: '0 4px 14px rgba(0,0,0,.3)', fontWeight: 800, fontSize: 18, cursor: 'pointer' }}>
+        ?
+        {esAdmin && nuevos > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#dc2626', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 800, padding: '1px 6px' }}>{nuevos}</span>}
+      </button>
+      {abierto && (
+        <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,.3)' }}>
+            <div style={{ background: 'var(--navy, #1e3a5f)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ color: '#fff', fontSize: 15, fontWeight: 800 }}>Ayuda del sistema</h3>
+              <button onClick={() => setAbierto(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.8)', fontSize: 20, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, padding: '10px 14px 0', flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0' }}>
+              {tabs.map(([k, l]) => (
+                <button key={k} onClick={() => setTab(k)}
+                  style={{ padding: '7px 12px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, background: tab === k ? '#eef2ff' : 'transparent', color: tab === k ? '#3730a3' : '#64748b', borderBottom: tab === k ? '2px solid #4f46e5' : '2px solid transparent' }}>{l}</button>
+              ))}
+            </div>
+            <div style={{ padding: 16, overflowY: 'auto' }}>
+              {tab === 'ayuda' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {PREGUNTAS_AYUDA.map((q, i) => (
+                    <div key={i} style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                      <button onClick={() => setAbierta(abierta === i ? null : i)}
+                        style={{ width: '100%', textAlign: 'left', padding: '10px 12px', background: abierta === i ? '#f5f3ff' : '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#1e293b', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                        <span>{q.p}</span><span>{abierta === i ? '−' : '+'}</span>
+                      </button>
+                      {abierta === i && <p style={{ padding: '4px 12px 12px', fontSize: 13, color: '#475569', lineHeight: 1.5 }}>{q.r}</p>}
+                    </div>
+                  ))}
+                  <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>¿No encontraste tu caso? Usá "Reportar un problema".</p>
+                </div>
+              )}
+              {tab === 'reportar' && (
+                <div>
+                  <p style={{ fontSize: 13, color: '#475569', marginBottom: 10, lineHeight: 1.5 }}>Contá qué estabas haciendo y qué pasó. El reporte lleva solo la pantalla donde estás, la materia, el grado y datos técnicos del sistema; no hace falta mandar capturas.</p>
+                  <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={5} maxLength={2000} placeholder="Ej: Estaba cargando notas de Matemática 3° B y la pantalla quedó vacía."
+                    style={{ width: '100%', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: 10, fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }} />
+                  <p style={{ fontSize: 11.5, color: '#94a3b8', margin: '6px 0 12px' }}>Se enviará desde: {contexto?.materia ? `${contexto.materia} · ${contexto.grado}` : (contexto?.pantalla || 'inicio')}</p>
+                  <button onClick={enviar} disabled={enviando || !texto.trim()}
+                    style={{ width: '100%', padding: 11, borderRadius: 10, background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: (enviando || !texto.trim()) ? 0.5 : 1 }}>
+                    {enviando ? 'Enviando...' : 'Enviar reporte'}
+                  </button>
+                </div>
+              )}
+              {tab === 'reportes' && esAdmin && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {reportes.length === 0 && <p style={{ fontSize: 13, color: '#94a3b8' }}>No hay reportes.</p>}
+                  {reportes.map(r => (
+                    <div key={r.id} style={{ border: '1.5px solid', borderColor: r.estado === 'nuevo' ? '#fca5a5' : '#e2e8f0', background: r.estado === 'nuevo' ? '#fef2f2' : '#fff', borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, color: '#64748b' }}>
+                        <strong style={{ color: '#1e293b' }}>{r.nombre}</strong><span>{r.fechaCorta} {r.hora}</span>
+                      </div>
+                      <p style={{ fontSize: 13.5, color: '#1e293b', margin: '6px 0', whiteSpace: 'pre-wrap' }}>{r.descripcion}</p>
+                      <p style={{ fontSize: 11.5, color: '#64748b', lineHeight: 1.5 }}>
+                        {r.materia ? `${r.materia} · ${r.grado}` : r.pantalla} · v{r.version} · {r.enLinea === false ? 'SIN CONEXIÓN' : 'en línea'}{r.erroresPantalla?.length ? ` · errores: ${r.erroresPantalla.join(', ')}` : ''}{r.guardadosPendientes ? ` · guardados pendientes: ${r.guardadosPendientes}` : ''}<br />{r.navegador}
+                      </p>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        {r.estado === 'nuevo'
+                          ? <button onClick={() => cambiarEstado(r, 'resuelto')} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>✓ Marcar resuelto</button>
+                          : <button onClick={() => cambiarEstado(r, 'nuevo')} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Reabrir</button>}
+                        <button onClick={() => borrar(r)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fff', color: '#dc2626', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Eliminar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Modificar la lista global de alumnos DE FORMA SEGURA ──
 // Lee la versión del SERVIDOR dentro de una transacción y cambia solo lo necesario.
 // Así nunca se pisa la lista completa con una copia vieja o vacía del navegador
@@ -2237,20 +2465,39 @@ export default function SistemaCalificaciones() {
     );
     if (motivo === null) return; // canceló
     const ok = await showConfirm(
-      `¿Confirmás la baja de "${alumno.nombre}"? Sus calificaciones se eliminarán de TODAS las materias del grado.`,
+      `¿Confirmás la baja de "${alumno.nombre}"? Se quitará de TODAS las materias del grado. Sus notas quedan guardadas y se pueden restaurar con "Reincorporar".`,
       'Confirmar baja'
     );
     if (!ok) return;
+    // 1° Resguardo de las notas del alumno (si no se puede, se pregunta antes de seguir)
+    let claves = nombresTodasLasMaterias().map(n => ({ nombre: n, key: safeKey(`${n}_${gradoActual}`) }));
+    let resguardoId = null;
+    try {
+      const reunido = await reunirNotasDeAlumno(db, gradoActual, alumno.dni);
+      claves = reunido.claves;
+      resguardoId = `bajaNotas_${safeKey(gradoActual)}_${safeKey(alumno.dni)}_${Date.now()}`;
+      await setDoc(doc(db, 'datos', resguardoId), {
+        tipo: 'resguardoBaja', dni: alumno.dni, nombre: alumno.nombre, grado: gradoActual,
+        fechaISO: new Date().toISOString(), restaurado: false, items: reunido.items,
+      });
+    } catch (e) {
+      console.error('No se pudo guardar el resguardo de notas:', e);
+      resguardoId = null;
+      const seguir = await showConfirm('No se pudo guardar una copia de las notas del alumno (sin conexión o sin permisos). Si continuás, sus notas se eliminarán sin posibilidad de restaurarlas al reincorporarlo. ¿Dar de baja igual?', '⚠️ Sin resguardo de notas');
+      if (!seguir) return;
+    }
     // Guardar registro de baja en Firestore
     const registroBaja = {
       nombre: alumno.nombre,
       dni: alumno.dni,
+      sexo: alumno.sexo || 'V',
       grado: gradoActual,
       motivo: motivo.trim() || 'Sin especificar',
       fecha: new Date().toLocaleDateString('es-AR'),
       fechaISO: new Date().toISOString(),
+      ...(resguardoId ? { resguardoId } : {}),
     };
-    // 1° se saca de la lista activa (transacción sobre los datos del servidor). Si falla, no se registra nada.
+    // 2° se saca de la lista activa (transacción sobre los datos del servidor). Si falla, no se registra nada.
     try {
       await modificarAlumnosGlobales(db, (g) => {
         g[gradoActual] = (g[gradoActual] || []).filter(a => a.dni !== alumno.dni);
@@ -2260,54 +2507,50 @@ export default function SistemaCalificaciones() {
       await showAlert('No se pudo registrar la baja (probablemente sin conexión). No se modificó nada. Intentá de nuevo.', 'error', 'Baja no realizada');
       return;
     }
-    // 2° se agrega el registro de baja sin pisar los anteriores
+    // 3° se agrega el registro de baja sin pisar los anteriores
     await setDoc(doc(db, 'datos', 'bajas'), { lista: arrayUnion(registroBaja) }, { merge: true });
-    // Eliminar al alumno de TODAS las materias (curriculares, especiales, talleres, convivencia)
-    const todasLasMaterias = [
-      ...areas.curriculares,
-      ...areas.especiales,
-      ...areas.talleres,
-      ...areas.convivencia,
-    ];
-    for (const mat of todasLasMaterias) {
-      const fsKey = safeKey(`${mat.nombre}_${gradoActual}`);
-      try {
-        const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-        if (!snap.exists()) continue;
-        const estudiantesActuales = snap.data().estudiantes || [];
-        const sinAlumno = estudiantesActuales.filter(e => e.dni !== alumno.dni);
-        if (sinAlumno.length < estudiantesActuales.length) {
-          await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: sinAlumno }, { merge: true });
-        }
-      } catch(e) {
-        console.error(`Error eliminando alumno de ${mat.nombre}:`, e);
-      }
+    // 4° se quita al alumno de TODAS las materias del grado (curriculares, especiales, talleres, convivencia)
+    const fallos = await quitarAlumnoDeMaterias(db, claves, alumno.dni);
+    if (fallos > 0) {
+      await showAlert(`La baja se registró, pero en ${fallos} materia(s) no se pudo quitar al alumno. Usá "Sincronizar bajas" para completarlo.`, 'warning', 'Baja parcial');
+    } else if (resguardoId) {
+      await showAlert('Baja registrada. Las notas del alumno quedaron guardadas: si vuelve, usá "Reincorporar" en el Registro de Bajas para restaurarlas.', 'success', 'Baja registrada');
     }
-    // También eliminar de materias de áreas especiales que tienen grados propios
+  };
+
+  // Vuelve a agregar al alumno a su grado y restaura las notas guardadas al momento de la baja
+  const reincorporarAlumno = async (baja) => {
+    const conResguardo = !!baja.resguardoId;
+    const ok = await showConfirm(
+      `¿Reincorporar a "${baja.nombre}" a ${gradoLabel(baja.grado)}? ` + (conResguardo
+        ? 'Se agrega de nuevo a la lista del grado y se restauran las notas que tenía al darlo de baja (sin pisar notas que ya estén cargadas).'
+        : 'Esta baja no tiene copia de notas (es anterior a esta función), así que volverá sin notas.'),
+      '↩️ Reincorporar alumno'
+    );
+    if (!ok) return;
     try {
-      const usuariosSnap = await getDocs(collection(db, 'usuarios'));
-      const docentesEspeciales = usuariosSnap.docs
-        .map(d => ({ uid: d.id, ...d.data() }))
-        .filter(u => u.rol === 'area_especial');
-      for (const doc2 of docentesEspeciales) {
-        for (const ma of (doc2.materiasAsignadas || [])) {
-          const nombreMat = ma.nombre || ma;
-          const gradosMat = ma.grados || [];
-          if (!gradosMat.includes(gradoActual)) continue;
-          const fsKey = safeKey(`${nombreMat}_${gradoActual}`);
-          try {
-            const snap = await getDoc(doc(db, 'calificaciones', fsKey));
-            if (!snap.exists()) continue;
-            const estudiantesActuales = snap.data().estudiantes || [];
-            const sinAlumno = estudiantesActuales.filter(e => e.dni !== alumno.dni);
-            if (sinAlumno.length < estudiantesActuales.length) {
-              await setDoc(doc(db, 'calificaciones', fsKey), { estudiantes: sinAlumno }, { merge: true });
-            }
-          } catch(e) {}
+      await modificarAlumnosGlobales(db, (g) => {
+        const lista = g[baja.grado] || (g[baja.grado] = []);
+        if (!lista.some(a => a.dni === baja.dni)) lista.push({ nombre: baja.nombre, dni: baja.dni, sexo: baja.sexo || 'V', nuevoIngreso: false });
+      });
+      let notas = 0;
+      if (conResguardo) {
+        const rs = await getDoc(doc(db, 'datos', baja.resguardoId));
+        if (rs.exists()) {
+          for (const it of (rs.data().items || [])) notas += await restaurarNotasDeAlumnoEnMateria(db, it, baja.dni);
+          await updateDoc(doc(db, 'datos', baja.resguardoId), { restaurado: true, fechaRestauracion: new Date().toISOString() });
         }
       }
-    } catch(e) {
-      console.error('Error eliminando de materias especiales:', e);
+      await runTransaction(db, async (tx) => {
+        const r = doc(db, 'datos', 'bajas');
+        const sn = await tx.get(r);
+        const lista = (sn.exists() ? sn.data().lista : []) || [];
+        tx.set(r, { lista: lista.filter(b => !(b.dni === baja.dni && b.fechaISO === baja.fechaISO)) });
+      });
+      await showAlert(`"${baja.nombre}" fue reincorporado${conResguardo ? ` y se restauraron ${notas} nota(s)` : ''}.`, 'success', 'Reincorporado');
+    } catch (e) {
+      console.error('Error reincorporando al alumno:', e);
+      await showAlert('No se pudo completar la reincorporación (sin conexión o sin permisos). Revisá la lista del grado y volvé a intentar: no se pisó ninguna nota.', 'error', 'Reincorporación incompleta');
     }
   };
 
@@ -3118,10 +3361,10 @@ export default function SistemaCalificaciones() {
               </p>
               <input type="email" value={recuperarEmail} onChange={e => setRecuperarEmail(e.target.value)}
                 placeholder="Tu correo electrónico" className="n-field-input"
-                onKeyDown={e => e.key === 'Enter' && !recuperarCargando && handleRecuperar()} autoFocus />
+                onKeyDown={e => e.key === 'Enter' && !recuperarCargando && document.getElementById('btn-enviar-recuperacion')?.click()} autoFocus />
             </div>
             <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={async () => {
+              <button id="btn-enviar-recuperacion" onClick={async () => {
                   if (!recuperarEmail.trim()) return;
                   setRecuperarCargando(true);
                   try {
@@ -3376,7 +3619,11 @@ export default function SistemaCalificaciones() {
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 13, color: 'var(--slate)' }}>{b.motivo}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>{b.fecha}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Solo lectura</span>
+                          <button onClick={() => reincorporarAlumno(b)}
+                            title={b.resguardoId ? 'Vuelve a agregarlo al grado y restaura sus notas' : 'Vuelve a agregarlo al grado (esta baja no tiene copia de notas)'}
+                            style={{ padding: '5px 12px', borderRadius: 'var(--r)', background: 'var(--green-lt)', color: 'var(--green)', border: '1.5px solid #bbf7d0', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                            ↩️ Reincorporar
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -3619,6 +3866,9 @@ export default function SistemaCalificaciones() {
       <>
         <style>{globalStyles}</style>
         <BannerLectura errores={errores} />
+        {authUser && usuario && <AyudaFlotante db={db} usuario={usuario} authUser={authUser} showAlert={showAlert}
+          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current }} />}
+
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
           {/* TOPBAR */}
@@ -4000,6 +4250,9 @@ export default function SistemaCalificaciones() {
     <>
       <style>{globalStyles}</style>
       <BannerLectura errores={errores} />
+        {authUser && usuario && <AyudaFlotante db={db} usuario={usuario} authUser={authUser} showAlert={showAlert}
+          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current }} />}
+
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
         {/* TOPBAR MATERIA */}
