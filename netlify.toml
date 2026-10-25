@@ -1,0 +1,5 @@
+# Solo configura las funciones. No define el build del sitio:
+# el comando de build y la carpeta de publicación siguen siendo los del panel de Netlify.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

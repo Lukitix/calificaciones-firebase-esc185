@@ -40,6 +40,7 @@ import {
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { CATEGORIAS_AYUDA, PREGUNTAS_AYUDA, NOVEDADES_AYUDA } from './guiaAyuda.js';
 
 // ─── DATOS ESTÁTICOS ────────────────────────────────────────────────────────
 const areas = {
@@ -1473,89 +1474,18 @@ async function restaurarNotasDeAlumnoEnMateria(db, item, dni) {
 // ══════════════════════════════════════════════════════════════
 // AYUDA + REPORTE DE PROBLEMAS (botón flotante "?")
 // ══════════════════════════════════════════════════════════════
-const APP_VERSION = '2026-10-25';
+const APP_VERSION = '2026-10-25b';
 
-// Cada pregunta: c = categoría, rol = 'admin' (solo Dirección) | 'docente' (solo docentes) | sin rol (todos)
-const CATEGORIAS_AYUDA = ['Notas', 'Alumnos', 'Inasistencias', 'Observaciones', 'PDF y escala', 'Cuenta y sistema'];
-
-const PREGUNTAS_AYUDA = [
-  // ───────── NOTAS ─────────
-  { c: 'Notas', k: 'bloqueado bloqueo candado cerrado desbloquear completo fecha', p: 'No puedo cargar notas: el bimestre tiene un candado o dice "Completo".',
-    r: 'El bimestre está cerrado, ya sea porque se marcó como completo o porque venció la fecha de cierre.\n1. Pedile a la Dirección que lo habilite, indicando materia, grado y bimestre.\n2. Cuando te avisen, salí de la materia y volvé a entrar (o recargá la página).' },
-  { c: 'Notas', k: 'criterio criterios vacio desaparecieron', p: 'Dice "Sin criterios aún" y no puedo cargar notas.',
-    r: 'Cada bimestre necesita sus criterios antes de cargar notas.\n1. Entrá a la materia y abrí el bimestre.\n2. Tocá el botón para agregar un criterio y escribí su nombre (por ejemplo "Evaluación escrita").\nSi antes tenías criterios y desaparecieron, no vuelvas a cargarlos: avisá con "Reportar un problema" para que se recuperen las notas.' },
-  { c: 'Notas', p: '¿Puedo cambiar el nombre de un criterio?',
-    r: 'Sí. Cambiar el nombre no modifica las notas ya cargadas, y el promedio se calcula siempre con las notas que hay cargadas en el bimestre, sin importar cómo se llamen los criterios.' },
-  { c: 'Notas', p: '¿Cómo marco un bimestre como completo?',
-    r: 'Tocá "✓ Marcar" en el bimestre. Para poder marcarlo tiene que haber criterios cargados y todos los alumnos con todas sus notas. Al marcarlo queda cerrado y se avisa a la Dirección. Si te equivocás, pedí que lo reabran.' },
-  { c: 'Notas', k: 'sincronizar sincronizacion guardar guardado nube internet offline conexion', p: '¿Cómo sé si mis notas se guardaron?',
-    r: 'Cada cambio se guarda solo, sin botón de guardar. Tras cargar una nota esperá a ver el aviso "Guardado en la nube".\nSi no tenés internet, el cambio queda en tu dispositivo y se envía cuando vuelve la conexión: no cierres sesión ni borres los datos del navegador hasta entonces.\nPara estar seguro, recargá la página y comprobá que la nota sigue ahí.' },
-  { c: 'Notas', k: 'sincronizar sincronizacion actualizar celular computadora diferente', p: 'Veo cosas distintas en el celular y en la computadora.',
-    r: 'Recargá la página en el dispositivo que muestra datos viejos (Ctrl + F5 en la compu; en el celular, cerrá la app y volvé a abrirla) y esperá unos segundos a que se actualice.\nRecomendación: no cargues notas de la misma materia en dos dispositivos al mismo tiempo; terminá en uno y recién después abrí el otro.' },
-  { c: 'Notas', p: 'Me apareció un cartel de que los datos no se cargaron bien o que NO se guardó un cambio.',
-    r: 'Es una protección: el sistema no pudo leer los datos y por eso no deja guardar, para no pisar notas.\n1. Revisá tu conexión y esperá unos segundos.\n2. Recargá la página.\n3. No sigas cargando notas hasta que desaparezca el aviso.\nSi el cartel persiste, usá "Reportar un problema".' },
-  { c: 'Notas', p: 'La pantalla de la materia aparece vacía (sin alumnos o sin notas).',
-    r: 'Casi siempre es un problema de conexión al abrir. Tus notas no se borran por esto.\n1. Esperá unos segundos.\n2. Si sigue vacía, cerrá la app por completo (o recargá con Ctrl + F5) y volvé a entrar.\n3. No cargues nada hasta que se vean los datos.\nSi persiste, usá "Reportar un problema" indicando materia y grado.' },
-  { c: 'Notas', rol: 'admin', p: 'Una materia perdió notas o criterios: ¿cómo las recupero?',
-    r: 'Entrá a esa materia y grado y tocá "♻️ Recuperar notas". El sistema busca en el registro de cambios y te muestra un resumen antes de aplicar. Solo completa casilleros vacíos: nunca pisa una nota que ya está cargada. Hay que hacerlo materia por materia y grado por grado. Si un bimestre no tiene registros en el historial, esas notas no se pueden recuperar por este medio.' },
-  { c: 'Notas', rol: 'admin', p: '¿Cómo desbloqueo un bimestre para un docente?',
-    r: 'Desde el panel de bimestres del menú de Dirección podés desbloquear de forma individual (una materia y grado) o masiva (todas las de un docente o un grupo). Después de desbloquear, el docente debe salir de la materia y volver a entrar. Si el cierre es por fecha, revisá también las fechas de bloqueo, para que no se vuelva a cerrar solo.' },
-
-  // ───────── ALUMNOS ─────────
-  { c: 'Alumnos', k: 'falta faltan lista baja agregar', p: 'No veo a un alumno en mi lista.',
-    r: 'Puede que no esté agregado todavía o que haya sido dado de baja.\n1. Recargá la página por si lo agregaron hace un momento.\n2. Pedile al docente de grado que lo agregue en la lista de alumnos del grado.\n3. Si fue una baja por error, la Dirección o el docente de grado pueden usar "Reincorporar" en el Registro de Bajas.' },
-  { c: 'Alumnos', k: 'sincronizar sincronizacion alta baja grado', p: 'Agregué o di de baja a un alumno: ¿se ve en todas las materias?',
-    r: 'Sí. El alta y la baja se aplican al grado completo, así que el alumno aparece (o desaparece) en todas las materias. Los docentes de especiales lo ven al abrir la materia o al recargar la página. Estas acciones necesitan conexión: si no hay, el sistema avisa y no cambia nada.' },
-  { c: 'Alumnos', k: 'baja reincorporar egreso pase notas', p: 'Un alumno se fue de la escuela: ¿qué pasa con sus notas?',
-    r: 'Al darlo de baja se quita de todas las materias del grado, pero sus notas quedan guardadas aparte. Si vuelve, usá "Reincorporar" en el Registro de Bajas: se restauran sus notas, sin pisar nada que ya se haya cargado.' },
-  { c: 'Alumnos', k: 'alta pase nuevo ingreso', p: 'Un alumno llegó de otra escuela con notas.',
-    r: 'Agregalo en la lista de alumnos del grado. Las notas de especiales las carga quien tenga asignada cada materia. Si ningún docente tiene acceso a una materia, pedile a la Dirección que habilite a alguien para cargarla.' },
-
-  // ───────── INASISTENCIAS ─────────
-  { c: 'Inasistencias', rol: 'docente', k: 'falta faltar licencia certificado ausencia', p: '¿Cómo cargo una inasistencia?',
-    r: '1. En el menú principal tocá "📋 Inasistencias" y elegí "➕ Nueva inasistencia".\n2. Elegí el motivo. Si es Licencia médica, escribí el N° o tipo de licencia; si es "Otro", describí el motivo.\n3. Completá las fechas desde y hasta (son obligatorias). Si es un solo día, tildá "Inasistencia de un solo día".\n4. Si querés, agregá una observación y adjuntá el certificado.\n5. Tocá "Enviar inasistencia a Dirección".' },
-  { c: 'Inasistencias', rol: 'docente', k: 'pdf certificado foto adjunto subir', p: '¿Qué archivos puedo adjuntar a una inasistencia?',
-    r: 'Solo archivos PDF, hasta 5 por inasistencia. Si tenés el certificado como foto, convertilo a PDF antes de subirlo (por ejemplo con un escáner en el celular). Esperá a que termine de subir: con archivos grandes puede tardar.' },
-  { c: 'Inasistencias', rol: 'docente', p: '¿Cómo sé que la Dirección recibió mi inasistencia?',
-    r: 'Después de enviarla aparece el aviso "Inasistencia enviada" y queda en "Mis inasistencias" como "📨 Enviada". Cuando la Dirección la revisa pasa a "✓ Revisada por dirección".' },
-  { c: 'Inasistencias', rol: 'docente', k: 'corregir editar modificar borrar eliminar', p: 'Me equivoqué en una inasistencia que ya envié.',
-    r: 'Las inasistencias enviadas no se pueden editar. Avisá a la Dirección por el medio habitual, o cargá una nueva con la fecha o los datos correctos y aclarala en la observación.' },
-  { c: 'Inasistencias', rol: 'docente', p: 'No me deja enviar la inasistencia.',
-    r: 'Revisá que hayas elegido un motivo, que hayas completado el detalle (si es Licencia u Otro), que las fechas estén cargadas y que la fecha de inicio no sea posterior al fin. Si todo está bien y falla, puede ser la conexión (sobre todo con adjuntos): probá de nuevo con mejor señal.' },
-  { c: 'Inasistencias', rol: 'admin', p: '¿Cómo reviso las inasistencias de los docentes?',
-    r: 'Entrá a "📋 Inasistencias" desde el menú de Dirección. El número en rojo indica cuántas hay sin revisar. Al abrir la lista se marcan como vistas, y el docente lo ve reflejado como "Revisada por dirección". Podés filtrar por nombre o por fecha y abrir los certificados adjuntos.' },
-
-  // ───────── OBSERVACIONES ─────────
-  { c: 'Observaciones', k: 'observacion anotar novedades texto', p: '¿Para qué sirve el cuadro de "Observaciones Generales"?',
-    r: 'Está al final de cada materia, debajo de la lista de alumnos. Sirve para anotar novedades del grupo: situaciones grupales, recuperatorios, acuerdos con la familia o cualquier dato útil. Es un texto por materia y grado, y no se incluye en el PDF.' },
-  { c: 'Observaciones', k: 'observacion guardar automatico perdio', p: '¿Cómo se guardan las observaciones?',
-    r: 'Se guardan solas unos instantes después de que dejás de escribir; debajo del cuadro figura la "Última modificación". Antes de salir de la pantalla esperá a que actualice esa fecha. Con mala conexión, comprobá al volver a entrar que el texto sigue.' },
-  { c: 'Observaciones', p: 'No veo el cuadro de Observaciones.',
-    r: 'El cuadro aparece al final de la pantalla de la materia y solo si el grado tiene alumnos cargados. Bajá hasta el final de la lista; si no está, recargá la página.' },
-  { c: 'Observaciones', p: 'Otro docente también escribe en las observaciones de la misma materia.',
-    r: 'El texto es único por materia y grado: todos los que la tienen asignada ven y editan el mismo cuadro. Si dos personas escriben a la vez, gana lo último que se guardó. Conviene agregar al final del texto sin borrar lo anterior y recargar antes de escribir si otra persona pudo haber anotado algo.' },
-
-  // ───────── PDF Y ESCALA ─────────
-  { c: 'PDF y escala', k: 'pdf planilla descargar imprimir', p: '¿Cómo descargo el PDF?',
-    r: '"PDF Individual" genera la planilla de la materia que tenés abierta. "PDF Unificado" junta todas tus materias del grado y te pregunta de qué bimestre lo querés (1, 2, 3 o 4; vacío usa el último bimestre cerrado).' },
-  { c: 'PDF y escala', p: '¿Cómo funciona la escala de 1° a 3° grado?',
-    r: 'En primer ciclo las notas se muestran como conceptos: NS (2-3), PS (4-5), SAT (6-7), MS (8), DIS (9) y SOB (10). Los promedios con decimales se redondean (por ejemplo 5,5 pasa a 6). SAT, MS, DIS y SOB se muestran en verde; NS y PS, en rojo.' },
-
-  // ───────── CUENTA Y SISTEMA ─────────
-  { c: 'Cuenta y sistema', p: 'La app no muestra los últimos cambios.',
-    r: 'Cerrá la app por completo (en el celular, sacala de las aplicaciones recientes) y volvé a abrirla. Si ves el aviso de "nueva versión", tocalo para actualizar. Mirá también la pestaña "🆕 Novedades" de esta ayuda.' },
-  { c: 'Cuenta y sistema', k: 'clave password recuperar', p: 'Olvidé mi contraseña.',
-    r: 'En la pantalla de ingreso tocá "¿Olvidaste tu contraseña?" y seguí los pasos: te llega un correo para crear una nueva. Revisá también la carpeta de spam.' },
-  { c: 'Cuenta y sistema', k: 'activar activacion cuenta inactiva registro', p: 'Me registré y no puedo entrar.',
-    r: 'Las cuentas nuevas quedan pendientes hasta que la Dirección las activa. Avisale a la Dirección que ya te registraste, con tu nombre y correo.' },
-  { c: 'Cuenta y sistema', p: 'Necesito que me cambien el grado o las materias asignadas.',
-    r: 'Lo hace la Dirección desde la gestión de usuarios. Pedíselo indicando qué grado o materias necesitás; después cerrá sesión y volvé a entrar.' },
+const MOTIVOS_REPORTE = [
+  { id: 'pantalla_vacia', l: 'Pantalla vacía' },
+  { id: 'no_guardo', l: 'No se guardó una nota' },
+  { id: 'falta_alumno', l: 'Falta un alumno' },
+  { id: 'bloqueado', l: 'Bimestre bloqueado' },
+  { id: 'notas_perdidas', l: 'Notas que desaparecieron' },
+  { id: 'acceso', l: 'No puedo entrar' },
+  { id: 'otro', l: 'Otro' },
 ];
-
-const NOVEDADES_AYUDA = [
-  { f: '25/10/2026', t: ['Guía ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".'] },
-  { f: '24/10/2026', t: ['Dar de baja a un alumno ya no borra sus notas: se guardan y se restauran con "Reincorporar".', 'Botón "Reportar un problema" dentro de esta guía.', 'El PDF unificado permite elegir el bimestre.', 'Los colores de la escala de primer ciclo ahora coinciden con la escala (SAT en verde).', 'Desbloqueo de bimestres más rápido y confiable.', 'Las notas tienen una copia de seguridad automática todos los días.'] },
-];
+const SUGERENCIAS_BOT = ['No puedo cargar notas', 'Me falta un alumno en la lista', 'La pantalla de la materia está vacía', '¿Cómo cargo una inasistencia?'];
 
 function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   const [abierto, setAbierto] = useState(false);
@@ -1564,6 +1494,14 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   const [busqueda, setBusqueda] = useState('');
   const [catSel, setCatSel] = useState('Todas');
   const [texto, setTexto] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [resumenBot, setResumenBot] = useState('');
+  const [chat, setChat] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatCargando, setChatCargando] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const [preparando, setPreparando] = useState(false);
+  const chatFinRef = useRef(null);
   const [enviando, setEnviando] = useState(false);
   const [reportes, setReportes] = useState([]);
   const [nuevos, setNuevos] = useState(0);
@@ -1596,16 +1534,23 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
     return () => unsub();
   }, [abierto, tab, esAdmin, db]);
 
+  const puedeEnviar = !!motivo && (motivo !== 'otro' || !!texto.trim()) && !enviando;
+
   const enviar = async () => {
-    if (!texto.trim() || enviando) return;
+    if (!puedeEnviar) return;
     setEnviando(true);
     try {
       const ahora = new Date();
       const errs = Object.entries(contexto?.errores || {}).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`);
+      const mot = MOTIVOS_REPORTE.find(m => m.id === motivo);
       await setDoc(doc(collection(db, 'reportes')), {
         uid: authUser.uid, nombre: usuario?.nombre || '—', email: usuario?.email || authUser.email || '', rol: usuario?.rol || '',
+        motivo, motivoLabel: mot?.l || 'Otro',
         descripcion: texto.trim().slice(0, 2000),
+        resumenBot: resumenBot.slice(0, 600),
+        conversacionBot: chat.slice(-12).map(m => ({ r: m.role === 'user' ? 'docente' : 'bot', t: String(m.content).slice(0, 600) })),
         pantalla: contexto?.pantalla || '', materia: contexto?.materia || '', grado: contexto?.grado || '',
+        diag: contexto?.diag || null, cuentaActiva: usuario?.activo !== false,
         erroresPantalla: errs, guardadosPendientes: contexto?.pendientes ?? 0,
         enLinea: typeof navigator !== 'undefined' ? navigator.onLine : null,
         version: APP_VERSION, navegador: (typeof navigator !== 'undefined' ? navigator.userAgent : '').slice(0, 200),
@@ -1614,7 +1559,7 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
         hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
         estado: 'nuevo',
       });
-      setTexto('');
+      setTexto(''); setMotivo(''); setResumenBot(''); setChat([]); setChatInput(''); setChatError('');
       setAbierto(false);
       await showAlert('¡Reporte enviado! La Dirección lo va a revisar. Incluye automáticamente la pantalla y los datos técnicos, no hace falta que mandes capturas.', 'success', 'Reporte enviado');
     } catch (e) {
@@ -1626,10 +1571,55 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
     }
   };
 
+  // ── Areco Bot (la clave de la API vive en Netlify; acá solo se llama a la función) ──
+  const llamarBot = async (modo, mensajes) => {
+    const token = await authUser.getIdToken();
+    const errs = Object.entries(contexto?.errores || {}).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`);
+    const r = await fetch('/.netlify/functions/areco-bot', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      body: JSON.stringify({
+        modo, mensajes,
+        contexto: { pantalla: contexto?.pantalla || '', materia: contexto?.materia || '', grado: contexto?.grado || '', errores: errs, pendientes: contexto?.pendientes ?? 0, enLinea: typeof navigator !== 'undefined' ? navigator.onLine : null, diag: contexto?.diag || null },
+      }),
+    });
+    let d = null; try { d = await r.json(); } catch (e) {}
+    if (!r.ok || !d) throw new Error((d && d.error) || 'Areco Bot no está disponible en este momento. Podés usar "Reportar un problema".');
+    return d;
+  };
+
+  const enviarChat = async (textoPreg) => {
+    const t = String(textoPreg ?? chatInput).trim();
+    if (!t || chatCargando || chat.length >= 12) return;
+    const nuevo = [...chat, { role: 'user', content: t.slice(0, 1000) }];
+    setChat(nuevo); setChatInput(''); setChatError(''); setChatCargando(true);
+    try {
+      const d = await llamarBot('chat', nuevo);
+      setChat([...nuevo, { role: 'assistant', content: String(d.respuesta || '') }]);
+    } catch (e) {
+      setChat(chat); setChatInput(t);
+      setChatError(e.message || 'No se pudo consultar a Areco Bot.');
+    } finally { setChatCargando(false); }
+  };
+
+  const prepararReporteDesdeChat = async () => {
+    if (preparando || chat.length === 0) return;
+    setPreparando(true);
+    let m = 'otro', r = chat.filter(x => x.role === 'user').map(x => x.content).join(' | ').slice(0, 600);
+    try {
+      const d = await llamarBot('resumen', chat);
+      if (MOTIVOS_REPORTE.some(x => x.id === d.motivo)) m = d.motivo;
+      if (d.resumen) r = String(d.resumen);
+    } catch (e) { /* se usa el respaldo: lo que escribió el docente */ }
+    setMotivo(m); setResumenBot(r); setPreparando(false); setTab('reportar');
+  };
+
+  useEffect(() => { if (tab === 'bot') chatFinRef.current?.scrollIntoView?.({ block: 'end' }); }, [chat, chatCargando, tab]);
+
   const cambiarEstado = async (r, estado) => { try { await updateDoc(doc(db, 'reportes', r.id), { estado }); } catch (e) {} };
   const borrar = async (r) => { try { await deleteDoc(doc(db, 'reportes', r.id)); } catch (e) {} };
 
-  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['novedades', '🆕 Novedades'], ['reportar', '🚩 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
+  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['bot', '🤖 Areco Bot (IA)'], ['novedades', '🆕 Novedades'], ['reportar', '🚩 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
 
   return (
     <>
@@ -1640,7 +1630,7 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
       </button>
       {abierto && (
         <div onClick={() => setAbierto(false)} style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,.3)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 640, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,.3)' }}>
             <div style={{ background: 'var(--navy, #1e3a5f)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 style={{ color: '#fff', fontSize: 15, fontWeight: 800 }}>Ayuda del sistema</h3>
               <button onClick={() => setAbierto(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,.8)', fontSize: 20, cursor: 'pointer' }}>✕</button>
@@ -1655,7 +1645,7 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
               {tab === 'ayuda' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input type="search" value={busqueda} onChange={e => { setBusqueda(e.target.value); setAbierta(null); }} placeholder="🔍 Buscar (ej: bloqueado, alumno, PDF...)"
-                    style={{ width: '100%', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit' }} />
+                    style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit' }} />
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {['Todas', ...categoriasVisibles].map(c => (
                       <button key={c} onClick={() => { setCatSel(c); setAbierta(null); }}
@@ -1681,6 +1671,47 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
                   <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>¿No encontraste tu caso? Usá "Reportar un problema".</p>
                 </div>
               )}
+              {tab === 'bot' && (
+                <div style={{ display: 'flex', flexDirection: 'column', height: 'min(64vh, 540px)', minHeight: 320 }}>
+                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 2 }}>
+                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: '10px 12px', fontSize: 13.5, color: '#4c1d95', lineHeight: 1.55 }}>
+                      Hola, soy <strong>Areco Bot</strong>, el asistente virtual de la Escuela Provincial N° 185. Contame, ¿qué problema tenés? Te ayudo exclusivamente con los pasos de la guía.
+                      <div style={{ fontSize: 12, marginTop: 6, color: '#6d28d9' }}>No manejo ni modifico datos de los alumnos (nombres, DNI, notas).</div>
+                    </div>
+                    {chat.length === 0 && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {SUGERENCIAS_BOT.map(sg => (
+                          <button key={sg} onClick={() => enviarChat(sg)} disabled={chatCargando}
+                            style={{ padding: '5px 10px', borderRadius: 14, border: '1px solid #c7d2fe', background: '#fff', color: '#3730a3', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{sg}</button>
+                        ))}
+                      </div>
+                    )}
+                    {chat.map((m, i) => (
+                      <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%', background: m.role === 'user' ? '#4f46e5' : '#f1f5f9', color: m.role === 'user' ? '#fff' : '#1e293b', borderRadius: 12, padding: '8px 12px', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</div>
+                    ))}
+                    {chatCargando && <div style={{ alignSelf: 'flex-start', background: '#f1f5f9', color: '#64748b', borderRadius: 12, padding: '8px 12px', fontSize: 13 }}>Areco Bot está escribiendo…</div>}
+                    {chatError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '8px 12px', fontSize: 12.5 }}>{chatError}</div>}
+                    {chat.length >= 12 && <div style={{ fontSize: 12.5, color: '#64748b' }}>Llegaste al máximo de esta conversación. Enviá el reporte para que la Dirección lo revise.</div>}
+                    <div ref={chatFinRef} />
+                  </div>
+                  <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {chat.some(m => m.role === 'assistant') && (
+                      <button onClick={prepararReporteDesdeChat} disabled={preparando}
+                        style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: preparando ? 0.6 : 1 }}>
+                        {preparando ? 'Preparando el reporte…' : '🚩 No se resolvió: enviar reporte con esta conversación'}
+                      </button>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input value={chatInput} onChange={e => setChatInput(e.target.value)} maxLength={1000} placeholder="Escribí tu consulta…" disabled={chatCargando || chat.length >= 12}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); enviarChat(); } }}
+                        style={{ flex: 1, boxSizing: 'border-box', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', minWidth: 0 }} />
+                      <button onClick={() => enviarChat()} disabled={chatCargando || !chatInput.trim() || chat.length >= 12}
+                        style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: (chatCargando || !chatInput.trim()) ? 0.5 : 1 }}>Enviar</button>
+                    </div>
+                    <p style={{ fontSize: 11.5, color: '#94a3b8', textAlign: 'center', margin: 0 }}>Areco Bot es una IA y puede cometer errores.</p>
+                  </div>
+                </div>
+              )}
               {tab === 'novedades' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {NOVEDADES_AYUDA.map(n => (
@@ -1695,12 +1726,25 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
               )}
               {tab === 'reportar' && (
                 <div>
-                  <p style={{ fontSize: 13, color: '#475569', marginBottom: 10, lineHeight: 1.5 }}>Contá qué estabas haciendo y qué pasó. El reporte lleva solo la pantalla donde estás, la materia, el grado y datos técnicos del sistema; no hace falta mandar capturas.</p>
-                  <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={5} maxLength={2000} placeholder="Ej: Estaba cargando notas de Matemática 3° B y la pantalla quedó vacía."
-                    style={{ width: '100%', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: 10, fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }} />
+                  <p style={{ fontSize: 13, color: '#475569', marginBottom: 10, lineHeight: 1.5 }}>Elegí qué te pasó. El reporte lleva solo la pantalla donde estás, la materia, el grado y datos técnicos del sistema; no hace falta escribir mucho ni mandar capturas.</p>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>¿Qué pasó? *</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {MOTIVOS_REPORTE.map(m => (
+                      <button key={m.id} onClick={() => setMotivo(m.id)}
+                        style={{ padding: '7px 12px', borderRadius: 16, border: '1.5px solid', borderColor: motivo === m.id ? '#4f46e5' : '#e2e8f0', background: motivo === m.id ? '#eef2ff' : '#fff', color: motivo === m.id ? '#3730a3' : '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{m.l}</button>
+                    ))}
+                  </div>
+                  {resumenBot && (
+                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, color: '#4c1d95', marginBottom: 10, lineHeight: 1.5 }}>
+                      🤖 Resumen de Areco Bot (se envía con el reporte): {resumenBot}
+                    </div>
+                  )}
+                  <p style={{ fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Detalle {motivo === 'otro' ? '*' : '(opcional)'}</p>
+                  <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={3} maxLength={2000} placeholder="Si querés, contanos algo más. Ej: estaba cargando Matemática 3° B."
+                    style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: 10, fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }} />
                   <p style={{ fontSize: 11.5, color: '#94a3b8', margin: '6px 0 12px' }}>Se enviará desde: {contexto?.materia ? `${contexto.materia} · ${contexto.grado}` : (contexto?.pantalla || 'inicio')}</p>
-                  <button onClick={enviar} disabled={enviando || !texto.trim()}
-                    style={{ width: '100%', padding: 11, borderRadius: 10, background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: (enviando || !texto.trim()) ? 0.5 : 1 }}>
+                  <button onClick={enviar} disabled={!puedeEnviar}
+                    style={{ width: '100%', padding: 11, borderRadius: 10, background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: puedeEnviar ? 1 : 0.5 }}>
                     {enviando ? 'Enviando...' : 'Enviar reporte'}
                   </button>
                 </div>
@@ -1713,7 +1757,22 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, color: '#64748b' }}>
                         <strong style={{ color: '#1e293b' }}>{r.nombre}</strong><span>{r.fechaCorta} {r.hora}</span>
                       </div>
-                      <p style={{ fontSize: 13.5, color: '#1e293b', margin: '6px 0', whiteSpace: 'pre-wrap' }}>{r.descripcion}</p>
+                      <p style={{ margin: '6px 0 2px' }}>
+                        <span style={{ display: 'inline-block', background: '#4f46e5', color: '#fff', borderRadius: 10, fontSize: 11.5, fontWeight: 800, padding: '2px 9px' }}>{r.motivoLabel || 'Sin motivo'}</span>
+                      </p>
+                      {r.resumenBot && <p style={{ fontSize: 12.5, color: '#4c1d95', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '6px 10px', margin: '6px 0' }}>🤖 {r.resumenBot}</p>}
+                      {r.descripcion && <p style={{ fontSize: 13.5, color: '#1e293b', margin: '6px 0', whiteSpace: 'pre-wrap' }}>{r.descripcion}</p>}
+                      {r.diag && (
+                        <p style={{ fontSize: 12, color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '5px 10px', margin: '6px 0' }}>
+                          🔎 {r.diag.alumnos} alumno{r.diag.alumnos === 1 ? '' : 's'} cargado{r.diag.alumnos === 1 ? '' : 's'} · criterios por bimestre: {(r.diag.criterios || []).join(' / ')} · bloqueados: {(r.diag.bloqueados || []).length ? r.diag.bloqueados.join(', ') : 'ninguno'}
+                        </p>
+                      )}
+                      {r.conversacionBot?.length > 0 && (
+                        <details style={{ margin: '6px 0', fontSize: 12.5, color: '#475569' }}>
+                          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Ver conversación con Areco Bot</summary>
+                          {r.conversacionBot.map((c, k) => <p key={k} style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}><strong>{c.r === 'docente' ? 'Docente' : 'Bot'}:</strong> {c.t}</p>)}
+                        </details>
+                      )}
                       <p style={{ fontSize: 11.5, color: '#64748b', lineHeight: 1.5 }}>
                         {r.materia ? `${r.materia} · ${r.grado}` : r.pantalla} · v{r.version} · {r.enLinea === false ? 'SIN CONEXIÓN' : 'en línea'}{r.erroresPantalla?.length ? ` · errores: ${r.erroresPantalla.join(', ')}` : ''}{r.guardadosPendientes ? ` · guardados pendientes: ${r.guardadosPendientes}` : ''}<br />{r.navegador}
                       </p>
@@ -3065,6 +3124,12 @@ export default function SistemaCalificaciones() {
 
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActualesRaw = estudiantes[`${materia?.nombre}-${grado}`] || [];
+  // Datos técnicos (sin nombres de alumnos) que se adjuntan a los reportes y a Areco Bot
+  const diagAyuda = materia ? {
+    alumnos: estActualesRaw.length,
+    criterios: [1, 2, 3, 4].map(b => (criteriosPorBimestre[b] || []).length),
+    bloqueados: [1, 2, 3, 4].filter(b => bimestresBlockeados[b]),
+  } : null;
   const cargandoCal = !!materia && estudiantes[`${materia.nombre}-${grado}`] === undefined;
   const alumnosDelGradoActual = alumnosGlobales[grado] || [];
   const estActuales = estActualesRaw.map(e => ({
@@ -3967,7 +4032,7 @@ export default function SistemaCalificaciones() {
         <style>{globalStyles}</style>
         <BannerLectura errores={errores} />
         {authUser && usuario && <AyudaFlotante db={db} usuario={usuario} authUser={authUser} showAlert={showAlert}
-          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current }} />}
+          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current, diag: diagAyuda }} />}
 
         <ModalRenderer modal={modal} closeModal={closeModal} />
         <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
@@ -4351,7 +4416,7 @@ export default function SistemaCalificaciones() {
       <style>{globalStyles}</style>
       <BannerLectura errores={errores} />
         {authUser && usuario && <AyudaFlotante db={db} usuario={usuario} authUser={authUser} showAlert={showAlert}
-          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current }} />}
+          contexto={{ pantalla, materia: materia?.nombre || '', grado: grado || '', errores, pendientes: pendientesRef.current, diag: diagAyuda }} />}
 
       <ModalRenderer modal={modal} closeModal={closeModal} />
       <div className="min-h-screen w-full" style={{ background: '#e2e8f0' }}>
