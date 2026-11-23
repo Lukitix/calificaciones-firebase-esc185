@@ -108,14 +108,49 @@ const asegurarEstructuraEstudiante = (estudiante) => {
   return { ...estudiante, bimestres };
 };
 
-const calcularCuatrimestre = (b1, b2) => {
+// ─── 6° GRADO: PROMEDIOS CON 3 DECIMALES ────────────────────────────────────
+// En 6° grado (selección de abanderados) los promedios se calculan y muestran con 3 decimales
+// (ej. 7.653). El resto de los grados sigue con 2 decimales, sin cambios.
+// Todo se calcula con enteros (milésimas) y redondeo "mitad hacia arriba", para que el tercer
+// decimal sea exacto y no dependa de errores de coma flotante.
+const esSexto = (grado) => !!grado && String(grado).charAt(0) === '6';
+const _mil = (v) => Math.round(parseFloat(v) * 1000);
+const _fmt3 = (num, den) => (Math.floor((2 * num + den) / (2 * den)) / 1000).toFixed(3);
+// Promedio simple de una lista de notas (strings o números). '' si no hay ninguna válida.
+const promedio3 = (vals) => {
+  const m = vals.map(v => parseFloat(v)).filter(n => !isNaN(n)).map(n => Math.round(n * 1000));
+  return m.length ? _fmt3(m.reduce((a, b) => a + b, 0), m.length) : '';
+};
+// Cuatrimestre de una materia: promedio de los dos bimestres (o el que exista). '' si no hay ninguno.
+const cuat3 = (a, b) => {
+  const x = parseFloat(a), y = parseFloat(b);
+  if (!isNaN(x) && !isNaN(y)) return _fmt3(_mil(x) + _mil(y), 2);
+  if (!isNaN(x)) return _fmt3(2 * _mil(x), 2);
+  if (!isNaN(y)) return _fmt3(2 * _mil(y), 2);
+  return '';
+};
+// Promedio general sobre los cuatrimestres de varias materias. pares: [[bimA, bimB], ...]
+const promedioCuats3 = (pares) => {
+  let P = 0, k = 0;
+  pares.forEach(([a, b]) => {
+    const x = parseFloat(a), y = parseFloat(b);
+    if (!isNaN(x) && !isNaN(y)) { P += _mil(x) + _mil(y); k++; }
+    else if (!isNaN(x)) { P += 2 * _mil(x); k++; }
+    else if (!isNaN(y)) { P += 2 * _mil(y); k++; }
+  });
+  return k ? _fmt3(P, 2 * k) : '';
+};
+
+const calcularCuatrimestre = (b1, b2, sexto = false) => {
   const n1 = parseFloat(b1), n2 = parseFloat(b2);
+  if (sexto) return isNaN(n1) || isNaN(n2) ? '' : cuat3(n1, n2);
   return isNaN(n1) || isNaN(n2) ? '' : ((n1 + n2) / 2).toFixed(2);
 };
 
-const calcularPromedioFinal = (b1, b2, b3, b4) => {
+const calcularPromedioFinal = (b1, b2, b3, b4, sexto = false) => {
   const vals = [b1, b2, b3, b4].map(parseFloat).filter(n => !isNaN(n));
   if (vals.length < 4) return '';
+  if (sexto) return promedio3(vals); // equivale a (b1+b2+b3+b4)/4, con 3 decimales exactos
   const c1 = (vals[0] + vals[1]) / 2;
   const c2 = (vals[2] + vals[3]) / 2;
   return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
@@ -748,9 +783,9 @@ function generarPDF({ materia, grado, estActuales, criteriosPorBimestre, usuario
     const b2 = e.bimestres?.[2]?.nota || '';
     const b3 = e.bimestres?.[3]?.nota || '';
     const b4 = e.bimestres?.[4]?.nota || '';
-    const c1raw = calcularCuatrimestre(b1, b2);
-    const c2raw = calcularCuatrimestre(b3, b4);
-    const pfraw = calcularPromedioFinal(b1, b2, b3, b4);
+    const c1raw = calcularCuatrimestre(b1, b2, esSexto(grado));
+    const c2raw = calcularCuatrimestre(b3, b4, esSexto(grado));
+    const pfraw = calcularPromedioFinal(b1, b2, b3, b4, esSexto(grado));
     // Si no hay promedio final, mostrar el último bimestre disponible
     const pfMostrar = pfraw || b4 || b3 || b2 || b1;
     const fmt = (v) => v ? (primerCiclo ? textoConceptual(v) : v) : '—';
@@ -961,6 +996,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
       const buildBody = (datos) => alumnosOrdenados.map((al, idx) => {
         const row = [String(idx + 1), al.nombre];
         const cuatsPorMateria = [];
+        const paresCuat = [];
         const bimNum = parseInt(bimActivo);
         datos.forEach(({ estudiantes }) => {
           const est = estudiantes.find(e => e.dni === al.dni);
@@ -973,6 +1009,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
           if (cuatAConsiderar) {
             const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
             const nB = parseFloat(est?.bimestres?.[cuatAConsiderar.bimB]?.nota);
+            paresCuat.push([nA, nB]);
             if (!isNaN(nA) && !isNaN(nB)) cuatsPorMateria.push((nA + nB) / 2);
             else if (!isNaN(nA)) cuatsPorMateria.push(nA);
             else if (!isNaN(nB)) cuatsPorMateria.push(nB);
@@ -980,7 +1017,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
         });
         // Columna final: promedio general del área (promedio de los cuatrimestres de cada materia)
         const promedioGeneral = cuatAConsiderar && cuatsPorMateria.length > 0
-          ? (cuatsPorMateria.reduce((a, b) => a + b, 0) / cuatsPorMateria.length).toFixed(2)
+          ? (esSexto(grado) ? promedioCuats3(paresCuat) : (cuatsPorMateria.reduce((a, b) => a + b, 0) / cuatsPorMateria.length).toFixed(2))
           : '—';
         row.push(primerCiclo ? '—' : promedioGeneral);
         return row;
@@ -1016,7 +1053,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
               if (!isNaN(nA) && !isNaN(nB)) cuatVal = (nA + nB) / 2;
               else if (!isNaN(nA)) cuatVal = nA;
               else if (!isNaN(nB)) cuatVal = nB;
-              if (cuatVal !== null) cuatFmt = primerCiclo ? textoConceptual(cuatVal.toFixed(2)) : cuatVal.toFixed(2);
+              if (cuatVal !== null) cuatFmt = primerCiclo ? textoConceptual(cuatVal.toFixed(2)) : (esSexto(grado) ? cuat3(nA, nB) : cuatVal.toFixed(2));
             }
             row.push(cuatFmt);
           });
@@ -1172,13 +1209,17 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
           const notas = materiasPromGeneral
             .map(({ estudiantes }) => parseFloat(estudiantes.find(e => e.dni === al.dni)?.bimestres?.[bimNum]?.nota))
             .filter(n => !isNaN(n));
-          const promGeneral = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : null;
+          const promGeneral = notas.length > 0 ? (esSexto(grado) ? promedio3(notas) : (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2)) : null;
           const promMostrar = promGeneral === null ? '—' : (primerCiclo ? textoConceptual(promGeneral) : promGeneral);
 
           // Promedio de los CUATRIMESTRES de cada materia (no de un solo bimestre): igual idea
           // que el promedio general, pero sobre (Prom.bimA + Prom.bimB) / 2 de cada materia.
           let cuatMostrar = '—';
           if (cuatAConsiderar) {
+            const paresC = materiasPromGeneral.map(({ estudiantes }) => {
+              const est = estudiantes.find(e => e.dni === al.dni);
+              return [est?.bimestres?.[cuatAConsiderar.bimA]?.nota, est?.bimestres?.[cuatAConsiderar.bimB]?.nota];
+            });
             const cuats = materiasPromGeneral.map(({ estudiantes }) => {
               const est = estudiantes.find(e => e.dni === al.dni);
               const nA = parseFloat(est?.bimestres?.[cuatAConsiderar.bimA]?.nota);
@@ -1189,7 +1230,7 @@ async function generarPDFUnificado({ usuario, alumnosGlobales: alumnosGlobalesPr
               return null;
             }).filter(n => n !== null);
             if (cuats.length > 0) {
-              const cuatGeneral = (cuats.reduce((a, b) => a + b, 0) / cuats.length).toFixed(2);
+              const cuatGeneral = esSexto(grado) ? promedioCuats3(paresC) : (cuats.reduce((a, b) => a + b, 0) / cuats.length).toFixed(2);
               cuatMostrar = primerCiclo ? textoConceptual(cuatGeneral) : cuatGeneral;
             }
           }
@@ -1321,7 +1362,7 @@ async function planRecuperacionDesdeLogs(db, materiaNombre, grado, criteriosPorB
   return { fsKey, items, sinCriterio, sinAlumno, yaCargadas, totalRegistros: logsSnap.size, docExiste: docSnap.exists(), criteriosEfectivos, criteriosRestaurar, bimestresExcedidos };
 }
 
-async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosEfectivos, criteriosRestaurar) {
+async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosEfectivos, criteriosRestaurar, sexto = false) {
   const refDoc = doc(db, 'calificaciones', fsKey);
   const refConf = doc(db, 'configuracion', fsKey);
   const aplicados = [];
@@ -1359,7 +1400,7 @@ async function aplicarRecuperacionDesdeLogs(db, fsKey, items, criteriosEfectivos
       const crits = criteriosEfectivos?.[b] || [];
       const claves = crits.length > 0 ? crits.map((_, i) => `n${i + 1}`) : ['n1', 'n2', 'n3', 'n4', 'n5'];
       const notas = claves.map(c => parseFloat(bim[c])).filter(n => !isNaN(n) && n > 0);
-      bim.nota = notas.length > 0 ? (Math.round((notas.reduce((a, c) => a + c, 0) / notas.length) * 100) / 100).toFixed(2) : '';
+      bim.nota = notas.length > 0 ? (sexto ? promedio3(notas) : (Math.round((notas.reduce((a, c) => a + c, 0) / notas.length) * 100) / 100).toFixed(2)) : '';
     });
     if (Object.keys(criteriosAEscribir).length > 0) tx.set(refConf, { criterios: criteriosAEscribir }, { merge: true });
     tx.set(refDoc, { estudiantes }, { merge: true });
@@ -1474,7 +1515,7 @@ async function restaurarNotasDeAlumnoEnMateria(db, item, dni) {
 // ══════════════════════════════════════════════════════════════
 // AYUDA + REPORTE DE PROBLEMAS (botón flotante "?")
 // ══════════════════════════════════════════════════════════════
-const APP_VERSION = '2026-10-25b';
+const APP_VERSION = '2026-11-23';
 
 const MOTIVOS_REPORTE = [
   { id: 'pantalla_vacia', l: 'Pantalla vacía' },
@@ -1794,6 +1835,67 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   );
 }
 
+// ── 6° grado: actualizar los promedios de bimestre YA guardados a 3 decimales ──
+// Solo refina el tercer decimal del campo derivado "nota" a partir de las notas cargadas (n1..n5).
+// NUNCA modifica una nota (n1..n5) ni cambia el valor de 2 decimales ya guardado: si el promedio
+// recalculado no coincide con el guardado (diferencia mayor a 0,005), ese bimestre se deja
+// como está y se informa para revisarlo a mano.
+async function recalcularPromediosSexto(db, grados, aplicar) {
+  const materias = [...areas.curriculares, ...areas.especiales, ...areas.talleres].map(m => m.nombre);
+  const resultado = { materias: 0, actualizados: 0, revisar: [] };
+  const calcular = (estudiantes, criterios, etiqueta) => {
+    let n = 0;
+    const nuevos = estudiantes.map(est => {
+      let bimestres = est.bimestres;
+      [1, 2, 3, 4].forEach(b => {
+        const bim = est.bimestres?.[b];
+        if (!bim) return;
+        const crits = criterios?.[b] || [];
+        const claves = crits.length > 0 ? crits.map((_, i) => `n${i + 1}`) : ['n1', 'n2', 'n3', 'n4', 'n5'];
+        const notas = claves.map(c => parseFloat(bim[c])).filter(x => !isNaN(x) && x > 0);
+        if (notas.length === 0) return;
+        const nueva = promedio3(notas);
+        const vieja = parseFloat(bim.nota);
+        if (String(bim.nota) === nueva) return;
+        if (isNaN(vieja) || Math.abs(parseFloat(nueva) - vieja) > 0.0051) {
+          resultado.revisar.push(`${etiqueta} · ${est.nombre || est.dni} · ${b}° bim.`);
+          return;
+        }
+        if (bimestres === est.bimestres) bimestres = { ...est.bimestres };
+        bimestres[b] = { ...bim, nota: nueva };
+        n++;
+      });
+      return bimestres === est.bimestres ? est : { ...est, bimestres };
+    });
+    return { nuevos, n };
+  };
+  for (const grado of grados) {
+    for (const nombre of materias) {
+      const fsKey = safeKey(`${nombre}_${grado}`);
+      const refDoc = doc(db, 'calificaciones', fsKey);
+      const refConf = doc(db, 'configuracion', fsKey);
+      const etiqueta = `${nombre} ${grado}`;
+      if (!aplicar) {
+        const [sd, sc] = await Promise.all([getDoc(refDoc), getDoc(refConf)]);
+        if (!sd.exists()) continue;
+        const r = calcular(sd.data().estudiantes || [], sc.exists() ? sc.data().criterios : {}, etiqueta);
+        if (r.n > 0) { resultado.materias++; resultado.actualizados += r.n; }
+      } else {
+        const n = await runTransaction(db, async (tx) => {
+          const sd = await tx.get(refDoc);
+          if (!sd.exists()) return 0;
+          const sc = await tx.get(refConf);
+          const r = calcular(sd.data().estudiantes || [], sc.exists() ? sc.data().criterios : {}, etiqueta);
+          if (r.n > 0) tx.set(refDoc, { estudiantes: r.nuevos }, { merge: true });
+          return r.n;
+        });
+        if (n > 0) { resultado.materias++; resultado.actualizados += n; }
+      }
+    }
+  }
+  return resultado;
+}
+
 // ── Modificar la lista global de alumnos DE FORMA SEGURA ──
 // Lee la versión del SERVIDOR dentro de una transacción y cambia solo lo necesario.
 // Así nunca se pisa la lista completa con una copia vieja o vacía del navegador
@@ -1958,6 +2060,7 @@ export default function SistemaCalificaciones() {
     return { cancelar: true };
   };
   const [showEscala, setShowEscala] = useState(false);
+  const [showCalculadora, setShowCalculadora] = useState(false);
 
   // Login con email real
   const [loginForm, setLoginForm] = useState({ email: '', pass: '', verPass: false, recordarme: false });
@@ -2780,7 +2883,7 @@ export default function SistemaCalificaciones() {
           : ['n1','n2','n3','n4','n5'];
         const notas = claves.map(k => parseFloat(nuevoBim[k])).filter(n => !isNaN(n) && n > 0);
         nuevoBim.nota = notas.length > 0
-          ? (Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100).toFixed(2)
+          ? (esSexto(grado) ? promedio3(notas) : (Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100) / 100).toFixed(2))
           : '';
       }
       // Log del cambio
@@ -2829,6 +2932,24 @@ export default function SistemaCalificaciones() {
 
   // ── ADMIN: recuperar notas vacías de esta materia/grado desde el registro de cambios ──
   const [recuperando, setRecuperando] = useState(false);
+  // Admin: lleva a 3 decimales los promedios de bimestre ya guardados de 6° grado
+  const actualizarPromediosSexto = async () => {
+    try {
+      const grados = Object.keys(alumnosGlobales || {}).filter(esSexto).sort();
+      if (grados.length === 0) { await showAlert('No hay alumnos cargados en 6° grado.', 'info'); return; }
+      const previa = await recalcularPromediosSexto(db, grados, false);
+      const revisarTxt = previa.revisar.length ? ` ${previa.revisar.length} bimestre(s) no coinciden con el promedio guardado y se dejan como están para revisarlos a mano.` : '';
+      if (previa.actualizados === 0) { await showAlert(`Los promedios de ${grados.map(gradoLabel).join(', ')} ya están a 3 decimales. No hay nada para actualizar.${revisarTxt}`, 'info', 'Promedios de 6°'); return; }
+      const ok = await showConfirm(`Se van a actualizar ${previa.actualizados} promedios de bimestre en ${previa.materias} materia(s) de ${grados.map(gradoLabel).join(', ')}, pasándolos a 3 decimales (ej. 7.65 → 7.653). No se modifica ninguna nota cargada ni el valor de 2 decimales actual.${revisarTxt} ¿Continuar?`, '🔢 Promedios de 6° con 3 decimales');
+      if (!ok) return;
+      const r = await recalcularPromediosSexto(db, grados, true);
+      await showAlert(`✅ Listo: ${r.actualizados} promedios actualizados en ${r.materias} materia(s).${r.revisar.length ? ` Para revisar a mano (no coinciden con el promedio guardado): ${r.revisar.slice(0, 8).join('; ')}${r.revisar.length > 8 ? '…' : ''}.` : ''}`, r.revisar.length ? 'warning' : 'success', 'Promedios de 6°');
+    } catch (e) {
+      console.error('No se pudieron actualizar los promedios de 6°:', e);
+      await showAlert('No se pudo completar la actualización (sin conexión o sin permisos). Puede haber quedado a medias: repetí la acción, es seguro volver a ejecutarla.', 'error', 'Promedios de 6°');
+    }
+  };
+
   const recuperarDesdeLogs = async () => {
     if (!materia || recuperando) return;
     if (errores.calificaciones) { await showAlert('Los datos de esta materia no se cargaron bien. Esperá unos segundos o recargá la página y volvé a intentar.', 'warning'); return; }
@@ -2844,7 +2965,7 @@ export default function SistemaCalificaciones() {
       if (plan.items.length === 0 && Object.keys(plan.criteriosRestaurar).length === 0) { await showAlert(resumen + ' No hay nada para recuperar, no se modificó nada.', 'info', 'Recuperación'); return; }
       const ok = await showConfirm(resumen + ' Solo se completan casilleros vacíos; nunca se pisa una nota existente. ¿Recuperar ahora?', '♻️ Recuperar notas');
       if (!ok) return;
-      const aplicados = await aplicarRecuperacionDesdeLogs(db, plan.fsKey, plan.items, plan.criteriosEfectivos, plan.criteriosRestaurar);
+      const aplicados = await aplicarRecuperacionDesdeLogs(db, plan.fsKey, plan.items, plan.criteriosEfectivos, plan.criteriosRestaurar, esSexto(grado));
       // Dejar constancia en el registro de cambios
       const ahora = new Date();
       await Promise.all(aplicados.map(u => setDoc(doc(collection(db, 'logs')), {
@@ -3078,7 +3199,7 @@ export default function SistemaCalificaciones() {
           bim[`n${totalCrits}`] = ''; // limpiar la última
           // Recalcular promedio
           const notas = Array.from({ length: totalCrits - 1 }, (_, i) => parseFloat(bim[`n${i + 1}`])).filter(n => !isNaN(n) && n > 0);
-          bim.nota = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2) : '';
+          bim.nota = notas.length > 0 ? (esSexto(grado) ? promedio3(notas) : (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(2)) : '';
           return { ...est, bimestres: { ...est.bimestres, [bimestre]: bim } };
         });
         nuevos[key] = lista;
@@ -4066,6 +4187,7 @@ export default function SistemaCalificaciones() {
                           { icon: '📋', label: 'Inasistencias docentes', action: () => { setMenuAcciones(false); setShowInasistencias(true); }, badge: inasistenciasNoVistas },
                           { icon: '📊', label: 'Notas Incompletas', action: () => { setMenuAcciones(false); setShowSinNotas(true); } },
                           { icon: '🔓', label: 'Desbloqueo masivo', action: () => { setMenuAcciones(false); setShowDesbloqueoMasivo(true); } },
+                          { icon: '🔢', label: 'Promedios 6° (3 decimales)', action: () => { setMenuAcciones(false); actualizarPromediosSexto(); } },
                           { icon: '📅', label: 'Fechas de bloqueo', action: () => { setMenuAcciones(false); setShowFechasBloqueo(true); } },
                           ].map(({icon, label, action, badge}) => (
                             <button key={label} onClick={action}
@@ -4477,6 +4599,10 @@ export default function SistemaCalificaciones() {
                 ♻️ {recuperando ? 'Buscando...' : 'Recuperar notas'}
               </button>
             )}
+            <button onClick={() => setShowCalculadora(true)} title="Calculadora para comprobar un promedio (no modifica notas)"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
+              🧮 Calculadora
+            </button>
             {esPrimerCiclo(grado) && (
               <button onClick={() => setShowEscala(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 'var(--r)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'DM Sans,sans-serif' }}>
@@ -4691,9 +4817,9 @@ export default function SistemaCalificaciones() {
                     const b2 = e.bimestres?.[2]?.nota || '';
                     const b3 = e.bimestres?.[3]?.nota || '';
                     const b4 = e.bimestres?.[4]?.nota || '';
-                    const c1 = calcularCuatrimestre(b1, b2);
-                    const c2 = calcularCuatrimestre(b3, b4);
-                    const promFinal = calcularPromedioFinal(b1, b2, b3, b4);
+                    const c1 = calcularCuatrimestre(b1, b2, esSexto(grado));
+                    const c2 = calcularCuatrimestre(b3, b4, esSexto(grado));
+                    const promFinal = calcularPromedioFinal(b1, b2, b3, b4, esSexto(grado));
                     const pf = parseFloat(promFinal);
                     const primerCiclo = esPrimerCiclo(grado);
                     const pfColor = isNaN(pf) ? 'bg-purple-600' : pf >= 7 ? 'bg-green-600' : pf >= 4 ? 'bg-amber-500' : 'bg-red-600';
@@ -4845,6 +4971,7 @@ export default function SistemaCalificaciones() {
       <Toast visible={toastVisible} />
       {showModalSolicitudes && <ModalSolicitudes />}
       {modalCerrarSesion && <ModalCerrarSesion />}
+      {showCalculadora && <ModalCalculadora grado={grado} onClose={() => setShowCalculadora(false)} />}
       {showEscala && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
@@ -5679,6 +5806,102 @@ function ModalDesbloqueoMasivo({ db, todosUsuarios, showAlert, showConfirm, onCl
 // ════════════════════════════════════════════════════════
 // COMPONENTE: Editor de fechas de bloqueo (admin)
 // ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// COMPONENTE: Calculadora de promedios (solo ayuda: no guarda ni modifica nada)
+// Usa exactamente las mismas reglas que el sistema: 6° grado a 3 decimales, el resto a 2.
+// ════════════════════════════════════════════════════════
+function ModalCalculadora({ grado, onClose }) {
+  const sexto = esSexto(grado);
+  const MAX = 15;
+  const [valores, setValores] = useState(['', '', '']);
+  const setValor = (i, t) => setValores(prev => prev.map((x, k) => (k === i ? t : x)));
+
+  const filas = valores.map(t => {
+    const s = String(t).trim();
+    if (s === '') return { vacio: true };
+    if (!/^\d{1,2}([.,]\d{1,2})?$/.test(s)) return { error: true };
+    const v = parseFloat(s.replace(',', '.'));
+    return v < 1 || v > 10 ? { error: true } : { v };
+  });
+  const hayError = filas.some(f => f.error);
+  const vals = filas.filter(f => f.v !== undefined).map(f => f.v);
+  const n = vals.length;
+  let res = null;
+  if (!hayError && n > 0) {
+    const sumaMil = vals.reduce((a, v) => a + Math.round(v * 1000), 0);
+    const suma = vals.reduce((a, v) => a + v, 0);
+    res = {
+      sistema: sexto ? promedio3(vals) : (Math.round((suma / n) * 100) / 100).toFixed(2),
+      entero: Math.floor((2 * sumaMil + 1000 * n) / (2000 * n)),
+      completo: (suma / n).toFixed(8),
+      cuenta: `${vals.map(v => v.toFixed(2)).join(' + ')} = ${(sumaMil / 1000).toFixed(2)} ÷ ${n}`,
+    };
+  }
+  const mono = "'DM Mono', ui-monospace, monospace";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 'var(--r-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.25)', width: '100%', maxWidth: 440, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalEntrada 0.2s ease-out' }}>
+        <div style={{ background: 'var(--navy)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>🧮 Calculadora de promedios</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,.7)' }}><X size={20} /></button>
+        </div>
+        <div style={{ padding: '16px 20px', overflowY: 'auto' }}>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+            Ingresá las notas (de 1 a 10, hasta 2 decimales) para comprobar un promedio. Solo es una ayuda: <strong>no guarda ni modifica nada</strong>.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {valores.map((t, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#f8fafc', border: '1.5px solid', borderColor: filas[i].error ? '#fca5a5' : 'var(--border)', borderRadius: 12, padding: '7px 12px' }}>
+                <span style={{ flex: 1, fontSize: 14, color: 'var(--slate)', fontWeight: 600 }}>Nota {i + 1}</span>
+                <input value={t} onChange={e => setValor(i, e.target.value)} inputMode="decimal" autoFocus={i === 0} placeholder="—" maxLength={5}
+                  style={{ width: 84, textAlign: 'center', border: '1.5px solid var(--border)', borderRadius: 8, padding: '7px 6px', fontSize: 16, fontWeight: 600, fontFamily: mono, background: '#fff', boxSizing: 'border-box' }} />
+                {valores.length > 2 && (
+                  <button onClick={() => setValores(prev => prev.filter((_, k) => k !== i))} title="Quitar esta nota"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 18, lineHeight: 1, padding: 2 }}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {valores.length < MAX && (
+              <button onClick={() => setValores(prev => [...prev, ''])}
+                style={{ flex: 1, padding: 8, borderRadius: 10, border: '1.5px dashed var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ Agregar nota</button>
+            )}
+            <button onClick={() => setValores(['', '', ''])}
+              style={{ padding: '8px 14px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--slate)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Limpiar</button>
+          </div>
+          <div style={{ height: 1, background: 'var(--border)', margin: '16px 0' }} />
+          {hayError ? (
+            <p style={{ fontSize: 13, color: '#b91c1c', textAlign: 'center' }}>Revisá las notas marcadas en rojo: tienen que estar entre 1 y 10, con hasta 2 decimales.</p>
+          ) : !res ? (
+            <p style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>Ingresá al menos una nota para ver el promedio.</p>
+          ) : (
+            <div>
+              <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', fontFamily: mono, marginBottom: 12, wordBreak: 'break-word' }}>{res.cuenta}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 14, padding: '12px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#5b21b6', marginBottom: 6 }}>Promedio del sistema</div>
+                  <div style={{ fontSize: 34, fontWeight: 700, fontFamily: mono, color: '#3b0764', lineHeight: 1 }}>{res.sistema}</div>
+                  <div style={{ fontSize: 11, color: '#6d28d9', marginTop: 6 }}>{sexto ? '6° grado: 3 decimales' : '2 decimales'}</div>
+                </div>
+                <div style={{ background: '#f1f5f9', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: 6 }}>Redondeado al entero</div>
+                  <div style={{ fontSize: 34, fontWeight: 700, fontFamily: mono, color: '#0f172a', lineHeight: 1 }}>{res.entero}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>desde 0,5 sube</div>
+                </div>
+              </div>
+              <p style={{ textAlign: 'center', fontSize: 11.5, color: '#94a3b8', fontFamily: mono, marginTop: 10 }}>Valor completo: {res.completo}…</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, onClose }) {
   const gradosDocente = usuario?.gradosAsignados?.length > 0 ? usuario.gradosAsignados : [usuario?.gradoAsignado].filter(Boolean);
   const [gradoSel, setGradoSel] = useState(gradosDocente[0] || '');
@@ -5696,6 +5919,8 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
   const [bimSel, setBimSel] = useState(determinarBimActivo());
 
   const primerCiclo = esPrimerCiclo(gradoSel);
+  const sexto = esSexto(gradoSel); // 6° grado: promedios con 3 decimales
+  const decPromedio = sexto ? 3 : 2;
   // Materias que entran en el promedio general: Curriculares (sin Convivencia) + Especiales
   // 7° grado no tiene Portugués (solo Inglés): quedan 12 materias en vez de 13.
   const esSeptimo = gradoSel.charAt(0) === '7';
@@ -5723,7 +5948,7 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
         const notas = datos
           .map(({ estudiantes }) => parseFloat(estudiantes.find(e => e.dni === al.dni)?.bimestres?.[bimSel]?.nota))
           .filter(n => !isNaN(n));
-        const prom = notas.length > 0 ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+        const prom = notas.length > 0 ? (sexto ? Number(promedio3(notas)) : (notas.reduce((a, b) => a + b, 0) / notas.length)) : null;
 
         // Promedio de los CUATRIMESTRES de cada materia: (Prom.bimA + Prom.bimB) / 2 por materia,
         // promediado entre todas las materias — misma idea que el promedio general, otro insumo.
@@ -5736,7 +5961,14 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
           if (!isNaN(nB)) return nB;
           return null;
         }).filter(n => n !== null);
-        const promCuat = cuats.length > 0 ? (cuats.reduce((a, b) => a + b, 0) / cuats.length) : null;
+        const promCuat = cuats.length > 0
+          ? (sexto
+              ? Number(promedioCuats3(datos.map(({ estudiantes }) => {
+                  const est = estudiantes.find(e => e.dni === al.dni);
+                  return [est?.bimestres?.[parCuat.bimA]?.nota, est?.bimestres?.[parCuat.bimB]?.nota];
+                })))
+              : (cuats.reduce((a, b) => a + b, 0) / cuats.length))
+          : null;
 
         return { nombre: al.nombre, dni: al.dni, cantidadMaterias: notas.length, prom, promCuat };
       });
@@ -5796,10 +6028,10 @@ function ModalPromediosGenerales({ db, usuario, alumnosGlobales, fechasBloqueo, 
                     <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text)', fontSize: 13 }}>{f.nombre}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>{f.cantidadMaterias} / {materiasPromGeneral.length}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13, color: f.prom === null ? 'var(--muted)' : 'var(--navy)' }}>
-                      {f.prom === null ? '—' : (primerCiclo ? textoConceptual(f.prom.toFixed(2)) : f.prom.toFixed(2))}
+                      {f.prom === null ? '—' : (primerCiclo ? textoConceptual(f.prom.toFixed(2)) : f.prom.toFixed(decPromedio))}
                     </td>
                     <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 800, fontSize: 13, color: f.promCuat === null ? 'var(--muted)' : '#7c3aed' }}>
-                      {f.promCuat === null ? '—' : (primerCiclo ? textoConceptual(f.promCuat.toFixed(2)) : f.promCuat.toFixed(2))}
+                      {f.promCuat === null ? '—' : (primerCiclo ? textoConceptual(f.promCuat.toFixed(2)) : f.promCuat.toFixed(decPromedio))}
                     </td>
                   </tr>
                 ))}
@@ -7562,10 +7794,11 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
     }
   };
 
-  const calcCuat = (b1, b2) => { const n1 = parseFloat(b1), n2 = parseFloat(b2); return isNaN(n1) || isNaN(n2) ? '-' : ((n1 + n2) / 2).toFixed(2); };
-  const calcFinal = (b1, b2, b3, b4) => {
+  const calcCuat = (b1, b2, sexto = false) => { const n1 = parseFloat(b1), n2 = parseFloat(b2); return isNaN(n1) || isNaN(n2) ? '-' : (sexto ? cuat3(n1, n2) : ((n1 + n2) / 2).toFixed(2)); };
+  const calcFinal = (b1, b2, b3, b4, sexto = false) => {
     const vals = [b1, b2, b3, b4].map(parseFloat).filter(n => !isNaN(n));
     if (vals.length < 4) return '-';
+    if (sexto) return promedio3(vals);
     const c1 = (vals[0] + vals[1]) / 2; const c2 = (vals[2] + vals[3]) / 2;
     return ((vals[0] + vals[1] + vals[2] + vals[3] + c1 + c2) / 6).toFixed(2);
   };
@@ -7707,9 +7940,9 @@ function NotasEspeciales({ db, globalStyles, modal, closeModal, usuario, alumnos
                           const b2 = e.bimestres?.[2]?.nota || '';
                           const b3 = e.bimestres?.[3]?.nota || '';
                           const b4 = e.bimestres?.[4]?.nota || '';
-                          const c1 = calcCuat(b1, b2);
-                          const c2 = calcCuat(b3, b4);
-                          const pf = calcFinal(b1, b2, b3, b4);
+                          const c1 = calcCuat(b1, b2, esSexto(gradoSel));
+                          const c2 = calcCuat(b3, b4, esSexto(gradoSel));
+                          const pf = calcFinal(b1, b2, b3, b4, esSexto(gradoSel));
                           const primerCiclo = esPrimerCiclo(gradoSel);
                           const fmtNota = (v) => v ? (primerCiclo ? abrevConceptual(v) : v) : '—';
                           const fmtTexto = (v) => v && v !== '-' ? (primerCiclo ? textoConceptual(v) : v) : '—';

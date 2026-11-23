@@ -63,6 +63,10 @@ export const PREGUNTAS_AYUDA = [
     r: 'El texto es único por materia y grado: todos los que la tienen asignada ven y editan el mismo cuadro. Si dos personas escriben a la vez, gana lo último que se guardó. Conviene agregar al final del texto sin borrar lo anterior y recargar antes de escribir si otra persona pudo haber anotado algo.' },
 
   // ───────── PDF Y ESCALA ─────────
+  { c: 'Notas', k: 'calculadora promedio calcular comprobar verificar', p: '¿Cómo compruebo un promedio con la calculadora?',
+    r: 'En la pantalla de carga de notas tocá "🧮 Calculadora" (arriba a la derecha). Ingresá las notas (de 1 a 10, hasta 2 decimales) y te muestra el promedio con la misma regla del sistema: 3 decimales en 6° grado y 2 en los demás grados. Con "+ Agregar nota" podés sumar más notas. Es solo una ayuda: no guarda ni modifica nada.' },
+  { c: 'PDF y escala', k: 'decimales tres sexto abanderado promedio', p: '¿Por qué en 6° grado los promedios tienen 3 decimales?',
+    r: 'En 6° grado los promedios se calculan y muestran con 3 decimales (por ejemplo 7.653) porque se utilizan para elegir abanderados, donde cada centésimo cuenta. Esto vale para el promedio de cada bimestre, los cuatrimestres, el promedio final, el promedio general y los PDF. Los demás grados siguen con 2 decimales.' },
   { c: 'PDF y escala', k: 'pdf planilla descargar imprimir', p: '¿Cómo descargo el PDF?',
     r: '"PDF Individual" genera la planilla de la materia que tenés abierta. "PDF Unificado" junta todas tus materias del grado y te pregunta de qué bimestre lo querés (1, 2, 3 o 4; vacío usa el último bimestre cerrado).' },
   { c: 'PDF y escala', p: '¿Cómo funciona la escala de 1° a 3° grado?',
@@ -82,6 +86,7 @@ export const PREGUNTAS_AYUDA = [
 ];
 
 export const NOVEDADES_AYUDA = [
+  { f: '23/11/2026', t: ['En 6° grado los promedios (bimestre, cuatrimestre, final y general) ahora se muestran con 3 decimales, por ejemplo 7.653. Los demás grados no cambian.', 'Nuevo botón "🧮 Calculadora" en la pantalla de carga de notas: sirve para comprobar un promedio. No guarda ni modifica nada.'] },
   { f: '25/10/2026', t: ['Guía ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".', 'Areco Bot (IA): asistente virtual dentro de la GUÍA para consultar dudas y armar el reporte de un problema.', 'El reporte permite elegir el motivo con un toque y suma datos técnicos automáticos para que la Dirección resuelva más rápido.'] },
   { f: '24/10/2026', t: ['Dar de baja a un alumno ya no borra sus notas: se guardan y se restauran con "Reincorporar".', 'Botón "Reportar un problema" dentro de esta guía.', 'El PDF unificado permite elegir el bimestre.', 'Los colores de la escala de primer ciclo ahora coinciden con la escala (SAT en verde).', 'Desbloqueo de bimestres más rápido y confiable.', 'Las notas tienen una copia de seguridad automática todos los días.'] },
 ];
