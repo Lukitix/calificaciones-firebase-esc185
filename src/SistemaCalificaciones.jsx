@@ -2276,7 +2276,9 @@ export default function SistemaCalificaciones() {
       if (snap.exists()) {
         const d = snap.data();
         setDocenteNombre({ actual: '', guardado: d.docente || '' });
-        setCriteriosPorBimestre(d.criterios || { 1: [], 2: [], 3: [], 4: [] });
+        // Si a la configuración le falta algún bimestre (o no es una lista), se completa con [] para que la pantalla no se rompa.
+        const critsCfg = d.criterios || {};
+        setCriteriosPorBimestre({ 1: Array.isArray(critsCfg[1]) ? critsCfg[1] : [], 2: Array.isArray(critsCfg[2]) ? critsCfg[2] : [], 3: Array.isArray(critsCfg[3]) ? critsCfg[3] : [], 4: Array.isArray(critsCfg[4]) ? critsCfg[4] : [] });
         setBimestresBlockeados(d.bimestresBlockeados || { 1: false, 2: false, 3: false, 4: false });
       }
       setConfigCargada(true);
