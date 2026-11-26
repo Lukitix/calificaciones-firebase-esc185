@@ -1,5 +1,5 @@
 // Contenido de la GUÍA (preguntas frecuentes y novedades).
-// Lo usan la app (src/SistemaCalificaciones.jsx) y Areco Bot (netlify/functions/areco-bot.mjs).
+// Lo usa la app (src/SistemaCalificaciones.jsx).
 // Para cambiar o agregar preguntas, se edita solo este archivo.
 
 // Cada pregunta: c = categoría, rol = 'admin' (solo Dirección) | 'docente' (solo docentes) | sin rol (todos)
@@ -73,8 +73,6 @@ export const PREGUNTAS_AYUDA = [
     r: 'En primer ciclo las notas se muestran como conceptos: NS (2-3), PS (4-5), SAT (6-7), MS (8), DIS (9) y SOB (10). Los promedios con decimales se redondean (por ejemplo 5,5 pasa a 6). SAT, MS, DIS y SOB se muestran en verde; NS y PS, en rojo.' },
 
   // ───────── CUENTA Y SISTEMA ─────────
-  { c: 'Cuenta y sistema', k: 'bot asistente ia inteligencia artificial chat ayuda', p: '¿Qué es Areco Bot (IA)?',
-    r: 'Es el asistente virtual de la guía, basado en inteligencia artificial. Podés escribirle tu consulta y te responde con los pasos de esta guía. Si no se resuelve, te ayuda a armar el reporte para la Dirección. No maneja ni modifica datos de los alumnos (nombres, DNI, notas) y, como toda IA, puede cometer errores: ante la duda, usá "Reportar un problema". Tiene un límite de consultas por día.' },
   { c: 'Cuenta y sistema', p: 'La app no muestra los últimos cambios.',
     r: 'Cerrá la app por completo (en el celular, sacala de las aplicaciones recientes) y volvé a abrirla. Si ves el aviso de "nueva versión", tocalo para actualizar. Mirá también la pestaña "🆕 Novedades" de esta ayuda.' },
   { c: 'Cuenta y sistema', k: 'clave password recuperar', p: 'Olvidé mi contraseña.',
@@ -87,6 +85,6 @@ export const PREGUNTAS_AYUDA = [
 
 export const NOVEDADES_AYUDA = [
   { f: '23/11/2026', t: ['En 6° grado los promedios (bimestre, cuatrimestre, final y general) ahora se muestran con 3 decimales, por ejemplo 7.653. Los demás grados no cambian.', 'Nuevo botón "🧮 Calculadora" en la pantalla de carga de notas: sirve para comprobar un promedio. No guarda ni modifica nada.'] },
-  { f: '25/10/2026', t: ['Guía ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".', 'Areco Bot (IA): asistente virtual dentro de la GUÍA para consultar dudas y armar el reporte de un problema.', 'El reporte permite elegir el motivo con un toque y suma datos técnicos automáticos para que la Dirección resuelva más rápido.'] },
+  { f: '25/10/2026', t: ['Guía ampliada: buscador, categorías y preguntas nuevas sobre sincronización, alumnos, inasistencias y observaciones.', 'Nueva pestaña "Novedades".', 'El reporte permite elegir el motivo con un toque y suma datos técnicos automáticos para que la Dirección resuelva más rápido.'] },
   { f: '24/10/2026', t: ['Dar de baja a un alumno ya no borra sus notas: se guardan y se restauran con "Reincorporar".', 'Botón "Reportar un problema" dentro de esta guía.', 'El PDF unificado permite elegir el bimestre.', 'Los colores de la escala de primer ciclo ahora coinciden con la escala (SAT en verde).', 'Desbloqueo de bimestres más rápido y confiable.', 'Las notas tienen una copia de seguridad automática todos los días.'] },
 ];

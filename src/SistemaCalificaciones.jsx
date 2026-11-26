@@ -1526,7 +1526,6 @@ const MOTIVOS_REPORTE = [
   { id: 'acceso', l: 'No puedo entrar' },
   { id: 'otro', l: 'Otro' },
 ];
-const SUGERENCIAS_BOT = ['No puedo cargar notas', 'Me falta un alumno en la lista', 'La pantalla de la materia está vacía', '¿Cómo cargo una inasistencia?'];
 
 function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   const [abierto, setAbierto] = useState(false);
@@ -1536,13 +1535,6 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
   const [catSel, setCatSel] = useState('Todas');
   const [texto, setTexto] = useState('');
   const [motivo, setMotivo] = useState('');
-  const [resumenBot, setResumenBot] = useState('');
-  const [chat, setChat] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatCargando, setChatCargando] = useState(false);
-  const [chatError, setChatError] = useState('');
-  const [preparando, setPreparando] = useState(false);
-  const chatFinRef = useRef(null);
   const [enviando, setEnviando] = useState(false);
   const [reportes, setReportes] = useState([]);
   const [nuevos, setNuevos] = useState(0);
@@ -1588,8 +1580,6 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
         uid: authUser.uid, nombre: usuario?.nombre || '—', email: usuario?.email || authUser.email || '', rol: usuario?.rol || '',
         motivo, motivoLabel: mot?.l || 'Otro',
         descripcion: texto.trim().slice(0, 2000),
-        resumenBot: resumenBot.slice(0, 600),
-        conversacionBot: chat.slice(-12).map(m => ({ r: m.role === 'user' ? 'docente' : 'bot', t: String(m.content).slice(0, 600) })),
         pantalla: contexto?.pantalla || '', materia: contexto?.materia || '', grado: contexto?.grado || '',
         diag: contexto?.diag || null, cuentaActiva: usuario?.activo !== false,
         erroresPantalla: errs, guardadosPendientes: contexto?.pendientes ?? 0,
@@ -1600,7 +1590,7 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
         hora: ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
         estado: 'nuevo',
       });
-      setTexto(''); setMotivo(''); setResumenBot(''); setChat([]); setChatInput(''); setChatError('');
+      setTexto(''); setMotivo('');
       setAbierto(false);
       await showAlert('¡Reporte enviado! La Dirección lo va a revisar. Incluye automáticamente la pantalla y los datos técnicos, no hace falta que mandes capturas.', 'success', 'Reporte enviado');
     } catch (e) {
@@ -1612,55 +1602,10 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
     }
   };
 
-  // ── Areco Bot (la clave de la API vive en Netlify; acá solo se llama a la función) ──
-  const llamarBot = async (modo, mensajes) => {
-    const token = await authUser.getIdToken();
-    const errs = Object.entries(contexto?.errores || {}).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`);
-    const r = await fetch('/.netlify/functions/areco-bot', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
-      body: JSON.stringify({
-        modo, mensajes,
-        contexto: { pantalla: contexto?.pantalla || '', materia: contexto?.materia || '', grado: contexto?.grado || '', errores: errs, pendientes: contexto?.pendientes ?? 0, enLinea: typeof navigator !== 'undefined' ? navigator.onLine : null, diag: contexto?.diag || null },
-      }),
-    });
-    let d = null; try { d = await r.json(); } catch (e) {}
-    if (!r.ok || !d) throw new Error((d && d.error) || 'Areco Bot no está disponible en este momento. Podés usar "Reportar un problema".');
-    return d;
-  };
-
-  const enviarChat = async (textoPreg) => {
-    const t = String(textoPreg ?? chatInput).trim();
-    if (!t || chatCargando || chat.length >= 12) return;
-    const nuevo = [...chat, { role: 'user', content: t.slice(0, 1000) }];
-    setChat(nuevo); setChatInput(''); setChatError(''); setChatCargando(true);
-    try {
-      const d = await llamarBot('chat', nuevo);
-      setChat([...nuevo, { role: 'assistant', content: String(d.respuesta || '') }]);
-    } catch (e) {
-      setChat(chat); setChatInput(t);
-      setChatError(e.message || 'No se pudo consultar a Areco Bot.');
-    } finally { setChatCargando(false); }
-  };
-
-  const prepararReporteDesdeChat = async () => {
-    if (preparando || chat.length === 0) return;
-    setPreparando(true);
-    let m = 'otro', r = chat.filter(x => x.role === 'user').map(x => x.content).join(' | ').slice(0, 600);
-    try {
-      const d = await llamarBot('resumen', chat);
-      if (MOTIVOS_REPORTE.some(x => x.id === d.motivo)) m = d.motivo;
-      if (d.resumen) r = String(d.resumen);
-    } catch (e) { /* se usa el respaldo: lo que escribió el docente */ }
-    setMotivo(m); setResumenBot(r); setPreparando(false); setTab('reportar');
-  };
-
-  useEffect(() => { if (tab === 'bot') chatFinRef.current?.scrollIntoView?.({ block: 'end' }); }, [chat, chatCargando, tab]);
-
   const cambiarEstado = async (r, estado) => { try { await updateDoc(doc(db, 'reportes', r.id), { estado }); } catch (e) {} };
   const borrar = async (r) => { try { await deleteDoc(doc(db, 'reportes', r.id)); } catch (e) {} };
 
-  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['bot', '🤖 Areco Bot (IA)'], ['novedades', '🆕 Novedades'], ['reportar', '🚩 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
+  const tabs = [['ayuda', '📖 Preguntas frecuentes'], ['novedades', '🆕 Novedades'], ['reportar', '🚩 Reportar un problema'], ...(esAdmin ? [['reportes', `📥 Reportes${nuevos ? ` (${nuevos})` : ''}`]] : [])];
 
   return (
     <>
@@ -1712,47 +1657,6 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
                   <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>¿No encontraste tu caso? Usá "Reportar un problema".</p>
                 </div>
               )}
-              {tab === 'bot' && (
-                <div style={{ display: 'flex', flexDirection: 'column', height: 'min(64vh, 540px)', minHeight: 320 }}>
-                  <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 2 }}>
-                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: '10px 12px', fontSize: 13.5, color: '#4c1d95', lineHeight: 1.55 }}>
-                      Hola, soy <strong>Areco Bot</strong>, el asistente virtual de la Escuela Provincial N° 185. Contame, ¿qué problema tenés? Te ayudo exclusivamente con los pasos de la guía.
-                      <div style={{ fontSize: 12, marginTop: 6, color: '#6d28d9' }}>No manejo ni modifico datos de los alumnos (nombres, DNI, notas).</div>
-                    </div>
-                    {chat.length === 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {SUGERENCIAS_BOT.map(sg => (
-                          <button key={sg} onClick={() => enviarChat(sg)} disabled={chatCargando}
-                            style={{ padding: '5px 10px', borderRadius: 14, border: '1px solid #c7d2fe', background: '#fff', color: '#3730a3', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{sg}</button>
-                        ))}
-                      </div>
-                    )}
-                    {chat.map((m, i) => (
-                      <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%', background: m.role === 'user' ? '#4f46e5' : '#f1f5f9', color: m.role === 'user' ? '#fff' : '#1e293b', borderRadius: 12, padding: '8px 12px', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.content}</div>
-                    ))}
-                    {chatCargando && <div style={{ alignSelf: 'flex-start', background: '#f1f5f9', color: '#64748b', borderRadius: 12, padding: '8px 12px', fontSize: 13 }}>Areco Bot está escribiendo…</div>}
-                    {chatError && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '8px 12px', fontSize: 12.5 }}>{chatError}</div>}
-                    {chat.length >= 12 && <div style={{ fontSize: 12.5, color: '#64748b' }}>Llegaste al máximo de esta conversación. Enviá el reporte para que la Dirección lo revise.</div>}
-                    <div ref={chatFinRef} />
-                  </div>
-                  <div style={{ paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {chat.some(m => m.role === 'assistant') && (
-                      <button onClick={prepararReporteDesdeChat} disabled={preparando}
-                        style={{ padding: '9px 12px', borderRadius: 10, border: '1.5px solid #fca5a5', background: '#fef2f2', color: '#b91c1c', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: preparando ? 0.6 : 1 }}>
-                        {preparando ? 'Preparando el reporte…' : '🚩 No se resolvió: enviar reporte con esta conversación'}
-                      </button>
-                    )}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input value={chatInput} onChange={e => setChatInput(e.target.value)} maxLength={1000} placeholder="Escribí tu consulta…" disabled={chatCargando || chat.length >= 12}
-                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); enviarChat(); } }}
-                        style={{ flex: 1, boxSizing: 'border-box', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, fontFamily: 'inherit', minWidth: 0 }} />
-                      <button onClick={() => enviarChat()} disabled={chatCargando || !chatInput.trim() || chat.length >= 12}
-                        style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: (chatCargando || !chatInput.trim()) ? 0.5 : 1 }}>Enviar</button>
-                    </div>
-                    <p style={{ fontSize: 11.5, color: '#94a3b8', textAlign: 'center', margin: 0 }}>Areco Bot es una IA y puede cometer errores.</p>
-                  </div>
-                </div>
-              )}
               {tab === 'novedades' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {NOVEDADES_AYUDA.map(n => (
@@ -1775,11 +1679,6 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
                         style={{ padding: '7px 12px', borderRadius: 16, border: '1.5px solid', borderColor: motivo === m.id ? '#4f46e5' : '#e2e8f0', background: motivo === m.id ? '#eef2ff' : '#fff', color: motivo === m.id ? '#3730a3' : '#475569', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{m.l}</button>
                     ))}
                   </div>
-                  {resumenBot && (
-                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, color: '#4c1d95', marginBottom: 10, lineHeight: 1.5 }}>
-                      🤖 Resumen de Areco Bot (se envía con el reporte): {resumenBot}
-                    </div>
-                  )}
                   <p style={{ fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Detalle {motivo === 'otro' ? '*' : '(opcional)'}</p>
                   <textarea value={texto} onChange={e => setTexto(e.target.value)} rows={3} maxLength={2000} placeholder="Si querés, contanos algo más. Ej: estaba cargando Matemática 3° B."
                     style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: 10, fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }} />
@@ -1801,18 +1700,11 @@ function AyudaFlotante({ db, usuario, authUser, contexto, showAlert }) {
                       <p style={{ margin: '6px 0 2px' }}>
                         <span style={{ display: 'inline-block', background: '#4f46e5', color: '#fff', borderRadius: 10, fontSize: 11.5, fontWeight: 800, padding: '2px 9px' }}>{r.motivoLabel || 'Sin motivo'}</span>
                       </p>
-                      {r.resumenBot && <p style={{ fontSize: 12.5, color: '#4c1d95', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '6px 10px', margin: '6px 0' }}>🤖 {r.resumenBot}</p>}
                       {r.descripcion && <p style={{ fontSize: 13.5, color: '#1e293b', margin: '6px 0', whiteSpace: 'pre-wrap' }}>{r.descripcion}</p>}
                       {r.diag && (
                         <p style={{ fontSize: 12, color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '5px 10px', margin: '6px 0' }}>
                           🔎 {r.diag.alumnos} alumno{r.diag.alumnos === 1 ? '' : 's'} cargado{r.diag.alumnos === 1 ? '' : 's'} · criterios por bimestre: {(r.diag.criterios || []).join(' / ')} · bloqueados: {(r.diag.bloqueados || []).length ? r.diag.bloqueados.join(', ') : 'ninguno'}
                         </p>
-                      )}
-                      {r.conversacionBot?.length > 0 && (
-                        <details style={{ margin: '6px 0', fontSize: 12.5, color: '#475569' }}>
-                          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Ver conversación con Areco Bot</summary>
-                          {r.conversacionBot.map((c, k) => <p key={k} style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}><strong>{c.r === 'docente' ? 'Docente' : 'Bot'}:</strong> {c.t}</p>)}
-                        </details>
                       )}
                       <p style={{ fontSize: 11.5, color: '#64748b', lineHeight: 1.5 }}>
                         {r.materia ? `${r.materia} · ${r.grado}` : r.pantalla} · v{r.version} · {r.enLinea === false ? 'SIN CONEXIÓN' : 'en línea'}{r.erroresPantalla?.length ? ` · errores: ${r.erroresPantalla.join(', ')}` : ''}{r.guardadosPendientes ? ` · guardados pendientes: ${r.guardadosPendientes}` : ''}<br />{r.navegador}
@@ -3224,8 +3116,8 @@ export default function SistemaCalificaciones() {
   const getMateriasDisponibles = () => {
     if (!usuario) return [];
     if (usuario.rol === 'administrador') return [...areas.curriculares, ...areas.convivencia, ...areas.especiales, ...areas.talleres];
-    if (usuario.rol === 'docente_grado') return areas.curriculares.filter(m => usuario.materiasAsignadas.includes(m.nombre));
-    if (usuario.rol === 'area_especial') return [...areas.especiales, ...areas.talleres].filter(m => usuario.materiasAsignadas.some(ma => ma.nombre === m.nombre));
+    if (usuario.rol === 'docente_grado') return areas.curriculares.filter(m => (usuario.materiasAsignadas || []).includes(m.nombre));
+    if (usuario.rol === 'area_especial') return [...areas.especiales, ...areas.talleres].filter(m => (usuario.materiasAsignadas || []).some(ma => ma && ma.nombre === m.nombre));
     return [];
   };
 
@@ -3237,15 +3129,15 @@ export default function SistemaCalificaciones() {
       return usuario.gradosAsignados?.length > 0 ? usuario.gradosAsignados : [usuario.gradoAsignado].filter(Boolean);
     }
     if (usuario.rol === 'area_especial') {
-      const ma = usuario.materiasAsignadas.find(ma => ma.nombre === materiaNombre);
-      return ma ? ma.grados : [];
+      const ma = (usuario.materiasAsignadas || []).find(ma => ma && ma.nombre === materiaNombre);
+      return ma ? (ma.grados || []) : [];
     }
     return [];
   };
 
   const materiasRegistro = registro.data.rol === 'docente_grado' ? areas.curriculares : [...areas.especiales, ...areas.talleres];
   const estActualesRaw = estudiantes[`${materia?.nombre}-${grado}`] || [];
-  // Datos técnicos (sin nombres de alumnos) que se adjuntan a los reportes y a Areco Bot
+  // Datos técnicos (sin nombres de alumnos) que se adjuntan a los reportes
   const diagAyuda = materia ? {
     alumnos: estActualesRaw.length,
     criterios: [1, 2, 3, 4].map(b => (criteriosPorBimestre[b] || []).length),
@@ -7617,7 +7509,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         {/* Materias para docente de grado */}
                         {u.rol === 'docente_grado' && u.materiasAsignadas?.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
-                            {u.materiasAsignadas.map((m, i) => (
+                            {(u.materiasAsignadas || []).map((m, i) => (
                               <span key={i} style={{ background: 'var(--blue-lt)', color: '#1d4ed8', padding: '2px 7px', borderRadius: 4, fontWeight: 600, fontSize: 11 }}>{m}</span>
                             ))}
                           </div>
@@ -7625,7 +7517,7 @@ function GestionUsuarios({ db, globalStyles, modal, closeModal, showConfirm, sho
                         {/* Grados para área especial */}
                         {u.rol === 'area_especial' && u.materiasAsignadas?.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
-                            {u.materiasAsignadas.flatMap((ma, i) =>
+                            {(u.materiasAsignadas || []).flatMap((ma, i) =>
                               (ma.grados || []).map((g, j) => (
                                 <ChipGradoAdmin key={`${i}-${j}`} grado={g} materia={ma.nombre}
                                   tabActiva={tabActiva} onVerAlumnos={onVerAlumnos} onVerCalificaciones={onVerCalificaciones} />
